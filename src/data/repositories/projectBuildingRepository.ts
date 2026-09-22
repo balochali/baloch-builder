@@ -31,7 +31,8 @@ export const BuildingDetailsSchema = z.object({
   planned_shops: count,
   planned_offices: count,
   planned_houses: count,
-  planned_parking_spaces: count,
+  parking_area_value: area,
+  parking_area_unit: z.enum(["sqft", "sqyd"]).nullable(),
   plot_area_value: area,
   plot_area_unit: z.enum(["marla", "kanal", "sqft", "sqyd", "acre"]).nullable(),
   covered_area_sqft: area,
@@ -39,6 +40,12 @@ export const BuildingDetailsSchema = z.object({
 }).superRefine((value, ctx) => {
   if ((value.plot_area_value === null) !== (value.plot_area_unit === null)) {
     ctx.addIssue({ code: "custom", path: ["plot_area_value"], message: "Enter both the plot area and its unit" });
+  }
+  if (value.spaces.includes("parking") && (value.parking_area_value === null || value.parking_area_unit === null)) {
+    ctx.addIssue({ code: "custom", path: ["parking_area_value"], message: "Enter the parking area and choose square feet or square yards" });
+  }
+  if (!value.spaces.includes("parking") && (value.parking_area_value !== null || value.parking_area_unit !== null)) {
+    ctx.addIssue({ code: "custom", path: ["parking_area_value"], message: "Select Parking to enter a parking area" });
   }
   if (new Set(value.spaces).size !== value.spaces.length) {
     ctx.addIssue({ code: "custom", path: ["spaces"], message: "Select each space type only once" });
@@ -98,8 +105,8 @@ export async function saveProjectBuildingDetails(input: BuildingDetailsInput): P
       (id, project_id, building_use, floors_above_ground, basement_count, planned_flats,
        planned_shops, planned_offices, planned_parking_spaces, plot_area_value, plot_area_unit,
        covered_area_sqft, notes, created_at, updated_at, planned_houses, has_masjid,
-       selected_spaces_json, floor_layout_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       selected_spaces_json, floor_layout_json, parking_area_value, parking_area_unit)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(project_id) DO UPDATE SET
        building_use = excluded.building_use,
        floors_above_ground = excluded.floors_above_ground,
@@ -107,7 +114,8 @@ export async function saveProjectBuildingDetails(input: BuildingDetailsInput): P
        planned_flats = excluded.planned_flats,
        planned_shops = excluded.planned_shops,
        planned_offices = excluded.planned_offices,
-       planned_parking_spaces = excluded.planned_parking_spaces,
+       parking_area_value = excluded.parking_area_value,
+       parking_area_unit = excluded.parking_area_unit,
        plot_area_value = excluded.plot_area_value,
        plot_area_unit = excluded.plot_area_unit,
        covered_area_sqft = excluded.covered_area_sqft,
@@ -120,11 +128,11 @@ export async function saveProjectBuildingDetails(input: BuildingDetailsInput): P
     [newId(), value.project_id, value.building_use, value.floors_above_ground,
       value.basement_count, plannedFlats, value.spaces.includes("shops") ? value.planned_shops : null,
       value.spaces.includes("offices") ? value.planned_offices : null,
-      value.spaces.includes("parking") ? value.planned_parking_spaces : null,
+      null,
       value.plot_area_value, value.plot_area_unit, value.covered_area_sqft, value.notes || null,
       timestamp, timestamp, value.spaces.includes("houses") ? value.planned_houses : null,
       value.spaces.includes("masjid") ? 1 : 0, JSON.stringify(value.spaces),
-      JSON.stringify(value.floor_layout)],
+      JSON.stringify(value.floor_layout), value.parking_area_value, value.parking_area_unit],
   );
   const details = await getProjectBuildingDetails(value.project_id);
   if (!details) throw new Error("Building details were saved but could not be loaded");

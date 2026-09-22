@@ -18,6 +18,7 @@ describe("BuildingDetailsDialog", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Flats/i }));
     fireEvent.click(screen.getByRole("checkbox", { name: /Shops/i }));
     fireEvent.click(screen.getByRole("checkbox", { name: /Masjid/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Parking/i }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     fireEvent.change(screen.getByLabelText("Total floors, including ground *"), { target: { value: "2" } });
@@ -31,6 +32,8 @@ describe("BuildingDetailsDialog", () => {
     expect(screen.queryByLabelText("Planned offices")).not.toBeInTheDocument();
     expect(screen.getByText("Masjid included in the plan")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Planned shops"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Parking area *"), { target: { value: "800" } });
+    fireEvent.change(screen.getByLabelText("Parking area unit *"), { target: { value: "sqyd" } });
     fireEvent.change(screen.getByLabelText("Plot area"), { target: { value: "10" } });
     fireEvent.change(screen.getByLabelText("Plot area unit"), { target: { value: "marla" } });
     fireEvent.change(screen.getByLabelText("Total planned covered area (sq ft)"), { target: { value: "18000" } });
@@ -38,7 +41,8 @@ describe("BuildingDetailsDialog", () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       building_use: "mixed-use", floors_above_ground: 2, basement_count: 1,
-      spaces: ["flats", "shops", "masjid"], planned_shops: 2,
+      spaces: ["flats", "shops", "masjid", "parking"], planned_shops: 2,
+      parking_area_value: 800, parking_area_unit: "sqyd",
       floor_layout: [
         { floor_index: 0, flat_types: [] },
         { floor_index: 1, flat_types: [{ rooms: 2, count: 3 }] },

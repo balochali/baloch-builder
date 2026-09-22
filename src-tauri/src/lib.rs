@@ -30,6 +30,12 @@ pub fn run() {
             sql: include_str!("../migrations/004_building_layout.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "005_parking_area",
+            sql: include_str!("../migrations/005_parking_area.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

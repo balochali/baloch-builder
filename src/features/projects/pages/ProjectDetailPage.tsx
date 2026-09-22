@@ -140,7 +140,10 @@ export function ProjectDetailPage() {
             <Detail label="Planned shops" value={buildingDetails.planned_shops} />
             <Detail label="Planned offices" value={buildingDetails.planned_offices} />
             <Detail label="Planned houses" value={buildingDetails.planned_houses} />
-            <Detail label="Parking spaces" value={buildingDetails.planned_parking_spaces} />
+            <Detail label="Parking area" value={buildingDetails.parking_area_value === null ? null :
+              `${buildingDetails.parking_area_value} ${buildingDetails.parking_area_unit === "sqyd" ? "sq yd" : "sq ft"}`} />
+            {buildingDetails.planned_parking_spaces !== null && buildingDetails.parking_area_value === null &&
+              <Detail label="Legacy parking spaces" value={buildingDetails.planned_parking_spaces} />}
             <Detail label="Masjid" value={buildingDetails.has_masjid ? "Included" : "—"} />
             <Detail label="Plot area" value={buildingDetails.plot_area_value === null ? null :
               `${buildingDetails.plot_area_value} ${buildingDetails.plot_area_unit}`} />

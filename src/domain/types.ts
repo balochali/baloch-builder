@@ -48,6 +48,8 @@ export interface ProjectBuildingDetails extends BaseRecord {
   planned_offices: number | null;
   planned_houses: number | null;
   planned_parking_spaces: number | null;
+  parking_area_value: number | null;
+  parking_area_unit: "sqft" | "sqyd" | null;
   has_masjid: 0 | 1;
   selected_spaces_json: string;
   floor_layout_json: string;

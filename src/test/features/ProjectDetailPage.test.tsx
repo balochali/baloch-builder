@@ -90,7 +90,8 @@ describe("ProjectDetailPage", () => {
     const details = {
       id: "building-1", project_id: "11111111-1111-4111-8111-111111111111",
       building_use: "mixed-use" as const, floors_above_ground: 5, basement_count: 1,
-      planned_flats: 12, planned_shops: 3, planned_offices: 0, planned_parking_spaces: 10,
+      planned_flats: 12, planned_shops: 3, planned_offices: 0, planned_parking_spaces: null,
+      parking_area_value: 800, parking_area_unit: "sqyd" as const,
       planned_houses: null, has_masjid: 1 as const,
       selected_spaces_json: '["flats","shops","parking","masjid"]',
       floor_layout_json: '[{"floor_index":0,"flat_types":[{"rooms":2,"count":3}]}]',

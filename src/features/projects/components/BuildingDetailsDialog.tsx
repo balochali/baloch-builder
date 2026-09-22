@@ -22,7 +22,7 @@ const spaceOptions: { value: BuildingSpace; label: string; description: string }
   { value: "shops", label: "Shops", description: "Ground or upper-floor retail spaces" },
   { value: "offices", label: "Offices", description: "Commercial office spaces" },
   { value: "houses", label: "Houses", description: "Separate planned houses" },
-  { value: "parking", label: "Parking", description: "Planned parking spaces" },
+  { value: "parking", label: "Parking", description: "Measure planned parking area" },
   { value: "masjid", label: "Masjid", description: "Include a masjid in the plan" },
   { value: "lift", label: "Lift", description: "Passenger or service lift" },
   { value: "generator", label: "Generator", description: "Backup electricity" },
@@ -40,7 +40,7 @@ function initialSpaces(details: ProjectBuildingDetails | null): BuildingSpace[] 
   if (details.planned_shops) inferred.push("shops");
   if (details.planned_offices) inferred.push("offices");
   if (details.planned_houses) inferred.push("houses");
-  if (details.planned_parking_spaces) inferred.push("parking");
+  if (details.parking_area_value || details.planned_parking_spaces) inferred.push("parking");
   if (details.has_masjid) inferred.push("masjid");
   return inferred;
 }
@@ -72,7 +72,8 @@ export function BuildingDetailsDialog({ projectId, details, onOpenChange, onSubm
   const [shops, setShops] = useState(String(details?.planned_shops ?? ""));
   const [offices, setOffices] = useState(String(details?.planned_offices ?? ""));
   const [houses, setHouses] = useState(String(details?.planned_houses ?? ""));
-  const [parking, setParking] = useState(String(details?.planned_parking_spaces ?? ""));
+  const [parkingArea, setParkingArea] = useState(String(details?.parking_area_value ?? ""));
+  const [parkingUnit, setParkingUnit] = useState(details?.parking_area_unit ?? "");
   const [plotArea, setPlotArea] = useState(String(details?.plot_area_value ?? ""));
   const [plotUnit, setPlotUnit] = useState(details?.plot_area_unit ?? "");
   const [coveredArea, setCoveredArea] = useState(String(details?.covered_area_sqft ?? ""));
@@ -168,7 +169,8 @@ export function BuildingDetailsDialog({ projectId, details, onOpenChange, onSubm
       planned_shops: spaces.includes("shops") ? optionalNumber(shops) : null,
       planned_offices: spaces.includes("offices") ? optionalNumber(offices) : null,
       planned_houses: spaces.includes("houses") ? optionalNumber(houses) : null,
-      planned_parking_spaces: spaces.includes("parking") ? optionalNumber(parking) : null,
+      parking_area_value: spaces.includes("parking") ? optionalNumber(parkingArea) : null,
+      parking_area_unit: spaces.includes("parking") ? parkingUnit || null : null,
       plot_area_value: optionalNumber(plotArea),
       plot_area_unit: plotUnit || null,
       covered_area_sqft: optionalNumber(coveredArea),
@@ -277,8 +279,23 @@ export function BuildingDetailsDialog({ projectId, details, onOpenChange, onSubm
             {spaces.includes("shops") && <CountField id="building-shops" label="Planned shops" value={shops} onChange={setShops} />}
             {spaces.includes("offices") && <CountField id="building-offices" label="Planned offices" value={offices} onChange={setOffices} />}
             {spaces.includes("houses") && <CountField id="building-houses" label="Planned houses" value={houses} onChange={setHouses} />}
-            {spaces.includes("parking") && <CountField id="building-parking" label="Parking spaces" value={parking} onChange={setParking} />}
           </div>
+          {spaces.includes("parking") && <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="building-parking-area">Parking area *</Label>
+              <Input id="building-parking-area" type="number" min="0" step="any" value={parkingArea}
+                onChange={(event) => setParkingArea(event.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="building-parking-unit">Parking area unit *</Label>
+              <select id="building-parking-unit" value={parkingUnit} onChange={(event) => setParkingUnit(event.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">Select unit</option>
+                <option value="sqft">Square feet</option>
+                <option value="sqyd">Square yards</option>
+              </select>
+            </div>
+          </div>}
           {spaces.includes("masjid") && <p className="rounded-md border px-3 py-2 text-sm">Masjid included in the plan</p>}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
