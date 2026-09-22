@@ -30,6 +30,12 @@ This opens the actual desktop application window. Use `npm run dev` only if
 you want to preview the React UI in a plain browser — Tauri-only features
 (the database, file system access) will not work there.
 
+On first launch, create a local username and password (at least 12 characters).
+Later launches open the sign-in screen before the dashboard. The password is
+stored as a salted PBKDF2-SHA256 hash in `account.json` in the app's local-data
+directory. Losing the password currently requires manual account recovery;
+there is no reset screen yet.
+
 ## Scripts
 
 | Command                | What it does                                     |
