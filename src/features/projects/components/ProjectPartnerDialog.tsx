@@ -93,7 +93,7 @@ export function ProjectPartnerDialog({ projectId, partner, remainingShareBp = 10
   }
 
   return <Dialog open onOpenChange={onOpenChange}>
-    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+    <DialogContent className="partner-dialog max-h-[90vh] overflow-y-auto sm:max-w-xl">
       <DialogHeader><DialogTitle>{partner ? `Record contribution · ${partner.name}` : "Add Project Partner"}</DialogTitle></DialogHeader>
       <form id="partner-form" onSubmit={save} className="space-y-4">
         {!partner && <>

@@ -46,6 +46,7 @@ describe("ProjectDetailPage", () => {
       <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
     </MemoryRouter>);
     expect(await screen.findByRole("heading", { name: "Baloch Residency" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Estimate" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Estimate Item" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Minimum estimate");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -58,6 +59,7 @@ describe("ProjectDetailPage", () => {
     render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
       <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
     </MemoryRouter>);
+    fireEvent.click(await screen.findByRole("tab", { name: "Partners" }));
     fireEvent.click(await screen.findByRole("button", { name: "Add Partner" }));
     fireEvent.change(screen.getByLabelText("Partner name *"), { target: { value: "Ali" } });
     fireEvent.change(screen.getByLabelText("Mobile number *"), { target: { value: "03001234567" } });
@@ -81,6 +83,7 @@ describe("ProjectDetailPage", () => {
     render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
       <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
     </MemoryRouter>);
+    fireEvent.click(await screen.findByRole("tab", { name: "Estimate" }));
     expect((await screen.findAllByText("Cement")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Delete Cement" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Delete estimate item?");
@@ -103,6 +106,7 @@ describe("ProjectDetailPage", () => {
     render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
       <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
     </MemoryRouter>);
+    fireEvent.click(await screen.findByRole("tab", { name: "Estimate" }));
     fireEvent.click(await screen.findByRole("button", { name: "Edit Cement" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Edit Estimate Item");
     expect(screen.getByLabelText(/Minimum estimate/i)).toHaveValue("100000");
@@ -133,8 +137,37 @@ describe("ProjectDetailPage", () => {
     </MemoryRouter>);
     expect(await screen.findByText("Ground floor shops")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "12 flats, 3 shops" })).toBeInTheDocument();
+    expect(screen.getByText("Flats make up the largest part of the plan: 12 of 15 spaces (80%).")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "5 floors above ground and 1 basement planned" })).toBeInTheDocument();
+    expect(screen.getByText("Floor 1")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Area overview" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Ground floor: 3 2-room flats" })).toBeInTheDocument();
+    expect(screen.queryByText("Planned offices")).not.toBeInTheDocument();
+    expect(screen.queryByText("Planned houses")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Edit Details" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Edit Building Details");
     expect(screen.getByLabelText("Building use")).toHaveValue("mixed-use");
+  });
+
+  it("shows received and remaining partner funding in its own tab", async () => {
+    vi.mocked(listProjectPartners).mockResolvedValue([{
+      partnership_id: "share-1", partner_id: "partner-1", contact_id: "contact-1",
+      name: "Ali", phone: "03001234567", phone2: null, address: null, notes: null,
+      share_bp: 2500, agreed_contribution: 500_000, contributed: 200_000,
+    }]);
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(await screen.findByRole("tab", { name: "Partners" }));
+    expect(screen.getByRole("heading", { name: "Money promised and received" })).toBeInTheDocument();
+    expect(screen.getByText(/of the project share has not been assigned yet/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View Ali's details" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Ali owns 25.00 percent of this project" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Record Payment" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "View Ali's details" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Still to receive");
+    expect(screen.getByRole("img", { name: "Ali: Rs 200,000 received, Rs 300,000 remaining" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record Payment" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Project estimate" })).not.toBeInTheDocument();
   });
 });
