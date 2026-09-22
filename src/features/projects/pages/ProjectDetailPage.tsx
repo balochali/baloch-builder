@@ -15,6 +15,11 @@ import { formatPKR } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 import { ProjectEntryDialog } from "@/features/projects/components/ProjectEntryDialog";
 import { BuildingDetailsDialog } from "@/features/projects/components/BuildingDetailsDialog";
+import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
+import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
+import { addPartnerContribution, addProjectPartner, listPartnerContributions, listProjectPartners,
+  type AddProjectPartnerInput, type PartnerContributionInput,
+  type ProjectPartnerRow } from "@/data/repositories/projectPartnersRepository";
 
 type Tab = "estimate" | "actual";
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
@@ -24,6 +29,9 @@ export function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [buildingDetails, setBuildingDetails] = useState<ProjectBuildingDetails | null>(null);
   const [buildingDialogOpen, setBuildingDialogOpen] = useState(false);
+  const [partners, setPartners] = useState<ProjectPartnerRow[]>([]);
+  const [contributions, setContributions] = useState<Transaction[]>([]);
+  const [partnerDialog, setPartnerDialog] = useState<ProjectPartnerRow | "new" | null>(null);
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
   const [tab, setTab] = useState<Tab>("estimate");
@@ -39,13 +47,16 @@ export function ProjectDetailPage() {
     if (!projectId) return;
     let active = true;
     Promise.all([getProjectById(projectId), getProjectBuildingDetails(projectId),
-      listProjectEstimates(projectId), listActualProjectCosts(projectId)])
-      .then(([projectRow, buildingRow, estimateRows, costRows]) => {
+      listProjectEstimates(projectId), listActualProjectCosts(projectId),
+      listProjectPartners(projectId), listPartnerContributions(projectId)])
+      .then(([projectRow, buildingRow, estimateRows, costRows, partnerRows, contributionRows]) => {
         if (!active) return;
         setProject(projectRow);
         setBuildingDetails(buildingRow);
         setEstimates(estimateRows);
         setActualCosts(costRows);
+        setPartners(partnerRows);
+        setContributions(contributionRows);
       })
       .catch((cause) => { if (active) setError(String(cause)); })
       .finally(() => { if (active) setLoading(false); });
@@ -76,6 +87,28 @@ export function ProjectDetailPage() {
     toast.success("Building details saved");
   }
 
+  async function refreshPartners(id: string) {
+    const [partnerRows, contributionRows] = await Promise.all([
+      listProjectPartners(id), listPartnerContributions(id),
+    ]);
+    setPartners(partnerRows);
+    setContributions(contributionRows);
+  }
+
+  async function savePartner(value: AddProjectPartnerInput) {
+    await addProjectPartner(value);
+    toast.success("Partner added");
+    try { await refreshPartners(value.project_id); }
+    catch { toast.error("Partner saved. Refresh the page to see the latest details."); }
+  }
+
+  async function saveContribution(value: PartnerContributionInput) {
+    await addPartnerContribution(value);
+    toast.success("Partner contribution recorded");
+    try { await refreshPartners(value.project_id); }
+    catch { toast.error("Contribution saved. Refresh the page to see the latest details."); }
+  }
+
   async function deleteEstimate() {
     if (!projectId || !itemToDelete) return;
     setDeleting(true);
@@ -104,6 +137,8 @@ export function ProjectDetailPage() {
   const revenueMin = sum(revenues.map((item) => item.minimum_amount));
   const revenueMax = sum(revenues.map((item) => item.maximum_amount));
   const actualTotal = sum(actualCosts.map((item) => item.amount));
+  const allocatedShareBp = sum(partners.map((item) => item.share_bp));
+  const contributedTotal = sum(contributions.map((item) => item.amount));
 
   return <div>
     <Link to="/projects" className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
@@ -165,6 +200,56 @@ export function ProjectDetailPage() {
               </div>
             </div>}
         </> : <p className="text-sm text-muted-foreground">No building details added yet.</p>}
+      </section>
+
+      <section className="mb-8 rounded-xl border bg-card p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Project Partners</h2>
+            <p className="text-sm text-muted-foreground">Ownership shares and money received for this project.</p>
+          </div>
+          <Button onClick={() => setPartnerDialog("new")} disabled={allocatedShareBp >= 10_000}>
+            <Plus className="size-4" />Add Partner
+          </Button>
+        </div>
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          <Summary title="Allocated shares" value={`${(allocatedShareBp / 100).toFixed(2)}%`} />
+          <Summary title="Unallocated share" value={`${((10_000 - allocatedShareBp) / 100).toFixed(2)}%`} />
+          <Summary title="Total received" value={formatPKR(contributedTotal)} />
+        </div>
+        {partners.length === 0 ? <p className="rounded-lg border p-6 text-sm text-muted-foreground">No partners added yet.</p> :
+          <div className="grid gap-3 lg:grid-cols-2">
+            {partners.map((partner) => <div key={partner.partnership_id} className="rounded-lg border p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div><h3 className="font-semibold">{partner.name}</h3>
+                  <p className="text-sm text-muted-foreground">{partner.phone || "No mobile number"}
+                    {partner.phone2 ? ` · ${partner.phone2}` : ""}</p></div>
+                <span className="rounded-full bg-muted px-2.5 py-1 text-sm font-medium">{(partner.share_bp / 100).toFixed(2)}%</span>
+              </div>
+              {partner.address && <p className="mt-2 text-sm text-muted-foreground">{partner.address}</p>}
+              {partner.notes && <p className="mt-2 text-sm text-muted-foreground">{partner.notes}</p>}
+              <div className="mt-3 grid gap-2 border-t pt-3 text-sm sm:grid-cols-2">
+                <div><span className="text-muted-foreground">Agreed:</span> {partner.agreed_contribution === null ? "—" : formatPKR(partner.agreed_contribution)}</div>
+                <div><span className="text-muted-foreground">Received:</span> {formatPKR(partner.contributed)}</div>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setPartnerDialog(partner)}>
+                <Plus className="size-4" />Record Contribution
+              </Button>
+            </div>)}
+          </div>}
+        {contributions.length > 0 && <div className="mt-5 overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm"><thead className="bg-muted/50 text-left text-muted-foreground"><tr>
+            <th className="px-4 py-3 font-medium">Date</th><th className="px-4 py-3 font-medium">Partner</th>
+            <th className="px-4 py-3 font-medium">Details</th><th className="px-4 py-3 text-right font-medium">Received</th>
+          </tr></thead><tbody>{contributions.map((item) => <tr key={item.id} className="border-t">
+            <td className="px-4 py-3">{formatDate(item.date)}</td>
+            <td className="px-4 py-3">{partners.find((partner) => partner.partner_id === item.partner_id)?.name ?? "Partner"}</td>
+            <td className="px-4 py-3">{item.description || "Contribution"}
+              <span className="block text-xs text-muted-foreground">{item.method || "—"}{item.reference ? ` · ${item.reference}` : ""}</span>
+              <PaymentDetailsView transaction={item} /></td>
+            <td className="px-4 py-3 text-right font-medium">{formatPKR(item.amount)}</td>
+          </tr>)}</tbody></table>
+        </div>}
       </section>
 
       <div role="tablist" aria-label="Project finances" className="mb-6 flex gap-1 border-b">
@@ -230,6 +315,11 @@ export function ProjectDetailPage() {
         onEstimate={saveEstimate} onActual={saveActual} />}
       {buildingDialogOpen && <BuildingDetailsDialog projectId={project.id} details={buildingDetails}
         onOpenChange={setBuildingDialogOpen} onSubmit={saveBuildingDetails} />}
+      {partnerDialog && <ProjectPartnerDialog projectId={project.id}
+        partner={partnerDialog === "new" ? undefined : partnerDialog}
+        remainingShareBp={10_000 - allocatedShareBp}
+        onOpenChange={(open) => { if (!open) setPartnerDialog(null); }}
+        onAddPartner={savePartner} onContribution={saveContribution} />}
       <Dialog open={!!itemToDelete} onOpenChange={(open) => { if (!open && !deleting) closeDeleteDialog(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Delete estimate item?</DialogTitle></DialogHeader>

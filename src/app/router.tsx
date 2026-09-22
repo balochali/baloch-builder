@@ -10,7 +10,7 @@ import { ContactsPage } from "@/features/contacts/pages/ContactsPage";
 import { LandComingSoonPage } from "@/features/land/pages/ComingSoon";
 import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
-import { PartnersComingSoonPage } from "@/features/partners/pages/ComingSoon";
+import { PartnersPage } from "@/features/partners/pages/PartnersPage";
 import { LedgerComingSoonPage } from "@/features/ledger/pages/ComingSoon";
 import { DocumentsComingSoonPage } from "@/features/documents/pages/ComingSoon";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
@@ -39,7 +39,7 @@ export function AppRouter() {
           <Route path="/land" element={<LandComingSoonPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-          <Route path="/partners" element={<PartnersComingSoonPage />} />
+          <Route path="/partners" element={<PartnersPage />} />
           <Route path="/ledger" element={<LedgerComingSoonPage />} />
           <Route path="/documents" element={<DocumentsComingSoonPage />} />
           <Route path="/settings" element={<SettingsPage />} />

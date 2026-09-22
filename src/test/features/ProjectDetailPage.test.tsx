@@ -5,6 +5,7 @@ import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { getProjectById } from "@/data/repositories/projectsRepository";
 import { archiveProjectEstimate, updateProjectEstimate, listProjectEstimates, listActualProjectCosts } from "@/data/repositories/projectFinanceRepository";
 import { getProjectBuildingDetails, saveProjectBuildingDetails } from "@/data/repositories/projectBuildingRepository";
+import { listProjectPartners, listPartnerContributions, addProjectPartner, addPartnerContribution } from "@/data/repositories/projectPartnersRepository";
 
 vi.mock("@/data/repositories/projectsRepository", () => ({ getProjectById: vi.fn() }));
 vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) => ({
@@ -15,6 +16,11 @@ vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) =
 vi.mock("@/data/repositories/projectBuildingRepository", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/data/repositories/projectBuildingRepository")>(),
   getProjectBuildingDetails: vi.fn(), saveProjectBuildingDetails: vi.fn(),
+}));
+vi.mock("@/data/repositories/projectPartnersRepository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/data/repositories/projectPartnersRepository")>(),
+  listProjectPartners: vi.fn(), listPartnerContributions: vi.fn(),
+  addProjectPartner: vi.fn(), addPartnerContribution: vi.fn(),
 }));
 
 describe("ProjectDetailPage", () => {
@@ -29,6 +35,10 @@ describe("ProjectDetailPage", () => {
     vi.mocked(listActualProjectCosts).mockResolvedValue([]);
     vi.mocked(archiveProjectEstimate).mockResolvedValue(undefined);
     vi.mocked(getProjectBuildingDetails).mockResolvedValue(null);
+    vi.mocked(listProjectPartners).mockResolvedValue([]);
+    vi.mocked(listPartnerContributions).mockResolvedValue([]);
+    vi.mocked(addProjectPartner).mockResolvedValue(undefined);
+    vi.mocked(addPartnerContribution).mockResolvedValue(undefined);
   });
 
   it("opens the estimate and actual cost entry modals from their tabs", async () => {
@@ -42,6 +52,23 @@ describe("ProjectDetailPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Actual Cost" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Amount paid");
+  });
+
+  it("adds a project partner with share and dated first payment", async () => {
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "Add Partner" }));
+    fireEvent.change(screen.getByLabelText("Partner name *"), { target: { value: "Ali" } });
+    fireEvent.change(screen.getByLabelText("Mobile number *"), { target: { value: "03001234567" } });
+    fireEvent.change(screen.getByLabelText("Project share (%) *"), { target: { value: "25.5" } });
+    fireEvent.change(screen.getByLabelText("Amount received (Rs)"), { target: { value: "200000" } });
+    fireEvent.change(screen.getByLabelText("Date received"), { target: { value: "2026-09-22" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add Partner" }));
+    await waitFor(() => expect(addProjectPartner).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Ali", phone: "03001234567", share_bp: 2550,
+      initial_amount: 200_000, initial_date: "2026-09-22",
+    })));
   });
 
   it("confirms deletion and removes the item from estimate totals", async () => {
