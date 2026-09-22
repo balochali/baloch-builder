@@ -29,6 +29,34 @@ export interface Project extends BaseRecord {
   start_date: string | null;
 }
 
+export interface ProjectEstimate extends BaseRecord {
+  project_id: string;
+  kind: "cost" | "revenue";
+  title: string;
+  details: string | null;
+  minimum_amount: number;
+  maximum_amount: number;
+}
+
+export interface ProjectBuildingDetails extends BaseRecord {
+  project_id: string;
+  building_use: "residential" | "commercial" | "mixed-use" | null;
+  floors_above_ground: number | null;
+  basement_count: number | null;
+  planned_flats: number | null;
+  planned_shops: number | null;
+  planned_offices: number | null;
+  planned_houses: number | null;
+  planned_parking_spaces: number | null;
+  has_masjid: 0 | 1;
+  selected_spaces_json: string;
+  floor_layout_json: string;
+  plot_area_value: number | null;
+  plot_area_unit: AreaUnit | null;
+  covered_area_sqft: number | null;
+  notes: string | null;
+}
+
 export interface ProjectMilestone extends BaseRecord {
   project_id: string;
   title: string | null;

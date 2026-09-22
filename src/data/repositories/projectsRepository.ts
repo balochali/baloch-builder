@@ -20,6 +20,13 @@ export async function listProjects(): Promise<Project[]> {
   );
 }
 
+export async function getProjectById(id: string): Promise<Project | null> {
+  const rows = await query<Project>(
+    `SELECT * FROM projects WHERE id = ? AND archived = 0`, [id],
+  );
+  return rows[0] ?? null;
+}
+
 export async function createProject(input: CreateProjectInput): Promise<Project> {
   const data = CreateProjectSchema.parse(input);
   const id = newId();

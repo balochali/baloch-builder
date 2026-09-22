@@ -9,6 +9,7 @@ import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 import { ContactsPage } from "@/features/contacts/pages/ContactsPage";
 import { LandComingSoonPage } from "@/features/land/pages/ComingSoon";
 import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
+import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { PartnersComingSoonPage } from "@/features/partners/pages/ComingSoon";
 import { LedgerComingSoonPage } from "@/features/ledger/pages/ComingSoon";
 import { DocumentsComingSoonPage } from "@/features/documents/pages/ComingSoon";
@@ -37,6 +38,7 @@ export function AppRouter() {
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/land" element={<LandComingSoonPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/partners" element={<PartnersComingSoonPage />} />
           <Route path="/ledger" element={<LedgerComingSoonPage />} />
           <Route path="/documents" element={<DocumentsComingSoonPage />} />

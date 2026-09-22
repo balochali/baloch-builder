@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS project_building_details (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL UNIQUE REFERENCES projects(id),
+  building_use TEXT CHECK(building_use IN ('residential', 'commercial', 'mixed-use')),
+  floors_above_ground INTEGER CHECK(floors_above_ground >= 0),
+  basement_count INTEGER CHECK(basement_count >= 0),
+  planned_flats INTEGER CHECK(planned_flats >= 0),
+  planned_shops INTEGER CHECK(planned_shops >= 0),
+  planned_offices INTEGER CHECK(planned_offices >= 0),
+  planned_parking_spaces INTEGER CHECK(planned_parking_spaces >= 0),
+  plot_area_value REAL CHECK(plot_area_value > 0),
+  plot_area_unit TEXT CHECK(plot_area_unit IN ('marla', 'kanal', 'sqft', 'sqyd', 'acre')),
+  covered_area_sqft REAL CHECK(covered_area_sqft > 0),
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  archived INTEGER NOT NULL DEFAULT 0,
+  custom TEXT NOT NULL DEFAULT '{}',
+  CHECK((plot_area_value IS NULL) = (plot_area_unit IS NULL))
+);
