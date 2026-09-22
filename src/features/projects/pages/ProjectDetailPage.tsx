@@ -17,11 +17,19 @@ import { ProjectEntryDialog } from "@/features/projects/components/ProjectEntryD
 import { BuildingDetailsDialog } from "@/features/projects/components/BuildingDetailsDialog";
 import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
+import { BuildingMixChart, EstimateChart, OwnershipChart, SpendingChart } from "@/features/projects/components/ProjectInsights";
 import { addPartnerContribution, addProjectPartner, listPartnerContributions, listProjectPartners,
   type AddProjectPartnerInput, type PartnerContributionInput,
   type ProjectPartnerRow } from "@/data/repositories/projectPartnersRepository";
 
-type Tab = "estimate" | "actual";
+type Tab = "building" | "partners" | "estimate" | "actual";
+type EntryMode = "estimate" | "actual";
+const projectTabs: { id: Tab; label: string }[] = [
+  { id: "building", label: "Building" },
+  { id: "partners", label: "Partners" },
+  { id: "estimate", label: "Estimate" },
+  { id: "actual", label: "Actual Cost" },
+];
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 
 export function ProjectDetailPage() {
@@ -34,8 +42,8 @@ export function ProjectDetailPage() {
   const [partnerDialog, setPartnerDialog] = useState<ProjectPartnerRow | "new" | null>(null);
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
-  const [tab, setTab] = useState<Tab>("estimate");
-  const [dialog, setDialog] = useState<Tab | null>(null);
+  const [tab, setTab] = useState<Tab>("building");
+  const [dialog, setDialog] = useState<EntryMode | null>(null);
   const [editingEstimate, setEditingEstimate] = useState<ProjectEstimate | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ProjectEstimate | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -151,7 +159,18 @@ export function ProjectDetailPage() {
       <PageHeader title={project.name} description={`${project.location || "No address"} · ${project.status || "Planning"}`} />
       {project.description && <p className="mb-6 text-sm text-muted-foreground">{project.description}</p>}
 
-      <section className="mb-8 rounded-xl border bg-card p-5">
+      <div role="tablist" aria-label="Project details" className="project-detail-tabs">
+        {projectTabs.map(({ id, label }, index) => <button key={id} id={`project-tab-${id}`} type="button" role="tab"
+          aria-selected={tab === id} aria-controls={`project-panel-${id}`} tabIndex={tab === id ? 0 : -1}
+          onClick={() => setTab(id)} onKeyDown={(event) => {
+            const next = event.key === "ArrowRight" ? (index + 1) % projectTabs.length :
+              event.key === "ArrowLeft" ? (index - 1 + projectTabs.length) % projectTabs.length :
+              event.key === "Home" ? 0 : event.key === "End" ? projectTabs.length - 1 : -1;
+            if (next >= 0) { event.preventDefault(); setTab(projectTabs[next].id); document.getElementById(`project-tab-${projectTabs[next].id}`)?.focus(); }
+          }}>{label}</button>)}
+      </div>
+
+      {tab === "building" && <section id="project-panel-building" role="tabpanel" aria-labelledby="project-tab-building" className="project-detail-section mb-8 rounded-xl border bg-card p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Building Details</h2>
@@ -167,7 +186,8 @@ export function ProjectDetailPage() {
               {decodeBuildingSpaces(buildingDetails.selected_spaces_json ?? "[]").map((space) =>
                 <span key={space} className="rounded-full bg-muted px-2.5 py-1 text-xs capitalize">{space.replace(/_/g, " ")}</span>)}
             </div>}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <BuildingMixChart details={buildingDetails} />
+          <div className="project-details-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Detail label="Building use" value={buildingDetails.building_use?.replace("-", " ")} />
             <Detail label="Floors above ground" value={buildingDetails.floors_above_ground} />
             <Detail label="Basements" value={buildingDetails.basement_count} />
@@ -200,9 +220,9 @@ export function ProjectDetailPage() {
               </div>
             </div>}
         </> : <p className="text-sm text-muted-foreground">No building details added yet.</p>}
-      </section>
+      </section>}
 
-      <section className="mb-8 rounded-xl border bg-card p-5">
+      {tab === "partners" && <section id="project-panel-partners" role="tabpanel" aria-labelledby="project-tab-partners" className="project-detail-section mb-8 rounded-xl border bg-card p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Project Partners</h2>
@@ -217,6 +237,7 @@ export function ProjectDetailPage() {
           <Summary title="Unallocated share" value={`${((10_000 - allocatedShareBp) / 100).toFixed(2)}%`} />
           <Summary title="Total received" value={formatPKR(contributedTotal)} />
         </div>
+        <OwnershipChart partners={partners} />
         {partners.length === 0 ? <p className="rounded-lg border p-6 text-sm text-muted-foreground">No partners added yet.</p> :
           <div className="grid gap-3 lg:grid-cols-2">
             {partners.map((partner) => <div key={partner.partnership_id} className="rounded-lg border p-4">
@@ -250,20 +271,9 @@ export function ProjectDetailPage() {
             <td className="px-4 py-3 text-right font-medium">{formatPKR(item.amount)}</td>
           </tr>)}</tbody></table>
         </div>}
-      </section>
+      </section>}
 
-      <div role="tablist" aria-label="Project finances" className="mb-6 flex gap-1 border-b">
-        <button role="tab" aria-selected={tab === "estimate"} onClick={() => setTab("estimate")}
-          className={`px-4 py-3 text-sm font-medium ${tab === "estimate" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-          Estimate
-        </button>
-        <button role="tab" aria-selected={tab === "actual"} onClick={() => setTab("actual")}
-          className={`px-4 py-3 text-sm font-medium ${tab === "actual" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-          Actual Cost
-        </button>
-      </div>
-
-      {tab === "estimate" ? <div role="tabpanel" aria-label="Estimate">
+      {tab === "estimate" && <div id="project-panel-estimate" role="tabpanel" aria-labelledby="project-tab-estimate">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Project estimate</h2>
@@ -277,11 +287,13 @@ export function ProjectDetailPage() {
           <Summary title="Projected margin range" value={revenues.length ?
             `${formatPKR(revenueMin - costMax)} – ${formatPKR(revenueMax - costMin)}` : "Add recovery items"} />
         </div>
+        <div className="project-insight-grid"><EstimateChart items={costs} title="Estimated cost breakdown" /><EstimateChart items={revenues} title="Expected recovery breakdown" /></div>
         <EstimateSection title="Cost items" items={costs} onDelete={setItemToDelete}
           onEdit={(item) => { setEditingEstimate(item); setDialog("estimate"); }} />
         <EstimateSection title="Recovery / revenue items" items={revenues} onDelete={setItemToDelete}
           onEdit={(item) => { setEditingEstimate(item); setDialog("estimate"); }} />
-      </div> : <div role="tabpanel" aria-label="Actual Cost">
+      </div>}
+      {tab === "actual" && <div id="project-panel-actual" role="tabpanel" aria-labelledby="project-tab-actual">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Actual project costs</h2>
@@ -293,6 +305,7 @@ export function ProjectDetailPage() {
           <Summary title="Total spent" value={formatPKR(actualTotal)} />
           <Summary title="Estimated cost range" value={`${formatPKR(costMin)} – ${formatPKR(costMax)}`} />
         </div>
+        <SpendingChart costs={actualCosts} />
         {actualCosts.length === 0 ? <p className="rounded-lg border p-8 text-center text-sm text-muted-foreground">No actual costs recorded yet.</p> :
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">

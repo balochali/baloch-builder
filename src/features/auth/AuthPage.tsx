@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Building2, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,10 +43,10 @@ export function AuthPage({ mode, onSuccess }: AuthPageProps) {
     <main className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
       <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-lg">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            {setup ? <Building2 className="size-7" /> : <LockKeyhole className="size-7" />}
+          <div className="auth-symbol mx-auto mb-4 flex size-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            {setup ? <span className="brand-mark auth-brand-mark" role="img" aria-label="Baloch Builders logo" /> : <LockKeyhole className="size-7" />}
           </div>
-          <h1 className="text-2xl font-bold">Baloch Builder</h1>
+          <h1 className="text-2xl font-bold">Baloch Builders</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {setup ? "Create your account to protect this device's records." : "Sign in to open your workspace."}
           </p>

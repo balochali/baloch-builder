@@ -23,16 +23,16 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <aside className="flex flex-col w-60 min-h-screen bg-sidebar border-r border-sidebar-border shrink-0">
+    <aside className="app-sidebar flex flex-col w-60 min-h-screen bg-sidebar border-r border-sidebar-border shrink-0">
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-sidebar-border">
-        <span className="text-sidebar-foreground font-bold text-lg tracking-tight">
-          🏗 Baloch Builder
-        </span>
+      <div className="brand-block border-b border-sidebar-border">
+        <span className="brand-mark" role="img" aria-label="Baloch Builders logo" />
+        <span className="brand-name"><strong>BALOCH</strong><small>BUILDERS & DEVELOPERS</small></span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 space-y-0.5 px-2">
+      <nav className="flex-1 py-4 space-y-0.5 px-2" aria-label="Main navigation">
+        <p className="sidebar-caption">WORKSPACE</p>
         {navItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

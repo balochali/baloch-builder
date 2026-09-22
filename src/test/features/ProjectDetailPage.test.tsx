@@ -81,7 +81,7 @@ describe("ProjectDetailPage", () => {
     render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
       <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
     </MemoryRouter>);
-    expect(await screen.findByText("Cement")).toBeInTheDocument();
+    expect((await screen.findAllByText("Cement")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Delete Cement" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Delete estimate item?");
     fireEvent.click(screen.getByRole("button", { name: "Delete item" }));
@@ -132,6 +132,7 @@ describe("ProjectDetailPage", () => {
       <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
     </MemoryRouter>);
     expect(await screen.findByText("Ground floor shops")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "12 flats, 3 shops" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Edit Details" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Edit Building Details");
     expect(screen.getByLabelText("Building use")).toHaveValue("mixed-use");
