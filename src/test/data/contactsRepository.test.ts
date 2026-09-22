@@ -51,8 +51,11 @@ describe("contactsRepository", () => {
 
     vi.spyOn(client, "execute").mockImplementation(async (sql: string, params: unknown[] = []) => {
       if (sql.includes("INSERT INTO contacts")) {
-        const [id, name, phone, phone2, address, notes, created_at, updated_at, archived, custom] =
-          params;
+        // Note: archived and custom are NOT bound params here — the real
+        // repository writes them as literals ("0" and "'{}'") in the SQL
+        // text for a new contact, so they are hardcoded below instead of
+        // being read from `params`.
+        const [id, name, phone, phone2, address, notes, created_at, updated_at] = params;
         contactsStore.push({
           id: id as string,
           name: name as string,
@@ -62,8 +65,8 @@ describe("contactsRepository", () => {
           notes: (notes as string) || null,
           created_at: created_at as string,
           updated_at: updated_at as string,
-          archived: (archived as number) || 0,
-          custom: (custom as string) || "{}",
+          archived: 0,
+          custom: "{}",
         });
         return { rowsAffected: 1 };
       }
@@ -76,16 +79,20 @@ describe("contactsRepository", () => {
           return { rowsAffected: 1 };
         }
       }
-      if (sql.includes("UPDATE contacts SET name = ?")) {
-        const [name, phone, phone2, address, notes, updated_at, id] = params;
+      if (sql.startsWith("UPDATE contacts SET") && !sql.includes("archived = 1")) {
+        // The real repository builds its SET clause dynamically (only the
+        // fields actually passed in, "updated_at" always first), so this
+        // mock parses the column names out of the SQL instead of assuming
+        // a fixed positional order.
+        const setPart = sql.slice(sql.indexOf("SET") + 3, sql.indexOf("WHERE")).trim();
+        const columns = setPart.split(",").map((c) => c.trim().split("=")[0].trim());
+        const id = params[params.length - 1] as string;
         const target = contactsStore.find((c) => c.id === id);
         if (target) {
-          target.name = name as string;
-          target.phone = (phone as string) || null;
-          target.phone2 = (phone2 as string) || null;
-          target.address = (address as string) || null;
-          target.notes = (notes as string) || null;
-          target.updated_at = updated_at as string;
+          const record = target as unknown as Record<string, unknown>;
+          columns.forEach((col, i) => {
+            record[col] = params[i] ?? null;
+          });
           return { rowsAffected: 1 };
         }
       }
@@ -133,6 +140,14 @@ describe("contactsRepository", () => {
 
     expect(updated.name).toBe("Ali Baloch Updated");
     expect(updated.phone).toBe("03009999999");
+  });
+
+  it("gets a single contact by id", async () => {
+    const found = await getContactById("11111111-1111-4111-8111-111111111111");
+    expect(found?.name).toBe("Ali Baloch");
+
+    const missing = await getContactById("does-not-exist");
+    expect(missing).toBeNull();
   });
 
   it("soft-deletes (archives) a contact", async () => {

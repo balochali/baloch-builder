@@ -12,9 +12,9 @@ describe("ContactDialog component", () => {
       />,
     );
 
-    expect(screen.getByText("Add Contact")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Add Contact" })).toBeInTheDocument();
     expect(screen.getByLabelText(/Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Phone 1/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Phone$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Address/i)).toBeInTheDocument();
   });
 
@@ -31,8 +31,8 @@ describe("ContactDialog component", () => {
     );
 
     const nameInput = screen.getByLabelText(/Name/i);
-    const phoneInput = screen.getByLabelText(/Phone 1/i);
-    const submitBtn = screen.getByRole("button", { name: /Save Contact/i });
+    const phoneInput = screen.getByLabelText(/^Phone$/i);
+    const submitBtn = screen.getByRole("button", { name: /Add Contact/i });
 
     fireEvent.change(nameInput, { target: { value: "Jan Baloch" } });
     fireEvent.change(phoneInput, { target: { value: "03001122334" } });
@@ -59,7 +59,7 @@ describe("ContactDialog component", () => {
       />,
     );
 
-    const submitBtn = screen.getByRole("button", { name: /Save Contact/i });
+    const submitBtn = screen.getByRole("button", { name: /Add Contact/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {

@@ -1,4 +1,4 @@
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
 // Mock Tauri plugin-sql — tests run in jsdom (no Tauri runtime)
@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/plugin-sql", () => {
       return { rowsAffected: 1, lastInsertId: 1 };
     }),
     select: vi.fn(async (_sql: string, _values?: unknown[]) => []),
-    close: vi.fn(async () => {}),
+    close: vi.fn(async () => { }),
     _rows: rows,
   };
 
