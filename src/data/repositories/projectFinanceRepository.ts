@@ -10,6 +10,12 @@ export const EstimateInputSchema = z.object({
   kind: z.enum(["cost", "revenue"]),
   title: z.string().trim().min(1, "Item name is required").max(120),
   details: z.string().trim().max(500),
+  recovery_space: z.enum(["flats", "shops", "offices", "houses"]).nullable().optional(),
+  recovery_quantity: z.number().int().positive().max(1_000_000).nullable().optional(),
+  flat_recovery_lines: z.array(z.object({
+    floor_index: z.number().int().min(0), rooms: z.number().int().positive(),
+    quantity: z.number().int().positive(), minimum_unit_price: money, maximum_unit_price: money,
+  })).optional(),
   minimum_amount: money,
   maximum_amount: money,
 }).refine((value) => value.maximum_amount >= value.minimum_amount, {
@@ -42,9 +48,10 @@ export async function addProjectEstimate(input: EstimateInput): Promise<ProjectE
   await execute(
     `INSERT INTO project_estimates
       (id, project_id, kind, title, details, minimum_amount, maximum_amount, created_at, updated_at, archived, custom)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '{}')`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
     [id, value.project_id, value.kind, value.title, value.details || null,
-      value.minimum_amount, value.maximum_amount, timestamp, timestamp],
+      value.minimum_amount, value.maximum_amount, timestamp, timestamp,
+      JSON.stringify(value.recovery_space ? { recovery_space: value.recovery_space, recovery_quantity: value.recovery_quantity, flat_recovery_lines: value.flat_recovery_lines } : {})],
   );
   const rows = await query<ProjectEstimate>(`SELECT * FROM project_estimates WHERE id = ?`, [id]);
   if (!rows[0]) throw new Error("Estimate was saved but could not be loaded");
@@ -55,10 +62,10 @@ export async function updateProjectEstimate(estimateId: string, input: EstimateI
   const value = EstimateInputSchema.parse(input);
   const result = await execute(
     `UPDATE project_estimates
-     SET kind = ?, title = ?, details = ?, minimum_amount = ?, maximum_amount = ?, updated_at = ?
+     SET kind = ?, title = ?, details = ?, minimum_amount = ?, maximum_amount = ?, custom = ?, updated_at = ?
      WHERE id = ? AND project_id = ? AND archived = 0`,
     [value.kind, value.title, value.details || null, value.minimum_amount,
-      value.maximum_amount, now(), estimateId, value.project_id],
+      value.maximum_amount, JSON.stringify(value.recovery_space ? { recovery_space: value.recovery_space, recovery_quantity: value.recovery_quantity, flat_recovery_lines: value.flat_recovery_lines } : {}), now(), estimateId, value.project_id],
   );
   if (result.rowsAffected !== 1) throw new Error("Estimate item was not found");
   const rows = await query<ProjectEstimate>(

@@ -3,14 +3,14 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { getProjectById } from "@/data/repositories/projectsRepository";
-import { archiveProjectEstimate, updateProjectEstimate, listProjectEstimates, listActualProjectCosts } from "@/data/repositories/projectFinanceRepository";
+import { addProjectEstimate, archiveProjectEstimate, updateProjectEstimate, listProjectEstimates, listActualProjectCosts } from "@/data/repositories/projectFinanceRepository";
 import { getProjectBuildingDetails, saveProjectBuildingDetails } from "@/data/repositories/projectBuildingRepository";
 import { listProjectPartners, listPartnerContributions, addProjectPartner, addPartnerContribution } from "@/data/repositories/projectPartnersRepository";
 
 vi.mock("@/data/repositories/projectsRepository", () => ({ getProjectById: vi.fn() }));
 vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/data/repositories/projectFinanceRepository")>(),
-  listProjectEstimates: vi.fn(), listActualProjectCosts: vi.fn(), archiveProjectEstimate: vi.fn(),
+  listProjectEstimates: vi.fn(), listActualProjectCosts: vi.fn(), archiveProjectEstimate: vi.fn(), addProjectEstimate: vi.fn(),
   updateProjectEstimate: vi.fn(),
 }));
 vi.mock("@/data/repositories/projectBuildingRepository", async (importOriginal) => ({
@@ -47,12 +47,93 @@ describe("ProjectDetailPage", () => {
     </MemoryRouter>);
     expect(await screen.findByRole("heading", { name: "Baloch Residency" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Estimate" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Estimate Item" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Expected Cost" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Minimum estimate");
+    expect(screen.getByLabelText("Cost item *")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Recovery item name *")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Cost item *"), { target: { value: "Cement Cost" } });
+    expect(screen.getByLabelText("Cost item *")).toHaveValue("Cement Cost");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Expected Recovery" }));
+    expect(screen.getByText(/Add flats, shops, offices or houses in Building Details/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Cost item *")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Actual Cost" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Amount paid");
+  });
+
+  it("saves selected and custom costs separately from recovery", async () => {
+    vi.mocked(getProjectBuildingDetails).mockResolvedValue({
+      id: "building-1", project_id: "11111111-1111-4111-8111-111111111111",
+      building_use: "mixed-use", floors_above_ground: 4, basement_count: 0,
+      planned_flats: 13, planned_shops: 5, planned_offices: null, planned_houses: null,
+      planned_parking_spaces: null, parking_area_value: null, parking_area_unit: null,
+      plot_area_value: null, plot_area_unit: null, covered_area_sqft: null,
+      has_masjid: 0, selected_spaces_json: '["flats","shops"]', floor_layout_json: "[]",
+      notes: null, archived: 0, custom: "{}", created_at: "2026-09-22", updated_at: "2026-09-22",
+    });
+    vi.mocked(addProjectEstimate).mockImplementation(async (value) => ({
+      ...value, id: `estimate-${value.kind}`, archived: 0, custom: "{}",
+      created_at: "2026-09-22", updated_at: "2026-09-22",
+    }));
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(await screen.findByRole("tab", { name: "Estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Expected Cost" }));
+    fireEvent.change(screen.getByLabelText("Cost item *"), { target: { value: "other" } });
+    fireEvent.change(screen.getByLabelText("Other cost name *"), { target: { value: "Transport Cost" } });
+    fireEvent.change(screen.getByLabelText(/Minimum estimate/i), { target: { value: "1000" } });
+    fireEvent.change(screen.getByLabelText(/Maximum estimate/i), { target: { value: "2000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(addProjectEstimate).toHaveBeenCalledWith(expect.objectContaining({ kind: "cost", title: "Transport Cost" })));
+    fireEvent.click(screen.getByRole("button", { name: "Add Expected Recovery" }));
+    fireEvent.change(screen.getByLabelText("Space to sell *"), { target: { value: "flats" } });
+    expect(screen.getByLabelText("Number of flats to sell *")).toHaveValue(13);
+    fireEvent.change(screen.getByLabelText(/Lowest expected selling price/i), { target: { value: "5000" } });
+    fireEvent.change(screen.getByLabelText(/Highest expected selling price/i), { target: { value: "7000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(addProjectEstimate).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "revenue", title: "Flats sales", recovery_space: "flats", recovery_quantity: 13,
+      minimum_amount: 65_000, maximum_amount: 91_000,
+    })));
+  });
+
+  it("calculates flat recovery by floor and room size", async () => {
+    vi.mocked(getProjectBuildingDetails).mockResolvedValue({
+      id: "building-1", project_id: "11111111-1111-4111-8111-111111111111",
+      building_use: "residential", floors_above_ground: 2, basement_count: 0,
+      planned_flats: 3, planned_shops: null, planned_offices: null, planned_houses: null,
+      planned_parking_spaces: null, parking_area_value: null, parking_area_unit: null,
+      plot_area_value: null, plot_area_unit: null, covered_area_sqft: null,
+      has_masjid: 0, selected_spaces_json: '["flats"]',
+      floor_layout_json: '[{"floor_index":0,"flat_types":[{"rooms":2,"count":2}]},{"floor_index":1,"flat_types":[{"rooms":3,"count":1}]}]',
+      notes: null, archived: 0, custom: "{}", created_at: "2026-09-22", updated_at: "2026-09-22",
+    });
+    vi.mocked(addProjectEstimate).mockImplementation(async (value) => ({
+      ...value, id: "flat-estimate", archived: 0, custom: JSON.stringify({ recovery_space: value.recovery_space, recovery_quantity: value.recovery_quantity, flat_recovery_lines: value.flat_recovery_lines }),
+      created_at: "2026-09-22", updated_at: "2026-09-22",
+    }));
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(await screen.findByRole("tab", { name: "Estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Expected Recovery" }));
+    fireEvent.change(screen.getByLabelText("Space to sell *"), { target: { value: "flats" } });
+    expect(screen.getByText("Ground · 2 rooms")).toBeInTheDocument();
+    expect(screen.getByText("Floor 1 · 3 rooms")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Lowest price per flat (Rs)", { selector: "#flat-min-0" }), { target: { value: "100000" } });
+    fireEvent.change(screen.getByLabelText("Highest price per flat (Rs)", { selector: "#flat-max-0" }), { target: { value: "120000" } });
+    fireEvent.change(screen.getByLabelText("Lowest price per flat (Rs)", { selector: "#flat-min-1" }), { target: { value: "200000" } });
+    fireEvent.change(screen.getByLabelText("Highest price per flat (Rs)", { selector: "#flat-max-1" }), { target: { value: "250000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(addProjectEstimate).toHaveBeenCalledWith(expect.objectContaining({
+      recovery_space: "flats", recovery_quantity: 3, minimum_amount: 400_000, maximum_amount: 490_000,
+      flat_recovery_lines: expect.arrayContaining([expect.objectContaining({ floor_index: 1, rooms: 3, quantity: 1, minimum_unit_price: 200_000 })]),
+    })));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Flats sales" }));
+    expect(screen.getByLabelText("Lowest price per flat (Rs)", { selector: "#flat-min-1" })).toHaveValue("200000");
   });
 
   it("adds a project partner with share and dated first payment", async () => {
@@ -108,7 +189,9 @@ describe("ProjectDetailPage", () => {
     </MemoryRouter>);
     fireEvent.click(await screen.findByRole("tab", { name: "Estimate" }));
     fireEvent.click(await screen.findByRole("button", { name: "Edit Cement" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("Edit Estimate Item");
+    expect(screen.getByRole("dialog")).toHaveTextContent("Edit Expected Cost");
+    expect(screen.getByLabelText("Cost item *")).toHaveValue("other");
+    expect(screen.getByLabelText("Other cost name *")).toHaveValue("Cement");
     expect(screen.getByLabelText(/Minimum estimate/i)).toHaveValue("100000");
     fireEvent.change(screen.getByLabelText(/Minimum estimate/i), { target: { value: "120000" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

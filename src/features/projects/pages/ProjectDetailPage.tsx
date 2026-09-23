@@ -14,6 +14,7 @@ import type { Project, ProjectBuildingDetails, ProjectEstimate, Transaction } fr
 import { formatPKR } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 import { ProjectEntryDialog } from "@/features/projects/components/ProjectEntryDialog";
+import { flatRecoveryLines, recoveryLink } from "@/features/projects/components/recoverySpaces";
 import { BuildingDetailsDialog } from "@/features/projects/components/BuildingDetailsDialog";
 import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
@@ -45,6 +46,7 @@ export function ProjectDetailPage() {
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
   const [tab, setTab] = useState<Tab>("building");
   const [dialog, setDialog] = useState<EntryMode | null>(null);
+  const [estimateKind, setEstimateKind] = useState<"cost" | "revenue">("cost");
   const [editingEstimate, setEditingEstimate] = useState<ProjectEstimate | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ProjectEstimate | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -264,7 +266,10 @@ export function ProjectDetailPage() {
             <h2 className="text-lg font-semibold">Project estimate</h2>
             <p className="text-sm text-muted-foreground">Plan minimum and maximum costs and expected recovery.</p>
           </div>
-          <Button onClick={() => { setEditingEstimate(null); setDialog("estimate"); }}><Plus className="size-4" />Add Estimate Item</Button>
+          <div className="estimate-actions">
+            <Button onClick={() => { setEditingEstimate(null); setEstimateKind("cost"); setDialog("estimate"); }}><Plus className="size-4" />Add Expected Cost</Button>
+            <Button variant="outline" onClick={() => { setEditingEstimate(null); setEstimateKind("revenue"); setDialog("estimate"); }}><Plus className="size-4" />Add Expected Recovery</Button>
+          </div>
         </div>
         <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Summary title="Estimated costs" value={`${formatPKR(costMin)} – ${formatPKR(costMax)}`} />
@@ -274,9 +279,9 @@ export function ProjectDetailPage() {
         </div>
         <div className="project-insight-grid"><EstimateChart items={costs} title="Estimated cost breakdown" /><EstimateChart items={revenues} title="Expected recovery breakdown" /></div>
         <EstimateSection title="Cost items" items={costs} onDelete={setItemToDelete}
-          onEdit={(item) => { setEditingEstimate(item); setDialog("estimate"); }} />
+          onEdit={(item) => { setEditingEstimate(item); setEstimateKind("cost"); setDialog("estimate"); }} />
         <EstimateSection title="Recovery / revenue items" items={revenues} onDelete={setItemToDelete}
-          onEdit={(item) => { setEditingEstimate(item); setDialog("estimate"); }} />
+          onEdit={(item) => { setEditingEstimate(item); setEstimateKind("revenue"); setDialog("estimate"); }} />
       </div>}
       {tab === "actual" && <div id="project-panel-actual" role="tabpanel" aria-labelledby="project-tab-actual">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -308,7 +313,8 @@ export function ProjectDetailPage() {
             </table>
           </div>}
       </div>}
-      {dialog && <ProjectEntryDialog mode={dialog} projectId={project.id} estimate={editingEstimate}
+      {dialog && <ProjectEntryDialog mode={dialog} projectId={project.id} estimate={editingEstimate} estimateKind={estimateKind}
+        buildingDetails={buildingDetails} recoveryEstimates={revenues}
         onOpenChange={(open) => { if (!open) { setDialog(null); setEditingEstimate(null); } }}
         onEstimate={saveEstimate} onActual={saveActual} />}
       {buildingDialogOpen && <BuildingDetailsDialog projectId={project.id} details={buildingDetails}
@@ -398,6 +404,10 @@ function EstimateSection({ title, items, onEdit, onDelete }: {
           </tr></thead>
           <tbody>{items.map((item) => <tr key={item.id} className="border-t">
             <td className="px-4 py-3"><span className="font-medium">{item.title}</span>
+              {recoveryLink(item) && <span className="block text-xs text-muted-foreground">{recoveryLink(item)!.quantity} planned {recoveryLink(item)!.space} × expected price per unit</span>}
+              {flatRecoveryLines(item).map((line) => <span className="block text-xs text-muted-foreground" key={`${line.floor_index}-${line.rooms}`}>
+                {line.floor_index === 0 ? "Ground" : `Floor ${line.floor_index}`}: {line.quantity} × {line.rooms}-room flats at {formatPKR(line.minimum_unit_price)} – {formatPKR(line.maximum_unit_price)} each
+              </span>)}
               {item.details && <span className="block text-xs text-muted-foreground">{item.details}</span>}</td>
             <td className="px-4 py-3 text-right">{formatPKR(item.minimum_amount)}</td>
             <td className="px-4 py-3 text-right">{formatPKR(item.maximum_amount)}</td>
