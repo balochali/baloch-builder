@@ -40,8 +40,8 @@ export function AuthPage({ mode, onSuccess }: AuthPageProps) {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-lg">
+    <main className="auth-page min-h-screen flex items-center justify-center bg-muted/40 p-4">
+      <div className="auth-panel w-full max-w-md rounded-xl border bg-card p-8 shadow-lg">
         <div className="mb-8 text-center">
           <div className="auth-symbol mx-auto mb-4 flex size-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             {setup ? <span className="brand-mark auth-brand-mark" role="img" aria-label="Baloch Builders logo" /> : <LockKeyhole className="size-7" />}

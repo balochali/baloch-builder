@@ -14,7 +14,7 @@ export const useThemeStore = create<ThemeState>()(
       theme: "light",
       setTheme: (theme) => set({ theme }),
     }),
-    { name: "bb-theme" },
+    { name: "bb-theme-v2" },
   ),
 );
 

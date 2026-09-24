@@ -41,7 +41,7 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className={cn("w-full overflow-auto rounded-md border", className)}>
+    <div className={cn("data-table w-full overflow-auto rounded-md border", className)}>
       <table className="w-full text-sm">
         <thead className="bg-muted/50">
           {table.getHeaderGroups().map((headerGroup) => (

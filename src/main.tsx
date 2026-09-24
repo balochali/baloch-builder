@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { Providers } from "@/app/providers";
 import { AppRouter } from "@/app/router";
 import "@/styles/globals.css";
+import "@/styles/workspace-redesign.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

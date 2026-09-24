@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { MapPin, ReceiptText } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { AppShell } from "./layout/AppShell";
 import { TemporaryModulePage } from "@/components/TemporaryModulePage";
 import { AuthPage } from "@/features/auth/AuthPage";
@@ -14,6 +14,7 @@ import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { PartnersPage } from "@/features/partners/pages/PartnersPage";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
 import { CreditUdhaarPage } from "@/features/udhaar/pages/CreditUdhaarPage";
+import { PersonalExpensePage } from "@/features/personal-expense/pages/PersonalExpensePage";
 
 export function AppRouter() {
   const [auth, setAuth] = useState<"loading" | "setup" | "login" | "ready" | "error">("loading");
@@ -40,7 +41,7 @@ export function AppRouter() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/partners" element={<PartnersPage />} />
-          <Route path="/personal-expense" element={<TemporaryModulePage title="Personal Expense" icon={ReceiptText} description="Personal spending records will be available here." />} />
+          <Route path="/personal-expense" element={<PersonalExpensePage />} />
           <Route path="/credit-udhaar" element={<CreditUdhaarPage />} />
           <Route path="/ledger" element={<Navigate to="/credit-udhaar" replace />} />
           <Route path="/documents" element={<Navigate to="/projects" replace />} />
