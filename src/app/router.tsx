@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { MapPin, ReceiptText } from "lucide-react";
 import { AppShell } from "./layout/AppShell";
+import { TemporaryModulePage } from "@/components/TemporaryModulePage";
 import { AuthPage } from "@/features/auth/AuthPage";
 
 // Feature pages
 import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 import { ContactsPage } from "@/features/contacts/pages/ContactsPage";
-import { LandComingSoonPage } from "@/features/land/pages/ComingSoon";
 import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { PartnersPage } from "@/features/partners/pages/PartnersPage";
-import { LedgerComingSoonPage } from "@/features/ledger/pages/ComingSoon";
-import { DocumentsComingSoonPage } from "@/features/documents/pages/ComingSoon";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
+import { CreditUdhaarPage } from "@/features/udhaar/pages/CreditUdhaarPage";
 
 export function AppRouter() {
   const [auth, setAuth] = useState<"loading" | "setup" | "login" | "ready" | "error">("loading");
@@ -36,12 +36,14 @@ export function AppRouter() {
         <Route element={<AppShell />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/land" element={<LandComingSoonPage />} />
+          <Route path="/land" element={<TemporaryModulePage title="Land" icon={MapPin} description="Land records and acquisition details will be available here." />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/partners" element={<PartnersPage />} />
-          <Route path="/ledger" element={<LedgerComingSoonPage />} />
-          <Route path="/documents" element={<DocumentsComingSoonPage />} />
+          <Route path="/personal-expense" element={<TemporaryModulePage title="Personal Expense" icon={ReceiptText} description="Personal spending records will be available here." />} />
+          <Route path="/credit-udhaar" element={<CreditUdhaarPage />} />
+          <Route path="/ledger" element={<Navigate to="/credit-udhaar" replace />} />
+          <Route path="/documents" element={<Navigate to="/projects" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />

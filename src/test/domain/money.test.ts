@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAmount, formatPKR, formatCompact } from "@/domain/money";
+import { parseAmount, formatPKR, formatPKRInLakhCrore, formatCompact } from "@/domain/money";
 
 describe("domain/money", () => {
   describe("parseAmount", () => {
@@ -51,5 +51,12 @@ describe("domain/money", () => {
       expect(formatCompact(50000)).toBe("50K");
       expect(formatCompact(500)).toBe("500");
     });
+  });
+
+  it("uses lakh and crore words for overview amounts", () => {
+    expect(formatPKRInLakhCrore(70_000)).toBe("Rs 70,000");
+    expect(formatPKRInLakhCrore(1_040_000)).toBe("Rs 10.4 lakh");
+    expect(formatPKRInLakhCrore(15_000_000)).toBe("Rs 1.5 crore");
+    expect(formatPKRInLakhCrore(0)).toBe("Rs 0");
   });
 });
