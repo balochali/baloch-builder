@@ -10,9 +10,9 @@ export function LedgerComingSoonPage() {
         description="Single money ledger for all cash inflows, payments, and expenses in integer rupees."
       />
       <EmptyState
-        icon={<Wallet className="size-10 text-muted-foreground" />}
-        title="Money Ledger Coming Soon"
-        description="The unified financial ledger will be available in V1 Acquire & Invest."
+        icon={<Wallet className="size-12" />}
+        title="Ledger — Coming Soon"
+        description="We are working on a single view of money received and spent."
       />
     </div>
   );
