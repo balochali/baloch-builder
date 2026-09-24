@@ -3,9 +3,9 @@ import { ArrowLeft, BriefcaseBusiness, Building2, ChevronDown, ChevronRight, Hou
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PageHeader } from "@/components/PageHeader";
-import { getProjectById } from "@/data/repositories/projectsRepository";
+import { getProjectById, ProjectStatuses, updateProjectStatus, type ProjectStatus } from "@/data/repositories/projectsRepository";
 import { decodeBuildingSpaces, getProjectBuildingDetails, saveProjectBuildingDetails,
   type BuildingDetailsInput } from "@/data/repositories/projectBuildingRepository";
 import { addActualProjectCost, addProjectEstimate, archiveProjectEstimate, listActualProjectCosts, listProjectEstimates, updateProjectEstimate,
@@ -16,6 +16,8 @@ import { formatDate } from "@/lib/dates";
 import { ProjectEntryDialog } from "@/features/projects/components/ProjectEntryDialog";
 import { flatRecoveryLines, recoveryLink } from "@/features/projects/components/recoverySpaces";
 import { BuildingDetailsDialog } from "@/features/projects/components/BuildingDetailsDialog";
+import { ProjectDashboard } from "@/features/projects/components/ProjectDashboard";
+import { ProjectStatusProgress } from "@/features/projects/components/ProjectStatusProgress";
 import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
 import { BuildingAreaChart, BuildingLevelsChart, BuildingMixChart, EstimateChart, FlatLayoutChart, OwnershipChart, PartnerFundingChart, SpendingChart } from "@/features/projects/components/ProjectInsights";
@@ -23,13 +25,20 @@ import { addPartnerContribution, addProjectPartner, listPartnerContributions, li
   type AddProjectPartnerInput, type PartnerContributionInput,
   type ProjectPartnerRow } from "@/data/repositories/projectPartnersRepository";
 
-type Tab = "building" | "partners" | "estimate" | "actual";
+type Tab = "dashboard" | "building" | "partners" | "estimate" | "actual";
+type BuildingTab = "overview" | "floors" | "areas";
 type EntryMode = "estimate" | "actual";
 const projectTabs: { id: Tab; label: string }[] = [
+  { id: "dashboard", label: "Dashboard" },
   { id: "building", label: "Building" },
   { id: "partners", label: "Partners" },
   { id: "estimate", label: "Estimate" },
   { id: "actual", label: "Actual Cost" },
+];
+const buildingTabs: { id: BuildingTab; label: string; description: string }[] = [
+  { id: "overview", label: "At a glance", description: "See what is planned for this building." },
+  { id: "floors", label: "Floors & flats", description: "See the floors and which flats are planned on each one." },
+  { id: "areas", label: "Areas & details", description: "See measurements and the rest of the saved plan." },
 ];
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 
@@ -38,13 +47,18 @@ export function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [buildingDetails, setBuildingDetails] = useState<ProjectBuildingDetails | null>(null);
   const [buildingDialogOpen, setBuildingDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDraft, setStatusDraft] = useState<ProjectStatus>("planning");
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [statusError, setStatusError] = useState("");
   const [partners, setPartners] = useState<ProjectPartnerRow[]>([]);
   const [contributions, setContributions] = useState<Transaction[]>([]);
   const [partnerDialog, setPartnerDialog] = useState<ProjectPartnerRow | "new" | null>(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
-  const [tab, setTab] = useState<Tab>("building");
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [buildingTab, setBuildingTab] = useState<BuildingTab>("overview");
   const [dialog, setDialog] = useState<EntryMode | null>(null);
   const [estimateKind, setEstimateKind] = useState<"cost" | "revenue">("cost");
   const [editingEstimate, setEditingEstimate] = useState<ProjectEstimate | null>(null);
@@ -96,6 +110,22 @@ export function ProjectDetailPage() {
     const row = await saveProjectBuildingDetails(value);
     setBuildingDetails(row);
     toast.success("Building details saved");
+  }
+
+  async function saveStatus() {
+    if (!project) return;
+    setSavingStatus(true);
+    setStatusError("");
+    try {
+      const updated = await updateProjectStatus(project.id, statusDraft);
+      setProject(updated);
+      setStatusDialogOpen(false);
+      toast.success("Project status updated");
+    } catch (cause) {
+      setStatusError(`Could not update status: ${String(cause)}`);
+    } finally {
+      setSavingStatus(false);
+    }
   }
 
   async function refreshPartners(id: string) {
@@ -155,15 +185,22 @@ export function ProjectDetailPage() {
   const showPlannedSpace = (space: typeof selectedSpaces[number]) => selectedSpaces.length === 0 || selectedSpaces.includes(space);
 
   return <div>
-    <Link to="/projects" className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-      <ArrowLeft className="size-4" />Back to Projects
-    </Link>
     {loading && <p className="py-8 text-sm text-muted-foreground">Loading project…</p>}
     {!loading && error && <p role="alert" className="py-8 text-sm text-destructive">Could not load project: {error}</p>}
     {!loading && !error && !project && <p className="py-8 text-sm text-muted-foreground">Project not found.</p>}
     {!loading && !error && project && <>
-      <PageHeader title={project.name} description={`${project.location || "No address"} · ${project.status || "Planning"}`} />
-      {project.description && <p className="mb-6 text-sm text-muted-foreground">{project.description}</p>}
+      <section className="project-heading-card" aria-label="Project and status">
+        <div className="project-heading-top">
+          <div><Link to="/projects" className="project-heading-back"><ArrowLeft className="size-4" />Back to Projects</Link>
+            <h1>{project.name}</h1><p>{project.location || "No address"}</p></div>
+          <Button variant="outline" onClick={() => {
+            setStatusDraft(ProjectStatuses.includes(project.status as ProjectStatus) ? project.status as ProjectStatus : "planning");
+            setStatusError("");
+            setStatusDialogOpen(true);
+          }}><Pencil className="size-4" />Change Status</Button>
+        </div>
+        <ProjectStatusProgress status={project.status} />
+      </section>
 
       <div role="tablist" aria-label="Project details" className="project-detail-tabs">
         {projectTabs.map(({ id, label }, index) => <button key={id} id={`project-tab-${id}`} type="button" role="tab"
@@ -176,6 +213,9 @@ export function ProjectDetailPage() {
           }}>{label}</button>)}
       </div>
 
+      {tab === "dashboard" && <ProjectDashboard project={project} buildingDetails={buildingDetails}
+        partners={partners} contributions={contributions} estimates={estimates} actualCosts={actualCosts} />}
+
       {tab === "building" && <section id="project-panel-building" role="tabpanel" aria-labelledby="project-tab-building" className="project-detail-section mb-8 rounded-xl border bg-card p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -187,12 +227,36 @@ export function ProjectDetailPage() {
           </Button>
         </div>
         {buildingDetails ? <>
+          <div role="tablist" aria-label="Building details" className="building-detail-tabs">
+            {buildingTabs.map(({ id, label }, index) => <button key={id} id={`building-tab-${id}`} type="button" role="tab"
+              aria-selected={buildingTab === id} aria-controls={`building-panel-${id}`} tabIndex={buildingTab === id ? 0 : -1}
+              onClick={() => setBuildingTab(id)} onKeyDown={(event) => {
+                const next = event.key === "ArrowRight" ? (index + 1) % buildingTabs.length :
+                  event.key === "ArrowLeft" ? (index - 1 + buildingTabs.length) % buildingTabs.length :
+                  event.key === "Home" ? 0 : event.key === "End" ? buildingTabs.length - 1 : -1;
+                if (next >= 0) { event.preventDefault(); const target = buildingTabs[next].id; setBuildingTab(target); document.getElementById(`building-tab-${target}`)?.focus(); }
+              }}>{label}</button>)}
+          </div>
+          <p className="building-tab-description">{buildingTabs.find((item) => item.id === buildingTab)?.description}</p>
+          {buildingTab === "overview" && <div id="building-panel-overview" role="tabpanel" aria-labelledby="building-tab-overview" className="building-tab-panel">
           {selectedSpaces.length > 0 &&
-            <div className="mb-5 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
               {selectedSpaces.map((space) =>
                 <span key={space} className="rounded-full bg-muted px-2.5 py-1 text-xs capitalize">{space.replace(/_/g, " ")}</span>)}
             </div>}
-          <div className="building-insight-grid"><BuildingMixChart details={buildingDetails} /><BuildingLevelsChart details={buildingDetails} /></div>
+          <div className="building-overview-chart"><BuildingMixChart details={buildingDetails} /></div>
+          <div className="building-overview-facts">
+            <Detail label="Building use" value={buildingDetails.building_use?.replace("-", " ")} icon={Building2} />
+            <Detail label="Floors above ground" value={buildingDetails.floors_above_ground} icon={Layers} />
+            {showPlannedSpace("flats") && <Detail label="Planned flats" value={buildingDetails.planned_flats} icon={House} />}
+            {showPlannedSpace("shops") && <Detail label="Planned shops" value={buildingDetails.planned_shops} icon={Store} />}
+          </div>
+          </div>}
+          {buildingTab === "floors" && <div id="building-panel-floors" role="tabpanel" aria-labelledby="building-tab-floors" className="building-tab-panel">
+          <div className="building-floors-chart"><BuildingLevelsChart details={buildingDetails} /></div>
+          <FlatLayoutChart details={buildingDetails} />
+          </div>}
+          {buildingTab === "areas" && <div id="building-panel-areas" role="tabpanel" aria-labelledby="building-tab-areas" className="building-tab-panel">
           <div className="building-area-insight"><BuildingAreaChart details={buildingDetails} /></div>
           <div className="building-facts-heading"><h3>Plan highlights</h3><p>Only details saved for this building appear here.</p></div>
           <div className="project-details-grid">
@@ -215,7 +279,7 @@ export function ProjectDetailPage() {
               `${buildingDetails.covered_area_sqft.toLocaleString()} sq ft`} icon={Ruler} />
           </div>
           {buildingDetails.notes && <p className="mt-5 border-t pt-4 text-sm text-muted-foreground">{buildingDetails.notes}</p>}
-          <FlatLayoutChart details={buildingDetails} />
+          </div>}
         </> : <p className="text-sm text-muted-foreground">No building details added yet.</p>}
       </section>}
 
@@ -319,6 +383,20 @@ export function ProjectDetailPage() {
         onEstimate={saveEstimate} onActual={saveActual} />}
       {buildingDialogOpen && <BuildingDetailsDialog projectId={project.id} details={buildingDetails}
         onOpenChange={setBuildingDialogOpen} onSubmit={saveBuildingDetails} />}
+      <Dialog open={statusDialogOpen} onOpenChange={(open) => { if (!savingStatus) setStatusDialogOpen(open); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Change project status</DialogTitle><p className="text-sm text-muted-foreground">Choose the stage that best describes this project now.</p></DialogHeader>
+          <div className="space-y-2"><Label htmlFor="project-update-status">Project status</Label>
+            <select id="project-update-status" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={statusDraft} onChange={(event) => setStatusDraft(event.target.value as ProjectStatus)}>
+              {ProjectStatuses.map((status) => <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground">The new status will also appear on the Projects page.</p>
+          </div>
+          {statusError && <p role="alert" className="text-sm text-destructive">{statusError}</p>}
+          <DialogFooter><Button type="button" variant="outline" disabled={savingStatus} onClick={() => setStatusDialogOpen(false)}>Cancel</Button>
+            <Button type="button" disabled={savingStatus || statusDraft === project.status} onClick={saveStatus}>{savingStatus ? "Saving…" : "Save status"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!selectedPartner} onOpenChange={(open) => { if (!open) setSelectedPartnerId(null); }}>
         <DialogContent className="partner-dialog partner-profile-modal max-h-[90vh] overflow-y-auto sm:max-w-xl">
           {selectedPartner && <>

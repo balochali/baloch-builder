@@ -3,12 +3,15 @@ import { execute, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
 import type { Project } from "@/domain/types";
 
+export const ProjectStatuses = ["planning", "land acquired", "under construction", "completed", "on hold"] as const;
+export type ProjectStatus = typeof ProjectStatuses[number];
+
 export const CreateProjectSchema = z.object({
   name: z.string().trim().min(1, "Project name is required").max(120),
   location: z.string().trim().min(1, "Project address is required").max(500),
   code: z.string().trim().max(40),
   description: z.string().trim().max(2000),
-  status: z.enum(["planning", "land acquired", "under construction", "completed", "on hold"]),
+  status: z.enum(ProjectStatuses),
   start_date: z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/, "Enter a valid start date"),
 });
 
@@ -52,4 +55,14 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
   const rows = await query<Project>(`SELECT * FROM projects WHERE id = ?`, [id]);
   if (!rows[0]) throw new Error("Project was saved but could not be loaded");
   return rows[0];
+}
+
+export async function updateProjectStatus(id: string, status: ProjectStatus): Promise<Project> {
+  const validStatus = CreateProjectSchema.shape.status.parse(status);
+  const result = await execute(`UPDATE projects SET status = ?, updated_at = ?
+    WHERE id = ? AND archived = 0`, [validStatus, now(), id]);
+  if (result.rowsAffected === 0) throw new Error("Project not found");
+  const project = await getProjectById(id);
+  if (!project) throw new Error("Project status was saved but the project could not be loaded");
+  return project;
 }

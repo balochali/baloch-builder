@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { format } from "date-fns";
-import { CarFront, House, MapPinned, MoreHorizontal, Plus, Search, ShoppingBag, Trash2, Watch } from "lucide-react";
+import { ArrowRight, CarFront, ChartNoAxesColumn, House, List, MapPinned, MoreHorizontal, Plus, Search, ShoppingBag, Trash2, Watch } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ export function PersonalExpensePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"overview" | "purchases">("overview");
   const [filter, setFilter] = useState<ExpenseCategory | "all">("all");
   const [editing, setEditing] = useState<PersonalExpense | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -62,6 +63,7 @@ export function PersonalExpensePage() {
     toast.success(editing ? "Purchase updated" : "Purchase saved");
     setFormOpen(false);
     setEditing(null);
+    setView("purchases");
     try { setRecords(await listPersonalExpenses()); }
     catch { toast.error("Saved. Reopen this page to see the latest purchases."); }
   }
@@ -81,7 +83,16 @@ export function PersonalExpensePage() {
   return <main className="expense-page">
     <header className="expense-heading"><div><p className="projects-eyebrow">PERSONAL PURCHASES</p><h1>Personal Expense</h1><p>Keep a clear record of the cars, watches, property and other things you buy.</p></div>
       <Button onClick={() => { setEditing(null); setFormOpen(true); }}><Plus size={18} />Add purchase</Button></header>
+    <div className="expense-tabs" role="tablist" aria-label="Personal Expense views">
+      {(["overview", "purchases"] as const).map((tab, index) => <button type="button" role="tab" key={tab} id={`expense-tab-${tab}`}
+        aria-selected={view === tab} aria-controls={`expense-panel-${tab}`} tabIndex={view === tab ? 0 : -1}
+        onClick={() => setView(tab)} onKeyDown={(event) => {
+          const next = event.key === "ArrowRight" || event.key === "ArrowLeft" ? (index + 1) % 2 : event.key === "Home" ? 0 : event.key === "End" ? 1 : -1;
+          if (next >= 0) { event.preventDefault(); const target = next === 0 ? "overview" : "purchases"; setView(target); document.getElementById(`expense-tab-${target}`)?.focus(); }
+        }}>{tab === "overview" ? <ChartNoAxesColumn size={17} /> : <List size={17} />}{tab === "overview" ? "Overview" : "Purchases"}{tab === "purchases" && records.length > 0 && <span>{records.length}</span>}</button>)}
+    </div>
     {loading ? <p className="expense-message">Loading purchases…</p> : loadError ? <p role="alert" className="expense-message text-destructive">Could not load purchases: {loadError}</p> : <>
+      {view === "overview" && <section id="expense-panel-overview" role="tabpanel" aria-labelledby="expense-tab-overview" className="expense-tab-panel">
       <section className="expense-summary" aria-label="Purchase summary">
         <div className="expense-total"><span className="expense-summary-icon"><ShoppingBag size={22} /></span><span>Total spent</span><strong>{formatPKRInLakhCrore(total)}</strong><small>{records.length} {records.length === 1 ? "purchase" : "purchases"} recorded</small></div>
         <div className="expense-category-strip">{byCategory.map((category) => {
@@ -94,6 +105,10 @@ export function PersonalExpensePage() {
           <div><strong>{category.label}</strong><span>{category.count} {category.count === 1 ? "item" : "items"} · {formatPKRInLakhCrore(category.amount)}</span></div>
           <span className="expense-bar-track"><span style={{ width: `${category.amount ? Math.max(3, category.amount / largest * 100) : 0}%`, background: category.color }} /></span>
         </div>)}</div></section>}
+      {records.length === 0 ? <div className="expense-empty expense-overview-empty"><ShoppingBag size={32} /><h3>Your overview starts here</h3><p>Add your first purchase to see totals and a breakdown by category.</p><Button onClick={() => { setEditing(null); setFormOpen(true); }}><Plus size={17} />Add purchase</Button></div> :
+        <Button variant="outline" className="expense-view-purchases" onClick={() => setView("purchases")}>See all purchases <ArrowRight size={17} /></Button>}
+      </section>}
+      {view === "purchases" && <section id="expense-panel-purchases" role="tabpanel" aria-labelledby="expense-tab-purchases" className="expense-tab-panel">
       <section className="expense-records" aria-labelledby="expense-records-title"><div className="expense-records-heading"><div><h2 id="expense-records-title">Your purchases</h2><p>Select a purchase to change its details.</p></div><span>{visible.length} shown</span></div>
         {records.length > 0 && <div className="expense-tools"><div className="expense-search"><Search size={17} /><Input aria-label="Search purchases" placeholder="Search by item or note…" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
           <div className="expense-filters" aria-label="Filter purchases">{[{ id: "all", label: "All" }, ...categories].map((category) => <button type="button" key={category.id} className={filter === category.id ? "is-active" : ""} aria-pressed={filter === category.id} onClick={() => setFilter(category.id as ExpenseCategory | "all")}>{category.label}</button>)}</div></div>}
@@ -105,6 +120,7 @@ export function PersonalExpensePage() {
             </div>;
           })}</div>}
       </section>
+      </section>}
     </>}
     {formOpen && <ExpenseForm key={editing?.id ?? "new"} record={editing} onClose={() => { setFormOpen(false); setEditing(null); }} onSave={save} />}
     <Dialog open={Boolean(removing)} onOpenChange={(open) => { if (!open && !busy) setRemoving(null); }}><DialogContent><DialogHeader><DialogTitle>Remove this purchase?</DialogTitle><p className="text-sm text-muted-foreground">{removing?.item_name} will be removed from your spending totals and list.</p></DialogHeader>{actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}<DialogFooter><Button variant="outline" onClick={() => setRemoving(null)} disabled={busy}>Cancel</Button><Button variant="destructive" onClick={remove} disabled={busy}>{busy ? "Removing…" : "Remove purchase"}</Button></DialogFooter></DialogContent></Dialog>

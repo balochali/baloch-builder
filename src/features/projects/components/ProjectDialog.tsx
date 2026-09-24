@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CreateProjectSchema, type CreateProjectInput } from "@/data/repositories/projectsRepository";
+import { CreateProjectSchema, ProjectStatuses, type CreateProjectInput } from "@/data/repositories/projectsRepository";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,11 +57,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit }: ProjectDialogPro
             <div className="space-y-1.5">
               <Label htmlFor="project-status">Status</Label>
               <select id="project-status" className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" {...form.register("status")}>
-                <option value="planning">Planning</option>
-                <option value="land acquired">Land acquired</option>
-                <option value="under construction">Under construction</option>
-                <option value="completed">Completed</option>
-                <option value="on hold">On hold</option>
+                {ProjectStatuses.map((status) => <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>)}
               </select>
             </div>
           </div>

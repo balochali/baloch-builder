@@ -23,9 +23,13 @@ describe("BuildingDetailsDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Total floors, including ground *"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Basements"), { target: { value: "1" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Add flat type" })[1]);
-    fireEvent.change(screen.getByLabelText("Rooms per flat"), { target: { value: "2" } });
-    fireEvent.change(screen.getByLabelText("Number of flats"), { target: { value: "3" } });
+    expect(screen.getByRole("heading", { name: "Ground floor" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next floor" }));
+    expect(screen.getByRole("heading", { name: "Floor 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Ground floor" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "+ Add a flat size" }));
+    fireEvent.change(screen.getByLabelText("Rooms in each flat"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("How many flats like this?"), { target: { value: "3" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(screen.getByLabelText("Planned shops")).toBeInTheDocument();

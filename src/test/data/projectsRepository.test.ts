@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as client from "@/data/client";
-import { createProject, listProjects } from "@/data/repositories/projectsRepository";
+import { createProject, listProjects, updateProjectStatus } from "@/data/repositories/projectsRepository";
 import type { Project } from "@/domain/types";
 
 describe("projectsRepository", () => {
@@ -38,5 +38,19 @@ describe("projectsRepository", () => {
     const query = vi.spyOn(client, "query").mockResolvedValue([]);
     await listProjects();
     expect(query).toHaveBeenCalledWith(expect.stringContaining("WHERE archived = 0"));
+  });
+
+  it("updates the status of an active project and returns the saved row", async () => {
+    const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
+    vi.spyOn(client, "query").mockResolvedValue([{ id: "project-1", status: "under construction" }] as Project[]);
+    const project = await updateProjectStatus("project-1", "under construction");
+    expect(execute).toHaveBeenCalledWith(expect.stringContaining("UPDATE projects SET status"),
+      expect.arrayContaining(["under construction", "project-1"]));
+    expect(project.status).toBe("under construction");
+  });
+
+  it("rejects a status update for a missing project", async () => {
+    vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 0 });
+    await expect(updateProjectStatus("missing", "completed")).rejects.toThrow("Project not found");
   });
 });

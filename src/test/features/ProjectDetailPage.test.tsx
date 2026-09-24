@@ -2,12 +2,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
-import { getProjectById } from "@/data/repositories/projectsRepository";
+import { getProjectById, updateProjectStatus } from "@/data/repositories/projectsRepository";
 import { addProjectEstimate, archiveProjectEstimate, updateProjectEstimate, listProjectEstimates, listActualProjectCosts } from "@/data/repositories/projectFinanceRepository";
 import { getProjectBuildingDetails, saveProjectBuildingDetails } from "@/data/repositories/projectBuildingRepository";
 import { listProjectPartners, listPartnerContributions, addProjectPartner, addPartnerContribution } from "@/data/repositories/projectPartnersRepository";
 
-vi.mock("@/data/repositories/projectsRepository", () => ({ getProjectById: vi.fn() }));
+vi.mock("@/data/repositories/projectsRepository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/data/repositories/projectsRepository")>(),
+  getProjectById: vi.fn(), updateProjectStatus: vi.fn(),
+}));
 vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/data/repositories/projectFinanceRepository")>(),
   listProjectEstimates: vi.fn(), listActualProjectCosts: vi.fn(), archiveProjectEstimate: vi.fn(), addProjectEstimate: vi.fn(),
@@ -39,6 +42,35 @@ describe("ProjectDetailPage", () => {
     vi.mocked(listPartnerContributions).mockResolvedValue([]);
     vi.mocked(addProjectPartner).mockResolvedValue(undefined);
     vi.mocked(addPartnerContribution).mockResolvedValue(undefined);
+  });
+
+  it("opens on the project dashboard and explains charts without saved data", async () => {
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    expect(await screen.findByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Baloch Residency dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Building mix" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
+    expect(screen.getByText(/Record actual project costs to see a line chart/)).toBeInTheDocument();
+  });
+
+  it("changes the project status and shows the saved stage", async () => {
+    vi.mocked(updateProjectStatus).mockResolvedValue({
+      id: "11111111-1111-4111-8111-111111111111", name: "Baloch Residency",
+      code: "BR-01", location: "Quetta", description: null, status: "under construction",
+      start_date: null, archived: 0, custom: "{}", created_at: "2026-09-22", updated_at: "2026-09-24",
+    });
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    expect(await screen.findByRole("heading", { name: "Baloch Residency" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change Status" }));
+    fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "under construction" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save status" }));
+    await waitFor(() => expect(updateProjectStatus).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "under construction"));
+    expect(screen.getByText("Quetta")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Project at Construction, stage 3 of 4" })).toBeInTheDocument();
   });
 
   it("opens the estimate and actual cost entry modals from their tabs", async () => {
@@ -218,13 +250,17 @@ describe("ProjectDetailPage", () => {
     render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
       <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
     </MemoryRouter>);
-    expect(await screen.findByText("Ground floor shops")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: "Building" }));
+    expect(await screen.findByRole("tab", { name: "At a glance" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "12 flats, 3 shops" })).toBeInTheDocument();
     expect(screen.getByText("Flats make up the largest part of the plan: 12 of 15 spaces (80%).")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Floors & flats" }));
     expect(screen.getByRole("img", { name: "5 floors above ground and 1 basement planned" })).toBeInTheDocument();
     expect(screen.getByText("Floor 1")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Area overview" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Ground floor: 3 2-room flats" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Areas & details" }));
+    expect(screen.getByRole("heading", { name: "Area overview" })).toBeInTheDocument();
+    expect(screen.getByText("Ground floor shops")).toBeInTheDocument();
     expect(screen.queryByText("Planned offices")).not.toBeInTheDocument();
     expect(screen.queryByText("Planned houses")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Edit Details" }));
