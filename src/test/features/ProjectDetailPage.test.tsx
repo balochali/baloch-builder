@@ -3,17 +3,24 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { getProjectById, updateProjectStatus } from "@/data/repositories/projectsRepository";
-import { addProjectEstimate, archiveProjectEstimate, updateProjectEstimate, listProjectEstimates, listActualProjectCosts } from "@/data/repositories/projectFinanceRepository";
+import { getProjectLand, saveProjectStage } from "@/data/repositories/projectStageRepository";
+import { addProjectEstimate, archiveProjectEstimate, updateProjectEstimate, listProjectEstimates, listActualProjectCosts, listConstructionCosts, addConstructionCost } from "@/data/repositories/projectFinanceRepository";
 import { getProjectBuildingDetails, saveProjectBuildingDetails } from "@/data/repositories/projectBuildingRepository";
 import { listProjectPartners, listPartnerContributions, addProjectPartner, addPartnerContribution } from "@/data/repositories/projectPartnersRepository";
+import type { Transaction } from "@/domain/types";
+import type { ProjectBuildingDetails } from "@/domain/types";
 
 vi.mock("@/data/repositories/projectsRepository", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/data/repositories/projectsRepository")>(),
   getProjectById: vi.fn(), updateProjectStatus: vi.fn(),
 }));
+vi.mock("@/data/repositories/projectStageRepository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/data/repositories/projectStageRepository")>(),
+  getProjectLand: vi.fn(), saveProjectStage: vi.fn(),
+}));
 vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/data/repositories/projectFinanceRepository")>(),
-  listProjectEstimates: vi.fn(), listActualProjectCosts: vi.fn(), archiveProjectEstimate: vi.fn(), addProjectEstimate: vi.fn(),
+  listProjectEstimates: vi.fn(), listActualProjectCosts: vi.fn(), listConstructionCosts: vi.fn(), addConstructionCost: vi.fn(), archiveProjectEstimate: vi.fn(), addProjectEstimate: vi.fn(),
   updateProjectEstimate: vi.fn(),
 }));
 vi.mock("@/data/repositories/projectBuildingRepository", async (importOriginal) => ({
@@ -36,8 +43,10 @@ describe("ProjectDetailPage", () => {
     });
     vi.mocked(listProjectEstimates).mockResolvedValue([]);
     vi.mocked(listActualProjectCosts).mockResolvedValue([]);
+    vi.mocked(listConstructionCosts).mockResolvedValue([]);
     vi.mocked(archiveProjectEstimate).mockResolvedValue(undefined);
     vi.mocked(getProjectBuildingDetails).mockResolvedValue(null);
+    vi.mocked(getProjectLand).mockResolvedValue(null);
     vi.mocked(listProjectPartners).mockResolvedValue([]);
     vi.mocked(listPartnerContributions).mockResolvedValue([]);
     vi.mocked(addProjectPartner).mockResolvedValue(undefined);
@@ -71,6 +80,133 @@ describe("ProjectDetailPage", () => {
     await waitFor(() => expect(updateProjectStatus).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "under construction"));
     expect(screen.getByText("Quetta")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Project at Construction, stage 3 of 4" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Construction Cost" })).toBeInTheDocument();
+  });
+
+  it("includes the acquired land price in actual costs without a second payment", async () => {
+    vi.mocked(getProjectLand).mockResolvedValue({ id: "land-1", title: "Residency plot", location: "Quetta",
+      purchase_date: "2026-09-22", area_value: 7000, area_unit: "sqyd", seller_name: "Ali",
+      price: 19_000_000, notes: "" });
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    expect(await screen.findByRole("heading", { name: "Baloch Residency dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Spending rose to Rs 19,000,000/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
+    expect(screen.getByText("Land purchase: Residency plot")).toBeInTheDocument();
+    expect(screen.getAllByText("Land acquired").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Rs 19,000,000").length).toBeGreaterThanOrEqual(2);
+    expect(addConstructionCost).not.toHaveBeenCalled();
+  });
+
+  it("combines the land price and saved construction payments in the actual total", async () => {
+    vi.mocked(getProjectLand).mockResolvedValue({ id: "land-1", title: "Residency plot", location: "Quetta",
+      purchase_date: "2026-09-22", area_value: 7000, area_unit: "sqyd", seller_name: "Ali",
+      price: 19_000_000, notes: "" });
+    vi.mocked(listActualProjectCosts).mockResolvedValue([{ id: "construction-1", date: "2026-09-23",
+      amount: 50_000, description: "Cement", type: "construction_cost" } as Transaction]);
+    vi.mocked(listConstructionCosts).mockResolvedValue([{ id: "construction-1", date: "2026-09-23",
+      amount: 50_000, description: "Cement", type: "construction_cost" } as Transaction]);
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    expect(await screen.findByRole("img", { name: /Spending rose to Rs 19,050,000/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
+    expect(screen.getByText("Land purchase: Residency plot")).toBeInTheDocument();
+    expect(screen.getByText("Cement")).toBeInTheDocument();
+    expect(screen.getAllByText("Construction Cost").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Rs 19,050,000").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("requires land details and saves them with the acquired status", async () => {
+    vi.mocked(saveProjectStage).mockImplementation(async (_id, status) => ({
+      ...(await getProjectById("11111111-1111-4111-8111-111111111111"))!, status,
+    }));
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    expect(await screen.findByRole("heading", { name: "Baloch Residency" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change Status" }));
+    fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "land acquired" } });
+    expect(screen.getByText("Tell us about the land")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Land location *"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Enter the land location");
+    expect(saveProjectStage).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Land location *"), { target: { value: "Gul Muhammad Lane" } });
+    fireEvent.change(screen.getByLabelText("Area (optional)"), { target: { value: "7000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
+    await waitFor(() => expect(saveProjectStage).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111", "land acquired",
+      expect.objectContaining({ location: "Gul Muhammad Lane", area_value: 7000, area_unit: "sqyd" }),
+    ));
+    expect(screen.getByText(/Land acquired: Baloch Residency/)).toBeInTheDocument();
+  });
+
+  it("shows the updated acquired plot area throughout the building view", async () => {
+    vi.mocked(getProjectLand).mockResolvedValue({ id: "land-1", title: "Residency plot", location: "Quetta",
+      purchase_date: "2026-09-22", area_value: 7000, area_unit: "sqyd", seller_name: "",
+      price: null, notes: "" });
+    vi.mocked(getProjectBuildingDetails).mockResolvedValue({
+      id: "building-1", project_id: "11111111-1111-4111-8111-111111111111",
+      building_use: "residential", floors_above_ground: 1, basement_count: 0,
+      planned_flats: 2, planned_shops: null, planned_offices: null, planned_houses: null,
+      planned_parking_spaces: null, parking_area_value: null, parking_area_unit: null,
+      plot_area_value: 7000, plot_area_unit: "sqyd", covered_area_sqft: null,
+      has_masjid: 0, selected_spaces_json: '["flats"]', floor_layout_json: '[{"floor_index":0,"flat_types":[{"rooms":2,"count":2}]}]',
+      notes: null, archived: 0, custom: "{}", created_at: "2026-09-22", updated_at: "2026-09-22",
+    } as ProjectBuildingDetails);
+    vi.mocked(saveProjectStage).mockImplementation(async (_id, status) => ({
+      ...(await getProjectById("11111111-1111-4111-8111-111111111111"))!, status,
+    }));
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    expect(await screen.findByRole("heading", { name: "Baloch Residency" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change Status" }));
+    fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "land acquired" } });
+    fireEvent.change(screen.getByLabelText("Area (optional)"), { target: { value: "10000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
+    await waitFor(() => expect(saveProjectStage).toHaveBeenCalledWith(expect.any(String), "land acquired",
+      expect.objectContaining({ area_value: 10000 })));
+    fireEvent.click(screen.getByRole("tab", { name: "Building" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Areas & details" }));
+    expect(screen.getByText("10,000 sq yd")).toBeInTheDocument();
+    expect(screen.queryByText("7,000 sq yd")).not.toBeInTheDocument();
+  });
+
+  it("records construction costs in their own tab after changing status", async () => {
+    vi.mocked(updateProjectStatus).mockImplementation(async (_id, status) => ({
+      ...(await getProjectById("11111111-1111-4111-8111-111111111111"))!, status,
+    }));
+    vi.mocked(addConstructionCost).mockImplementation(async (input) => ({
+      id: "cost-1", date: input.date, amount: input.amount, description: input.description,
+      project_id: input.project_id, direction: "out", type: "construction_cost", method: input.method,
+      reference: input.reference, contact_id: null, category_id: null, related_transaction_id: null,
+      land_id: null, partner_id: null, receipt_document_id: null,
+      notes: null, archived: 0, custom: "{}", created_at: "2026-09-27", updated_at: "2026-09-27",
+    } as Transaction));
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+      <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+    </MemoryRouter>);
+    expect(await screen.findByRole("heading", { name: "Baloch Residency" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change Status" }));
+    fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "under construction" } });
+    expect(screen.queryByLabelText("Amount paid (Rs) *")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save status" }));
+    await waitFor(() => expect(updateProjectStatus).toHaveBeenCalledWith(expect.any(String), "under construction"));
+    fireEvent.click(screen.getByRole("tab", { name: "Construction Cost" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Construction Cost" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Add Construction Cost");
+    fireEvent.change(screen.getByLabelText("Amount paid (Rs) *"), { target: { value: "50000" } });
+    fireEvent.change(screen.getByLabelText("Cost description *"), { target: { value: "Cement" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(addConstructionCost).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 50000, description: "Cement",
+    })));
+    expect(screen.getByText("Cement")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
+    expect(screen.getByText("Cement")).toBeInTheDocument();
   });
 
   it("opens the estimate and actual cost entry modals from their tabs", async () => {
@@ -259,7 +395,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByText("Floor 1")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Ground floor: 3 2-room flats" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Areas & details" }));
-    expect(screen.getByRole("heading", { name: "Area overview" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Land and building areas" })).toBeInTheDocument();
     expect(screen.getByText("Ground floor shops")).toBeInTheDocument();
     expect(screen.queryByText("Planned offices")).not.toBeInTheDocument();
     expect(screen.queryByText("Planned houses")).not.toBeInTheDocument();

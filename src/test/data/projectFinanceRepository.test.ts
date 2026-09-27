@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as client from "@/data/client";
-import { addActualProjectCost, addProjectEstimate, archiveProjectEstimate, updateProjectEstimate, EstimateInputSchema,
-  listActualProjectCosts } from "@/data/repositories/projectFinanceRepository";
+import { addActualProjectCost, addConstructionCost, addProjectEstimate, archiveProjectEstimate, updateProjectEstimate, EstimateInputSchema,
+  listActualProjectCosts, listConstructionCosts } from "@/data/repositories/projectFinanceRepository";
 import type { ProjectEstimate, Transaction } from "@/domain/types";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
@@ -34,15 +34,28 @@ describe("project finance persistence", () => {
     const row = await addActualProjectCost({ project_id: projectId, date: "2026-09-22",
       amount: 50_000, description: "Cement payment", method: "cash", reference: "" });
     expect(row.amount).toBe(50_000);
-    expect(execute).toHaveBeenCalledWith(expect.stringContaining("'out', 'project_cost'"),
-      expect.arrayContaining([projectId, 50_000, "Cement payment"]));
+    expect(execute).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO transactions"),
+      expect.arrayContaining([projectId, 50_000, "Cement payment", "project_cost"]));
   });
 
-  it("shows only active project cost transactions in the actual tab", async () => {
+  it("shows active general and construction costs in the actual tab", async () => {
     const query = vi.spyOn(client, "query").mockResolvedValue([]);
     await listActualProjectCosts(projectId);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("type = 'project_cost'"), [projectId]);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("type IN ('project_cost', 'construction_cost')"), [projectId]);
     expect(query.mock.calls[0][0]).toContain("archived = 0");
+  });
+
+  it("stores and lists construction costs separately", async () => {
+    const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
+    const query = vi.spyOn(client, "query").mockResolvedValue([{ id: "construction-1", project_id: projectId,
+      date: "2026-09-27", amount: 75_000, direction: "out", type: "construction_cost",
+      method: "cash", description: "Bricks" }] as Transaction[]);
+    await addConstructionCost({ project_id: projectId, date: "2026-09-27", amount: 75_000,
+      description: "Bricks", method: "cash", reference: "" });
+    expect(execute).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO transactions"),
+      expect.arrayContaining([projectId, 75_000, "Bricks", "construction_cost"]));
+    await listConstructionCosts(projectId);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("type = 'construction_cost'"), [projectId]);
   });
 
   it("archives only an estimate belonging to the selected project", async () => {

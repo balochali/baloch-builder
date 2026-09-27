@@ -75,8 +75,6 @@ export function BuildingDetailsDialog({ projectId, details, onOpenChange, onSubm
   const [houses, setHouses] = useState(String(details?.planned_houses ?? ""));
   const [parkingArea, setParkingArea] = useState(String(details?.parking_area_value ?? ""));
   const [parkingUnit, setParkingUnit] = useState(details?.parking_area_unit ?? "");
-  const [plotArea, setPlotArea] = useState(String(details?.plot_area_value ?? ""));
-  const [plotUnit, setPlotUnit] = useState(details?.plot_area_unit ?? "");
   const [coveredArea, setCoveredArea] = useState(String(details?.covered_area_sqft ?? ""));
   const [notes, setNotes] = useState(details?.notes ?? "");
   const [error, setError] = useState("");
@@ -185,8 +183,8 @@ export function BuildingDetailsDialog({ projectId, details, onOpenChange, onSubm
       planned_houses: spaces.includes("houses") ? optionalNumber(houses) : null,
       parking_area_value: spaces.includes("parking") ? optionalNumber(parkingArea) : null,
       parking_area_unit: spaces.includes("parking") ? parkingUnit || null : null,
-      plot_area_value: optionalNumber(plotArea),
-      plot_area_unit: plotUnit || null,
+      plot_area_value: null,
+      plot_area_unit: null,
       covered_area_sqft: optionalNumber(coveredArea),
       notes,
     });
@@ -322,24 +320,8 @@ export function BuildingDetailsDialog({ projectId, details, onOpenChange, onSubm
             </div>
           </div></>}
           {spaces.includes("masjid") && <p className="rounded-md border px-3 py-2 text-sm">Masjid included in the plan</p>}
-          <h4 className="building-wizard-group-title">Land and covered area</h4>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="building-plot-area">Plot area</Label>
-              <Input id="building-plot-area" type="number" min="0" step="any" value={plotArea}
-                onChange={(event) => setPlotArea(event.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="building-plot-unit">Plot area unit</Label>
-              <select id="building-plot-unit" value={plotUnit} onChange={(event) => setPlotUnit(event.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="">Select unit</option>
-                <option value="marla">Marla</option><option value="kanal">Kanal</option>
-                <option value="sqft">Square feet</option><option value="sqyd">Square yards</option>
-                <option value="acre">Acres</option>
-              </select>
-            </div>
-          </div>
+          <h4 className="building-wizard-group-title">Covered area</h4>
+          <p className="text-xs text-muted-foreground">Plot area is recorded when you change the project status to Land acquired.</p>
           <div className="space-y-1.5">
             <Label htmlFor="building-covered-area">Total planned covered area (sq ft)</Label>
             <Input id="building-covered-area" type="number" min="0" step="any" value={coveredArea}

@@ -38,8 +38,7 @@ describe("BuildingDetailsDialog", () => {
     fireEvent.change(screen.getByLabelText("Planned shops"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Parking area *"), { target: { value: "800" } });
     fireEvent.change(screen.getByLabelText("Parking area unit *"), { target: { value: "sqyd" } });
-    fireEvent.change(screen.getByLabelText("Plot area"), { target: { value: "10" } });
-    fireEvent.change(screen.getByLabelText("Plot area unit"), { target: { value: "marla" } });
+    expect(screen.queryByLabelText("Plot area")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Total planned covered area (sq ft)"), { target: { value: "18000" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Details" }));
 
@@ -52,6 +51,7 @@ describe("BuildingDetailsDialog", () => {
         { floor_index: 1, flat_types: [{ rooms: 2, count: 3 }] },
       ],
       covered_area_sqft: 18_000,
+      plot_area_value: null, plot_area_unit: null,
     })));
   });
 
@@ -74,5 +74,18 @@ describe("BuildingDetailsDialog", () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       spaces: ["masjid", "shops"], floor_layout: [], planned_shops: 4,
     })));
+  });
+
+  it("keeps plot area out of the building form", async () => {
+    render(<BuildingDetailsDialog projectId="11111111-1111-4111-8111-111111111111"
+      details={null} onOpenChange={vi.fn()} onSubmit={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Building use"), { target: { value: "commercial" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Shops/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Total floors, including ground *"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText(/Plot area is recorded when you change the project status to Land acquired/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Plot area")).not.toBeInTheDocument();
   });
 });

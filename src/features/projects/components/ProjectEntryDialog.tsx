@@ -22,6 +22,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onEstimate: (value: EstimateInput) => Promise<void>;
   onActual: (value: ActualCostInput) => Promise<void>;
+  actualTitle?: string;
 }
 
 function wholeRupees(input: string): number | null {
@@ -31,7 +32,7 @@ function wholeRupees(input: string): number | null {
   return Number.isSafeInteger(value) ? value : null;
 }
 
-export function ProjectEntryDialog({ mode, projectId, estimate, estimateKind = "cost", buildingDetails = null, recoveryEstimates = [], onOpenChange, onEstimate, onActual }: Props) {
+export function ProjectEntryDialog({ mode, projectId, estimate, estimateKind = "cost", buildingDetails = null, recoveryEstimates = [], onOpenChange, onEstimate, onActual, actualTitle = "Add Actual Cost" }: Props) {
   const kind = estimate?.kind ?? estimateKind;
   const linkedRecovery = estimate ? recoveryLink(estimate) : null;
   const inventory = recoveryInventory(buildingDetails).map((item) => ({
@@ -139,7 +140,7 @@ export function ProjectEntryDialog({ mode, projectId, estimate, estimateKind = "
 
   return <Dialog open onOpenChange={onOpenChange}>
     <DialogContent className={`max-h-[90vh] overflow-y-auto ${detailedFlats ? "sm:max-w-2xl" : "sm:max-w-lg"}`}>
-      <DialogHeader><DialogTitle>{estimate ? `Edit ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}` : mode === "estimate" ? `Add ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}` : "Add Actual Cost"}</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{estimate ? `Edit ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}` : mode === "estimate" ? `Add ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}` : actualTitle}</DialogTitle></DialogHeader>
       <form id="project-entry-form" onSubmit={save} className="space-y-4">
         {mode === "estimate" && kind === "cost" && <div className="space-y-1.5">
           <Label htmlFor="entry-cost-choice">Cost item *</Label>

@@ -61,6 +61,12 @@ export async function listUdhaarPayments(udhaarId: string): Promise<UdhaarPaymen
     WHERE udhaar_id = ? AND archived = 0 ORDER BY paid_date DESC, created_at DESC`, [udhaarId]);
 }
 
+export async function listAllUdhaarPayments(): Promise<UdhaarPayment[]> {
+  return query<UdhaarPayment>(`SELECT p.id, p.udhaar_id, p.amount, p.paid_date, p.method, p.notes
+    FROM udhaar_payments p JOIN udhaars u ON u.id = p.udhaar_id
+    WHERE p.archived = 0 AND u.archived = 0 ORDER BY p.paid_date ASC, p.created_at ASC`);
+}
+
 export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
   const value = CreateUdhaarSchema.parse(input);
   const timestamp = now();

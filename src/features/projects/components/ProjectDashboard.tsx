@@ -1,12 +1,14 @@
 import { BarChart3, Building2, HandCoins, Layers3, Users } from "lucide-react";
 import type { Project, ProjectBuildingDetails, ProjectEstimate, Transaction } from "@/domain/types";
 import type { ProjectPartnerRow } from "@/data/repositories/projectPartnersRepository";
+import type { ProjectLand } from "@/data/repositories/projectStageRepository";
 import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
-import { BuildingMixChart, OwnershipChart, SpendingChart } from "./ProjectInsights";
+import { BuildingAreaChart, BuildingMixChart, OwnershipChart, SpendingChart } from "./ProjectInsights";
 
 interface Props {
   project: Project;
   buildingDetails: ProjectBuildingDetails | null;
+  land?: ProjectLand | null;
   partners: ProjectPartnerRow[];
   contributions: Transaction[];
   estimates: ProjectEstimate[];
@@ -17,7 +19,7 @@ function EmptyChart({ title, message }: { title: string; message: string }) {
   return <div className="project-dashboard-empty"><BarChart3 size={25} aria-hidden="true" /><h3>{title}</h3><p>{message}</p></div>;
 }
 
-export function ProjectDashboard({ project, buildingDetails, partners, contributions, estimates, actualCosts }: Props) {
+export function ProjectDashboard({ project, buildingDetails, land = null, partners, contributions, estimates, actualCosts }: Props) {
   const spaces = buildingDetails ? [buildingDetails.planned_flats, buildingDetails.planned_shops,
     buildingDetails.planned_offices, buildingDetails.planned_houses].reduce<number>((total, count) => total + (count ?? 0), 0) : 0;
   const received = contributions.reduce((total, payment) => total + payment.amount, 0);
@@ -36,9 +38,10 @@ export function ProjectDashboard({ project, buildingDetails, partners, contribut
       <div><span className="project-dashboard-metric-icon"><Layers3 size={20} /></span><small>Planned spaces</small><strong>{buildingDetails ? spaces.toLocaleString() : "Not added"}</strong><p>Flats, shops, offices and houses</p></div>
       <div><span className="project-dashboard-metric-icon"><Users size={20} /></span><small>Partners</small><strong>{partners.length}</strong><p>People linked to this project</p></div>
       <div><span className="project-dashboard-metric-icon"><HandCoins size={20} /></span><small>Money received</small><strong>{formatPKRInLakhCrore(received)}</strong><p>Payments from partners</p></div>
-      <div><span className="project-dashboard-metric-icon"><Building2 size={20} /></span><small>Actual cost</small><strong>{formatPKRInLakhCrore(spent)}</strong><p>Project costs recorded so far</p></div>
+      <div><span className="project-dashboard-metric-icon"><Building2 size={20} /></span><small>Actual cost</small><strong>{formatPKRInLakhCrore(spent)}</strong><p>Land purchase and project spending so far</p></div>
     </div>
     <div className="project-dashboard-charts">
+      {land && <div className="project-dashboard-chart"><BuildingAreaChart details={buildingDetails} land={land} /></div>}
       <div className="project-dashboard-chart">{buildingDetails && spaces > 0 ? <BuildingMixChart details={buildingDetails} /> :
         <EmptyChart title="Building mix" message="Add planned flats, shops, offices or houses in Building to see the circular chart." />}</div>
       <div className="project-dashboard-chart">{partners.length > 0 ? <OwnershipChart partners={partners} /> :

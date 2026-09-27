@@ -3,6 +3,7 @@ import type { ProjectBuildingDetails, ProjectEstimate, Transaction } from "@/dom
 import { formatCompact, formatPKR } from "@/domain/money";
 import type { ProjectPartnerRow } from "@/data/repositories/projectPartnersRepository";
 import { decodeFloorLayout } from "@/data/repositories/projectBuildingRepository";
+import type { ProjectLand } from "@/data/repositories/projectStageRepository";
 
 const colors = ["#174a81", "#d8a72f", "#4a9bb8", "#61ae8b", "#9b86cb"];
 
@@ -65,37 +66,49 @@ export function BuildingLevelsChart({ details }: { details: ProjectBuildingDetai
   </ChartCard>;
 }
 
-export function BuildingAreaChart({ details }: { details: ProjectBuildingDetails }) {
-  if (details.plot_area_value === null && details.covered_area_sqft === null && details.parking_area_value === null) return null;
-  const plotLabel = details.plot_area_value === null ? "Not added" : `${details.plot_area_value.toLocaleString()} ${details.plot_area_unit === "sqyd" ? "sq yd" : details.plot_area_unit ?? ""}`;
-  const coveredLabel = details.covered_area_sqft === null ? "Not added" : `${details.covered_area_sqft.toLocaleString()} sq ft`;
-  const parkingLabel = details.parking_area_value === null ? "Not added" : `${details.parking_area_value.toLocaleString()} ${details.parking_area_unit === "sqyd" ? "sq yd" : "sq ft"}`;
-  const plotComparable = details.plot_area_unit === "sqyd" ? (details.plot_area_value ?? 0) * 9 : details.plot_area_unit === "sqft" ? details.plot_area_value ?? 0 : 0;
-  const parkingComparable = details.parking_area_unit === "sqyd" ? (details.parking_area_value ?? 0) * 9 : details.parking_area_value ?? 0;
-  const values = [plotComparable, details.covered_area_sqft ?? 0, parkingComparable];
-  const max = Math.max(...values, 1);
-  return <ChartCard title="Area overview" hint="Bar lengths compare equivalent square feet. The original entered units remain beside each value.">
-    <div className="building-area-chart">
-      {[{ label: "Plot area", value: plotComparable, display: plotLabel, color: "#d8a72f" }, { label: "Covered area", value: details.covered_area_sqft ?? 0, display: coveredLabel, color: "#256aa3" }, { label: "Parking area", value: parkingComparable, display: parkingLabel, color: "#4a9bb8" }].map((item) => <div className="building-area-row" key={item.label}>
-        <div><strong>{item.label}</strong><span>{item.display}</span></div><div className="building-area-track"><span style={{ width: `${item.value / max * 100}%`, background: item.color }} /></div>
-      </div>)}
-    </div>
+export function BuildingAreaChart({ details, land }: { details: ProjectBuildingDetails | null; land: ProjectLand | null }) {
+  const plot = land?.area_value ?? null;
+  const covered = details?.covered_area_sqft ?? null;
+  const parking = details?.parking_area_value ?? null;
+  if (plot === null && covered === null && parking === null && !land) return null;
+  const plotComparable = land?.area_unit === "sqyd" && plot !== null ? plot * 9 : land?.area_unit === "sqft" ? plot : null;
+  const parkingComparable = details?.parking_area_unit === "sqyd" && parking !== null ? parking * 9 : parking;
+  const rows = [
+    ...(plot !== null ? [{ label: "Acquired land area", value: plotComparable, display: `${plot.toLocaleString()} ${land?.area_unit === "sqyd" ? "sq yd" : land?.area_unit === "sqft" ? "sq ft" : land?.area_unit ?? ""}`, color: "#d8a72f" }] : []),
+    ...(covered !== null ? [{ label: "Planned covered area", value: covered, display: `${covered.toLocaleString()} sq ft`, color: "#256aa3" }] : []),
+    ...(parking !== null ? [{ label: "Planned parking area", value: parkingComparable, display: `${parking.toLocaleString()} ${details?.parking_area_unit === "sqyd" ? "sq yd" : "sq ft"}`, color: "#4a9bb8" }] : []),
+  ];
+  const max = Math.max(...rows.map((row) => row.value ?? 0), 1);
+  return <ChartCard title="Land and building areas" hint="Bars compare areas after converting square yards to square feet. Other land units are shown without a comparison bar.">
+    <div className="building-area-chart">{rows.map((item) => <div className="building-area-row" key={item.label}>
+      <div><strong>{item.label}</strong><span>{item.display}</span></div>
+      {item.value !== null && <div className="building-area-track" role="img" aria-label={`${item.label}: ${item.display}`}><span style={{ width: `${item.value / max * 100}%`, background: item.color }} /></div>}
+    </div>)}</div>
+    {land && <div className="chart-takeaway"><strong>Land acquired</strong><p>{land.title} · {land.location} · {land.purchase_date}{land.price !== null ? ` · Purchase price ${formatPKR(land.price)}` : ""}{land.seller_name ? ` · Seller ${land.seller_name}` : ""}</p></div>}
   </ChartCard>;
 }
 
 export function FlatLayoutChart({ details }: { details: ProjectBuildingDetails }) {
   const floors = decodeFloorLayout(details.floor_layout_json ?? "[]").filter((floor) => floor.flat_types.length > 0);
   if (!floors.length) return null;
+  const totalFlats = floors.reduce((total, floor) => total + floor.flat_types.reduce((sum, type) => sum + type.count, 0), 0);
+  const roomCounts = [...new Set(floors.flatMap((floor) => floor.flat_types.map((type) => type.rooms)))].sort((a, b) => a - b)
+    .map((rooms) => ({ rooms, count: floors.reduce((total, floor) => total + floor.flat_types.filter((type) => type.rooms === rooms).reduce((sum, type) => sum + type.count, 0), 0) }));
+  const roomColor = (rooms: number) => rooms === 2 ? "#3179af" : rooms === 3 ? "#e3aa34" : rooms === 1 ? "#50a88d" : "#826ac0";
   return <section className="flat-layout-visual">
-    <div className="flat-layout-heading"><div><h3>Flat layout by floor</h3><p>Each apartment shape is one planned flat. Dots show its number of rooms.</p></div><span>{floors.reduce((total, floor) => total + floor.flat_types.reduce((sum, type) => sum + type.count, 0), 0)} flats mapped</span></div>
+    <div className="flat-layout-heading"><div><h3>Flat layout by floor</h3><p>A simple visual of how many flats of each size are planned on every floor.</p></div><span>{totalFlats} flats across {floors.length} {floors.length === 1 ? "floor" : "floors"}</span></div>
+    <div className="flat-layout-overview"><div className="flat-layout-total"><strong>{totalFlats}</strong><span>planned flats</span></div><div className="flat-layout-mix"><strong>Flat sizes in the building</strong><div className="flat-layout-mix-track" role="img" aria-label={roomCounts.map((item) => `${item.count} ${item.rooms}-room flats`).join(", ")}>{roomCounts.map((item) => <span key={item.rooms} style={{ width: `${item.count / totalFlats * 100}%`, background: roomColor(item.rooms) }} />)}</div><div className="flat-layout-legend">{roomCounts.map((item) => <span key={item.rooms}><i style={{ background: roomColor(item.rooms) }} /><b>{item.count}</b> {item.rooms}-room</span>)}</div></div></div>
     <div className="flat-floor-grid">{floors.map((floor) => {
       const flatCount = floor.flat_types.reduce((total, type) => total + type.count, 0);
       return <article className="flat-floor-card" key={floor.floor_index} role="img" aria-label={`${floor.floor_index === 0 ? "Ground floor" : `Floor ${floor.floor_index}`}: ${floor.flat_types.map((type) => `${type.count} ${type.rooms}-room flat${type.count === 1 ? "" : "s"}`).join(", ")}`}>
-        <div className="flat-floor-title"><span>{floor.floor_index === 0 ? "Ground" : `Floor ${floor.floor_index}`}</span><strong>{flatCount} {flatCount === 1 ? "flat" : "flats"}</strong></div>
-        <div className="flat-units">{floor.flat_types.flatMap((type) => Array.from({ length: type.count }, (_, index) => <div className="flat-unit" key={`${type.rooms}-${index}`} title={`${type.rooms}-room flat`}>
-          <span className="flat-door" /><span className="flat-room-dots">{Array.from({ length: type.rooms }, (_, room) => <i key={room} />)}</span><small>{type.rooms} room</small>
+        <div className="flat-floor-title"><span>{floor.floor_index === 0 ? "Ground floor" : `Floor ${floor.floor_index}`}</span><strong>{flatCount} {flatCount === 1 ? "flat" : "flats"}</strong></div>
+        <div className="flat-floor-strip" aria-hidden="true">{floor.flat_types.map((type) => <span key={type.rooms} style={{ width: `${type.count / flatCount * 100}%`, background: roomColor(type.rooms) }} />)}</div>
+        <div className="flat-units">{floor.flat_types.flatMap((type) => Array.from({ length: type.count }, (_, index) => <div className="flat-unit" key={`${type.rooms}-${index}`} style={{ borderColor: roomColor(type.rooms) }}>
+          <span className="flat-unit-number">Flat {String(floor.flat_types.filter((entry) => entry.rooms < type.rooms).reduce((sum, entry) => sum + entry.count, 0) + index + 1).padStart(2, "0")}</span>
+          <span className="flat-unit-room" style={{ color: roomColor(type.rooms) }}><strong>{type.rooms}</strong><small>{type.rooms === 1 ? "room" : "rooms"}</small></span>
+          <span className="flat-unit-windows" aria-hidden="true">{Array.from({ length: Math.min(type.rooms, 5) }, (_, room) => <i key={room} style={{ background: roomColor(type.rooms) }} />)}</span>
         </div>))}</div>
-        <div className="flat-floor-summary">{floor.flat_types.map((type) => `${type.count} × ${type.rooms}-room`).join(" · ")}</div>
+        <div className="flat-floor-summary">{floor.flat_types.map((type) => <span key={type.rooms}><i style={{ background: roomColor(type.rooms) }} />{type.count} {type.rooms}-room {type.count === 1 ? "flat" : "flats"}</span>)}</div>
       </article>;
     })}</div>
   </section>;

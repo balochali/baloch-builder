@@ -20,4 +20,14 @@ describe("ProjectDashboard", () => {
     expect(screen.getByRole("img", { name: "Highest expected recovery: Rs 1,100,000" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Spending rose to Rs 200,000/ })).toBeInTheDocument();
   });
+
+  it("graphs acquired land directly even before building details are entered", () => {
+    render(<ProjectDashboard project={{ name: "Residency", status: "land acquired" } as Project}
+      land={{ id: "land-1", title: "Residency plot", location: "Karachi", purchase_date: "2026-09-27",
+        area_value: 10_000, area_unit: "sqyd", price: 19_000_000, seller_name: "Murad", notes: "" }}
+      buildingDetails={null} partners={[]} contributions={[]} estimates={[]} actualCosts={[]} />);
+    expect(screen.getByRole("heading", { name: "Land and building areas" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Acquired land area: 10,000 sq yd" })).toBeInTheDocument();
+    expect(screen.getByText(/Purchase price Rs 19,000,000/)).toBeInTheDocument();
+  });
 });

@@ -11,7 +11,7 @@ export const CreateProjectSchema = z.object({
   location: z.string().trim().min(1, "Project address is required").max(500),
   code: z.string().trim().max(40),
   description: z.string().trim().max(2000),
-  status: z.enum(ProjectStatuses),
+  status: z.literal("planning"),
   start_date: z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/, "Enter a valid start date"),
 });
 
@@ -58,7 +58,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
 }
 
 export async function updateProjectStatus(id: string, status: ProjectStatus): Promise<Project> {
-  const validStatus = CreateProjectSchema.shape.status.parse(status);
+  const validStatus = z.enum(ProjectStatuses).parse(status);
   const result = await execute(`UPDATE projects SET status = ?, updated_at = ?
     WHERE id = ? AND archived = 0`, [validStatus, now(), id]);
   if (result.rowsAffected === 0) throw new Error("Project not found");

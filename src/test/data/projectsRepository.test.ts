@@ -34,6 +34,13 @@ describe("projectsRepository", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("starts a new project in planning so land details are captured during the status change", async () => {
+    const execute = vi.spyOn(client, "execute");
+    await expect(createProject({ name: "Residency", location: "Karachi", code: "", description: "",
+      status: "land acquired" as "planning", start_date: "" })).rejects.toThrow();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("lists only active projects", async () => {
     const query = vi.spyOn(client, "query").mockResolvedValue([]);
     await listProjects();

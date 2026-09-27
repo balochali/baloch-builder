@@ -16,6 +16,8 @@ describe("ProjectDialog", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     const onOpenChange = vi.fn();
     render(<ProjectDialog open onOpenChange={onOpenChange} onSubmit={onSubmit} />);
+    expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
+    expect(screen.getByText(/New projects start in Planning/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/Project name/i), { target: { value: "Baloch Residency" } });
     fireEvent.change(screen.getByLabelText(/Project address/i), { target: { value: "Quetta" } });
     fireEvent.click(screen.getByRole("button", { name: "Create Project" }));

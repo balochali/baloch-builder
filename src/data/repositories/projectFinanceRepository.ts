@@ -88,13 +88,28 @@ export async function archiveProjectEstimate(projectId: string, estimateId: stri
 export async function listActualProjectCosts(projectId: string): Promise<Transaction[]> {
   return query<Transaction>(
     `SELECT * FROM transactions
-     WHERE project_id = ? AND type = 'project_cost' AND direction = 'out' AND archived = 0
+     WHERE project_id = ? AND type IN ('project_cost', 'construction_cost') AND direction = 'out' AND archived = 0
      ORDER BY date DESC, created_at DESC`,
     [projectId],
   );
 }
 
+export async function listConstructionCosts(projectId: string): Promise<Transaction[]> {
+  return query<Transaction>(
+    `SELECT * FROM transactions WHERE project_id = ? AND type = 'construction_cost'
+     AND direction = 'out' AND archived = 0 ORDER BY date DESC, created_at DESC`, [projectId],
+  );
+}
+
 export async function addActualProjectCost(input: ActualCostInput): Promise<Transaction> {
+  return addCost(input, "project_cost");
+}
+
+export async function addConstructionCost(input: ActualCostInput): Promise<Transaction> {
+  return addCost(input, "construction_cost");
+}
+
+async function addCost(input: ActualCostInput, type: "project_cost" | "construction_cost"): Promise<Transaction> {
   const value = ActualCostInputSchema.parse(input);
   const id = newId();
   const timestamp = now();
@@ -102,8 +117,8 @@ export async function addActualProjectCost(input: ActualCostInput): Promise<Tran
     `INSERT INTO transactions
       (id, date, amount, direction, type, method, reference, description, project_id,
        created_at, updated_at, archived, custom)
-     VALUES (?, ?, ?, 'out', 'project_cost', ?, ?, ?, ?, ?, ?, 0, '{}')`,
-    [id, value.date, value.amount, value.method, value.reference || null,
+     VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, 0, '{}')`,
+    [id, value.date, value.amount, type, value.method, value.reference || null,
       value.description, value.project_id, timestamp, timestamp],
   );
   const rows = await query<Transaction>(`SELECT * FROM transactions WHERE id = ?`, [id]);
