@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { format } from "date-fns";
-import { ArrowRight, CalendarDays, CircleCheck, HandCoins, Plus, Search, UserRound, Wallet } from "lucide-react";
+import { format, startOfWeek, startOfMonth, startOfYear, differenceInCalendarDays, parseISO } from "date-fns";
+import { ArrowRight, CalendarDays, CircleCheck, HandCoins, Plus, Search, UserRound, Wallet, TrendingUp, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
-import { AddUdhaarPaymentSchema, CreateUdhaarSchema, addUdhaarPayment, createUdhaar, listUdhaarPayments, listUdhaars,
+import { AddUdhaarPaymentSchema, CreateUdhaarSchema, addUdhaarPayment, createUdhaar, listAllUdhaarPayments, listUdhaarPayments, listUdhaars,
   type AddUdhaarPaymentInput, type CreateUdhaarInput, type Udhaar, type UdhaarPayment } from "@/data/repositories/udhaarRepository";
 
 function rupees(value: string): number | null {
@@ -19,13 +19,74 @@ function rupees(value: string): number | null {
 }
 
 const today = () => format(new Date(), "yyyy-MM-dd");
+type Period = "all" | "daily" | "weekly" | "monthly" | "yearly" | "custom";
+const periodNames: Record<Period, string> = { all: "All time", daily: "Today", weekly: "This week", monthly: "This month", yearly: "This year", custom: "Custom" };
+
+function dateRange(period: Period, customFrom: string, customTo: string) {
+  const now = new Date();
+  const end = period === "custom" ? customTo : period === "all" ? null : format(now, "yyyy-MM-dd");
+  const start = period === "custom" ? customFrom : period === "daily" ? format(now, "yyyy-MM-dd")
+    : period === "weekly" ? format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd")
+      : period === "monthly" ? format(startOfMonth(now), "yyyy-MM-dd")
+        : period === "yearly" ? format(startOfYear(now), "yyyy-MM-dd") : null;
+  return { start, end };
+}
+
+function inRange(date: string, start: string | null, end: string | null) {
+  return (!start || date >= start) && (!end || date <= end);
+}
+
+function UdhaarActivityCharts({ loans, payments, start, end, allLoans, allPayments }: {
+  loans: Udhaar[]; payments: UdhaarPayment[]; start: string | null; end: string | null;
+  allLoans: Udhaar[]; allPayments: UdhaarPayment[];
+}) {
+  const events = [...loans.map((loan) => ({ date: loan.given_date, given: loan.amount, paid: 0 })),
+    ...payments.map((payment) => ({ date: payment.paid_date, given: 0, paid: payment.amount }))];
+  if (!events.length) return <div className="udhaar-activity-empty"><BarChart3 size={27} /><strong>No money moved in this period</strong><p>Choose another date range to see lending and repayments.</p></div>;
+  const dates = events.map((event) => event.date).sort();
+  const span = differenceInCalendarDays(parseISO(end ?? dates[dates.length - 1]), parseISO(start ?? dates[0]));
+  const bucket = (date: string) => span > 730 ? format(parseISO(date), "yyyy")
+    : span > 90 ? format(parseISO(date), "yyyy-MM")
+      : span > 31 ? format(startOfWeek(parseISO(date), { weekStartsOn: 1 }), "yyyy-MM-dd") : date;
+  const grouped = new Map<string, { given: number; paid: number }>();
+  events.forEach((event) => { const key = bucket(event.date); const current = grouped.get(key) ?? { given: 0, paid: 0 };
+    grouped.set(key, { given: current.given + event.given, paid: current.paid + event.paid }); });
+  const rows = [...grouped].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => ({ key, ...value }));
+  const maxBar = Math.max(...rows.map((row) => Math.max(row.given, row.paid)), 1);
+  const before = start ? allLoans.filter((loan) => loan.given_date < start).reduce((total, loan) => total + loan.amount, 0)
+    - allPayments.filter((payment) => payment.paid_date < start).reduce((total, payment) => total + payment.amount, 0) : 0;
+  const points = rows.reduce<{ x: number; amount: number }[]>((result, row, index) => {
+    const previous = result.length ? result[result.length - 1].amount : before;
+    return [...result, { x: rows.length === 1 ? 150 : 12 + index / (rows.length - 1) * 276,
+      amount: Math.max(0, previous + row.given - row.paid) }];
+  }, []);
+  const maxLine = Math.max(...points.map((point) => point.amount), before, 1);
+  const line = points.map((point) => `${point.x},${106 - point.amount / maxLine * 88}`).join(" ");
+  const formatBucket = (key: string) => key.length === 4 ? key : key.length === 7 ? format(parseISO(`${key}-01`), "MMM yyyy") : formatDate(key);
+  return <div className="udhaar-activity-grid">
+    <section className="udhaar-activity-card" aria-label="Money given and paid back by date"><div className="udhaar-chart-head"><BarChart3 size={20} /><div><h3>Money moving</h3><p>Blue is money given; green is money paid back.</p></div></div>
+      <div className="udhaar-activity-legend"><span><i className="given" />Given</span><span><i className="paid" />Paid back</span></div>
+      <div className="udhaar-activity-bars">{rows.map((row) => <div className="udhaar-activity-group" key={row.key} role="img" aria-label={`${formatBucket(row.key)}: ${formatPKR(row.given)} given, ${formatPKR(row.paid)} paid back`}>
+        <div className="udhaar-activity-columns"><span className="given" style={{ height: `${row.given ? Math.max(7, row.given / maxBar * 100) : 0}%` }} /><span className="paid" style={{ height: `${row.paid ? Math.max(7, row.paid / maxBar * 100) : 0}%` }} /></div><small>{formatBucket(row.key)}</small></div>)}</div>
+    </section>
+    <section className="udhaar-activity-card" aria-label="Outstanding balance trend"><div className="udhaar-chart-head"><TrendingUp size={20} /><div><h3>Still to receive over time</h3><p>The line rises when you lend and falls when someone pays back.</p></div></div>
+      <strong className="udhaar-trend-total">{formatPKRInLakhCrore(points[points.length - 1].amount)}</strong>
+      <svg className="udhaar-trend-line" viewBox="0 0 300 120" role="img" aria-label={`Outstanding balance reached ${formatPKR(points[points.length - 1].amount)}`} preserveAspectRatio="none"><line x1="0" x2="300" y1="106" y2="106" stroke="#dce7f0" /><line x1="0" x2="300" y1="62" y2="62" stroke="#edf2f7" /><polyline points={line} fill="none" stroke="#267db6" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />{points.map((point, index) => <circle key={index} cx={point.x} cy={106 - point.amount / maxLine * 88} r="4" fill="#e8b941" />)}</svg>
+      <div className="udhaar-trend-dates"><span>{formatBucket(rows[0].key)}</span><span>{rows.length > 1 ? formatBucket(rows[rows.length - 1].key) : ""}</span></div>
+    </section>
+  </div>;
+}
 
 export function CreditUdhaarPage() {
   const [records, setRecords] = useState<Udhaar[]>([]);
+  const [allPayments, setAllPayments] = useState<UdhaarPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"overview" | "people">("overview");
+  const [period, setPeriod] = useState<Period>("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -35,23 +96,38 @@ export function CreditUdhaarPage() {
   const selected = records.find((record) => record.id === selectedId) ?? null;
   const visible = useMemo(() => records.filter((record) =>
     `${record.borrower_name} ${record.phone ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())), [records, search]);
-  const totalLent = records.reduce((total, record) => total + record.amount, 0);
-  const totalPaid = records.reduce((total, record) => total + record.paid_amount, 0);
-  const totalRemaining = Math.max(0, totalLent - totalPaid);
-  const paidPercent = totalLent > 0 ? Math.min(100, totalPaid / totalLent * 100) : 0;
-  const largestBalances = [...records].filter((record) => record.amount > record.paid_amount)
-    .sort((a, b) => (b.amount - b.paid_amount) - (a.amount - a.paid_amount)).slice(0, 4);
-  const largestBalance = largestBalances[0] ? largestBalances[0].amount - largestBalances[0].paid_amount : 0;
+  const validRange = period !== "custom" || !!customFrom && !!customTo && customFrom <= customTo;
+  const { start, end } = dateRange(period, customFrom, customTo);
+  const periodLoans = validRange ? records.filter((record) => inRange(record.given_date, start, end)) : [];
+  const periodPayments = validRange ? allPayments.filter((payment) => inRange(payment.paid_date, start, end)) : [];
+  const totalLent = periodLoans.reduce((total, record) => total + record.amount, 0);
+  const totalPaid = periodPayments.reduce((total, payment) => total + payment.amount, 0);
+  const loansToEnd = validRange ? records.filter((record) => !end || record.given_date <= end) : [];
+  const paymentsToEnd = validRange ? allPayments.filter((payment) => !end || payment.paid_date <= end) : [];
+  const givenToEnd = loansToEnd.reduce((total, record) => total + record.amount, 0);
+  const paidToEnd = paymentsToEnd.reduce((total, payment) => total + payment.amount, 0);
+  const totalRemaining = Math.max(0, givenToEnd - paidToEnd);
+  const paidPercent = givenToEnd > 0 ? Math.min(100, paidToEnd / givenToEnd * 100) : 0;
+  const largestBalances = loansToEnd.map((record) => ({ record,
+    balance: Math.max(0, record.amount - paymentsToEnd.filter((payment) => payment.udhaar_id === record.id)
+      .reduce((total, payment) => total + payment.amount, 0)) }))
+    .filter((item) => item.balance > 0).sort((a, b) => b.balance - a.balance).slice(0, 4);
+  const largestBalance = largestBalances[0]?.balance ?? 0;
+  const periodLabel = period === "custom" && validRange ? `${formatDate(customFrom)} – ${formatDate(customTo)}` : periodNames[period];
 
   useEffect(() => {
     let active = true;
-    listUdhaars().then((rows) => { if (active) setRecords(rows); })
+    Promise.all([listUdhaars(), listAllUdhaarPayments()]).then(([rows, paymentRows]) => { if (active) { setRecords(rows); setAllPayments(paymentRows); } })
       .catch((cause) => { if (active) setError(String(cause)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
 
-  async function refresh() { setRecords(await listUdhaars()); }
+  async function refresh() {
+    const [rows, paymentRows] = await Promise.all([listUdhaars(), listAllUdhaarPayments()]);
+    setRecords(rows);
+    setAllPayments(paymentRows);
+  }
   async function addRecord(value: CreateUdhaarInput) {
     await createUdhaar(value);
     toast.success("Udhaar recorded");
@@ -90,23 +166,31 @@ export function CreditUdhaarPage() {
     {!loading && error && <p role="alert" className="py-8 text-destructive">Could not load udhaar records: {error}</p>}
     {!loading && !error && <>
       {view === "overview" && <section id="udhaar-panel-overview" role="tabpanel" aria-labelledby="udhaar-tab-overview" className="udhaar-tab-panel">
+      <div className="udhaar-filter-panel"><div><strong>Choose a time period</strong><p>Given and paid back show activity in this period. Still to receive shows the balance at its end.</p></div>
+        <div className="udhaar-filter-options" role="group" aria-label="Udhaar time period">{(Object.keys(periodNames) as Period[]).map((option) => <button type="button" key={option} aria-pressed={period === option} onClick={() => setPeriod(option)}>{periodNames[option]}</button>)}</div>
+        {period === "custom" && <div className="udhaar-custom-range"><div><Label htmlFor="udhaar-from">From date</Label><Input id="udhaar-from" type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} /></div><div><Label htmlFor="udhaar-to">To date</Label><Input id="udhaar-to" type="date" min={customFrom || undefined} value={customTo} onChange={(event) => setCustomTo(event.target.value)} /></div></div>}
+        {!validRange && <p className="udhaar-filter-error" role="status">Choose a start and end date, with the end on or after the start.</p>}
+        {validRange && <span className="udhaar-filter-caption">Showing: {periodLabel}</span>}
+      </div>
+      {validRange && <>
       <div className="udhaar-summary">
-        <div className="udhaar-summary-given"><span className="udhaar-summary-icon"><HandCoins size={23} /></span><span>Total given</span><strong>{formatPKRInLakhCrore(totalLent)}</strong><small>{totalLent >= 100_000 ? `${formatPKR(totalLent, { lakhCrore: true })} in full` : "Money you lent"}</small></div>
-        <div className="udhaar-summary-paid"><span className="udhaar-summary-icon"><CircleCheck size={23} /></span><span>Paid back</span><strong>{formatPKRInLakhCrore(totalPaid)}</strong><small>{totalPaid >= 100_000 ? `${formatPKR(totalPaid, { lakhCrore: true })} in full` : "Money received from people"}</small></div>
-        <div className="udhaar-summary-remaining"><span className="udhaar-summary-icon"><Wallet size={23} /></span><span>Still to receive</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong><small>{totalRemaining >= 100_000 ? `${formatPKR(totalRemaining, { lakhCrore: true })} in full` : "Money people still owe you"}</small></div>
+        <div className="udhaar-summary-given"><span className="udhaar-summary-icon"><HandCoins size={23} /></span><span>{period === "all" ? "Total given" : "Given in this period"}</span><strong>{formatPKRInLakhCrore(totalLent)}</strong><small>{totalLent >= 100_000 ? `${formatPKR(totalLent, { lakhCrore: true })} in full` : "Money you lent"}</small></div>
+        <div className="udhaar-summary-paid"><span className="udhaar-summary-icon"><CircleCheck size={23} /></span><span>{period === "all" ? "Paid back" : "Paid back in this period"}</span><strong>{formatPKRInLakhCrore(totalPaid)}</strong><small>{totalPaid >= 100_000 ? `${formatPKR(totalPaid, { lakhCrore: true })} in full` : "Money received from people"}</small></div>
+        <div className="udhaar-summary-remaining"><span className="udhaar-summary-icon"><Wallet size={23} /></span><span>{period === "all" ? "Still to receive" : "Still to receive at period end"}</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong><small>{totalRemaining >= 100_000 ? `${formatPKR(totalRemaining, { lakhCrore: true })} in full` : "Money people still owe you"}</small></div>
       </div>
       {records.length > 0 && <section className="udhaar-insights" aria-label="Udhaar at a glance">
-        <div className="udhaar-insight-intro"><p className="projects-eyebrow">AT A GLANCE</p><h2>How much has come back?</h2><p>Blue shows money paid back. Gold shows money still to receive.</p></div>
+        <div className="udhaar-insight-intro"><p className="projects-eyebrow">AT A GLANCE</p><h2>How much has come back?</h2><p>Green shows money paid back. Gold shows money still to receive{period === "all" ? "." : " at the end of the selected period."}</p></div>
         <div className="udhaar-insight-body"><div className="udhaar-donut-layout">
-          <div className="udhaar-donut" role="img" aria-label={`${formatPKR(totalPaid)} paid back and ${formatPKR(totalRemaining)} still to receive`} style={{ background: `conic-gradient(#49b9a2 0 ${paidPercent}%, #e8b941 ${paidPercent}% 100%)` }}><span><strong>{Math.round(paidPercent)}%</strong><small>paid back</small></span></div>
-          <div className="udhaar-donut-legend"><div><i className="is-paid" /><span>Paid back</span><strong>{formatPKRInLakhCrore(totalPaid)}</strong></div><div><i className="is-remaining" /><span>Still to receive</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong></div><p>Out of {formatPKRInLakhCrore(totalLent)} given in total.</p></div>
-        </div><div className="udhaar-balance-chart"><h3>Largest amounts still due</h3><p>People with the most money left to return.</p>{largestBalances.length === 0 ? <span className="udhaar-all-paid">Everyone has paid back in full.</span> : largestBalances.map((record) => {
-          const balance = record.amount - record.paid_amount;
+          <div className="udhaar-donut" role="img" aria-label={`${formatPKR(paidToEnd)} paid back and ${formatPKR(totalRemaining)} still to receive`} style={{ background: `conic-gradient(#49b9a2 0 ${paidPercent}%, #e8b941 ${paidPercent}% 100%)` }}><span><strong>{Math.round(paidPercent)}%</strong><small>paid back</small></span></div>
+          <div className="udhaar-donut-legend"><div><i className="is-paid" /><span>Paid back</span><strong>{formatPKRInLakhCrore(paidToEnd)}</strong></div><div><i className="is-remaining" /><span>Still to receive</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong></div><p>Out of {formatPKRInLakhCrore(givenToEnd)} given up to this date.</p></div>
+        </div><div className="udhaar-balance-chart"><h3>Largest amounts still due</h3><p>People with the most money left to return at the end of this period.</p>{largestBalances.length === 0 ? <span className="udhaar-all-paid">Everyone has paid back in full.</span> : largestBalances.map(({ record, balance }) => {
           return <div className="udhaar-balance-row" key={record.id}><div><strong>{record.borrower_name}</strong><span>{formatPKRInLakhCrore(balance)}</span></div><span className="udhaar-balance-track"><span style={{ width: `${balance / largestBalance * 100}%` }} /></span></div>;
         })}</div></div>
       </section>}
+      {records.length > 0 && <UdhaarActivityCharts loans={periodLoans} payments={periodPayments} start={start} end={end} allLoans={records} allPayments={allPayments} />}
       {records.length === 0 && <div className="udhaar-empty"><HandCoins size={34} /><h2>Your overview starts here</h2><p>Add the first udhaar to see how much has been given and paid back.</p><Button onClick={() => setAddOpen(true)}><Plus size={17} />Give Udhaar</Button></div>}
       {records.length > 0 && <Button variant="outline" className="udhaar-view-people" onClick={() => setView("people")}>See people and remaining balances <ArrowRight size={17} /></Button>}
+      </>}
       </section>}
       {view === "people" && <section id="udhaar-panel-people" role="tabpanel" aria-labelledby="udhaar-tab-people" className="udhaar-tab-panel">
       <div className="udhaar-list-heading"><div><h2>People who owe you</h2><p>Select a person to see payments and record money received.</p></div><span>{records.length} {records.length === 1 ? "record" : "records"}</span></div>

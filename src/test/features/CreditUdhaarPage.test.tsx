@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CreditUdhaarPage } from "@/features/udhaar/pages/CreditUdhaarPage";
-import { addUdhaarPayment, createUdhaar, listUdhaarPayments, listUdhaars } from "@/data/repositories/udhaarRepository";
+import { addUdhaarPayment, createUdhaar, listAllUdhaarPayments, listUdhaarPayments, listUdhaars } from "@/data/repositories/udhaarRepository";
 
 vi.mock("@/data/repositories/udhaarRepository", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/data/repositories/udhaarRepository")>(),
-  addUdhaarPayment: vi.fn(), createUdhaar: vi.fn(), listUdhaarPayments: vi.fn(), listUdhaars: vi.fn(),
+  addUdhaarPayment: vi.fn(), createUdhaar: vi.fn(), listAllUdhaarPayments: vi.fn(), listUdhaarPayments: vi.fn(), listUdhaars: vi.fn(),
 }));
 
 const record = {
@@ -18,6 +18,8 @@ describe("CreditUdhaarPage", () => {
   beforeEach(() => {
     vi.mocked(listUdhaars).mockResolvedValue([record]);
     vi.mocked(listUdhaarPayments).mockResolvedValue([{ id: "payment-1", udhaar_id: record.id,
+      amount: 30_000, paid_date: "2026-09-10", method: "cash", notes: null }]);
+    vi.mocked(listAllUdhaarPayments).mockResolvedValue([{ id: "payment-1", udhaar_id: record.id,
       amount: 30_000, paid_date: "2026-09-10", method: "cash", notes: null }]);
     vi.mocked(createUdhaar).mockResolvedValue(undefined);
     vi.mocked(addUdhaarPayment).mockResolvedValue(undefined);
@@ -51,6 +53,8 @@ describe("CreditUdhaarPage", () => {
 
   it("shows lakh wording and an exact amount beside the graphical overview", async () => {
     vi.mocked(listUdhaars).mockResolvedValue([{ ...record, amount: 1_040_000, paid_amount: 100_000 }]);
+    vi.mocked(listAllUdhaarPayments).mockResolvedValue([{ id: "payment-1", udhaar_id: record.id,
+      amount: 100_000, paid_date: "2026-09-10", method: "cash", notes: null }]);
     render(<CreditUdhaarPage />);
     expect((await screen.findAllByText("Rs 10.4 lakh")).length).toBeGreaterThan(0);
     expect(screen.getByText("Rs 10,40,000 in full")).toBeInTheDocument();
@@ -60,5 +64,24 @@ describe("CreditUdhaarPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: /People & balances/ }));
     expect(screen.getByRole("heading", { name: "People who owe you" })).toBeInTheDocument();
     expect(screen.queryByText("Largest amounts still due")).not.toBeInTheDocument();
+  });
+
+  it("filters activity by a custom date range while keeping the end balance accurate", async () => {
+    vi.mocked(listUdhaars).mockResolvedValue([record, { ...record, id: "older", borrower_name: "Bilal",
+      amount: 50_000, paid_amount: 10_000, given_date: "2026-08-15" }]);
+    vi.mocked(listAllUdhaarPayments).mockResolvedValue([{ id: "payment-1", udhaar_id: record.id,
+      amount: 30_000, paid_date: "2026-09-10", method: "cash", notes: null },
+      { id: "payment-2", udhaar_id: "older", amount: 10_000, paid_date: "2026-09-12", method: "cash", notes: null }]);
+    render(<CreditUdhaarPage />);
+    expect(await screen.findByRole("group", { name: "Udhaar time period" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Custom" }));
+    fireEvent.change(screen.getByLabelText("From date"), { target: { value: "2026-09-01" } });
+    fireEvent.change(screen.getByLabelText("To date"), { target: { value: "2026-09-30" } });
+    expect(screen.getByText("Given in this period")).toBeInTheDocument();
+    expect(screen.getByText("Rs 1 lakh", { selector: ".udhaar-summary-given strong" })).toBeInTheDocument();
+    expect(screen.getByText("Rs 40,000", { selector: ".udhaar-summary-paid strong" })).toBeInTheDocument();
+    expect(screen.getByText("Rs 1.1 lakh", { selector: ".udhaar-summary-remaining strong" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Rs 100,000 given, Rs 0 paid back/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Outstanding balance reached Rs 110,000" })).toBeInTheDocument();
   });
 });
