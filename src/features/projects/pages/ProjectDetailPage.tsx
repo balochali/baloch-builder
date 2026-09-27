@@ -1,20 +1,26 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, BriefcaseBusiness, Building2, ChevronDown, ChevronRight, House, Landmark, Layers, MapPin, ParkingSquare, Pencil, Ruler, Store, Trash2, UserRound, Plus, type LucideIcon } from "lucide-react";
+import { format } from "date-fns";
+import { ArrowLeft, BriefcaseBusiness, Building2, ChevronDown, ChevronRight, House, Landmark, Layers, ParkingSquare, Pencil, Ruler, Store, Trash2, UserRound, Plus, type LucideIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PageHeader } from "@/components/PageHeader";
-import { getProjectById } from "@/data/repositories/projectsRepository";
+import { getProjectById, ProjectStatuses, updateProjectStatus, type ProjectStatus } from "@/data/repositories/projectsRepository";
+import { getProjectLand, saveProjectStage, LandAcquisitionSchema,
+  type ProjectLand } from "@/data/repositories/projectStageRepository";
 import { decodeBuildingSpaces, getProjectBuildingDetails, saveProjectBuildingDetails,
   type BuildingDetailsInput } from "@/data/repositories/projectBuildingRepository";
-import { addActualProjectCost, addProjectEstimate, archiveProjectEstimate, listActualProjectCosts, listProjectEstimates, updateProjectEstimate,
+import { addActualProjectCost, addConstructionCost, addProjectEstimate, archiveProjectEstimate, listActualProjectCosts, listConstructionCosts, listProjectEstimates, updateProjectEstimate,
   type ActualCostInput, type EstimateInput } from "@/data/repositories/projectFinanceRepository";
 import type { Project, ProjectBuildingDetails, ProjectEstimate, Transaction } from "@/domain/types";
 import { formatPKR } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 import { ProjectEntryDialog } from "@/features/projects/components/ProjectEntryDialog";
+import { flatRecoveryLines, recoveryLink } from "@/features/projects/components/recoverySpaces";
 import { BuildingDetailsDialog } from "@/features/projects/components/BuildingDetailsDialog";
+import { ProjectDashboard } from "@/features/projects/components/ProjectDashboard";
+import { ProjectStatusProgress } from "@/features/projects/components/ProjectStatusProgress";
 import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
 import { BuildingAreaChart, BuildingLevelsChart, BuildingMixChart, EstimateChart, FlatLayoutChart, OwnershipChart, PartnerFundingChart, SpendingChart } from "@/features/projects/components/ProjectInsights";
@@ -22,29 +28,64 @@ import { addPartnerContribution, addProjectPartner, listPartnerContributions, li
   type AddProjectPartnerInput, type PartnerContributionInput,
   type ProjectPartnerRow } from "@/data/repositories/projectPartnersRepository";
 
-type Tab = "building" | "partners" | "estimate" | "actual";
-type EntryMode = "estimate" | "actual";
+type Tab = "dashboard" | "building" | "partners" | "estimate" | "actual" | "construction";
+type BuildingTab = "overview" | "floors" | "areas";
+type EntryMode = "estimate" | "actual" | "construction";
 const projectTabs: { id: Tab; label: string }[] = [
+  { id: "dashboard", label: "Dashboard" },
   { id: "building", label: "Building" },
   { id: "partners", label: "Partners" },
   { id: "estimate", label: "Estimate" },
   { id: "actual", label: "Actual Cost" },
+  { id: "construction", label: "Construction Cost" },
+];
+const buildingTabs: { id: BuildingTab; label: string; description: string }[] = [
+  { id: "overview", label: "At a glance", description: "See what is planned for this building." },
+  { id: "floors", label: "Floors & flats", description: "See the floors and which flats are planned on each one." },
+  { id: "areas", label: "Areas & details", description: "See measurements and the rest of the saved plan." },
 ];
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+
+function landPurchaseCost(projectId: string, land: ProjectLand | null): Transaction | null {
+  if (!land?.price) return null;
+  return {
+    id: `land-purchase-${land.id || projectId}`, date: land.purchase_date, amount: land.price,
+    direction: "out", type: "land_purchase", method: null, reference: null,
+    description: `Land purchase: ${land.title}`, project_id: projectId, land_id: land.id || null,
+    partner_id: null, contact_id: null, receipt_document_id: null,
+    created_at: land.purchase_date, updated_at: land.purchase_date, archived: 0, custom: "{}",
+  };
+}
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const [project, setProject] = useState<Project | null>(null);
   const [buildingDetails, setBuildingDetails] = useState<ProjectBuildingDetails | null>(null);
   const [buildingDialogOpen, setBuildingDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDraft, setStatusDraft] = useState<ProjectStatus>("planning");
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [statusError, setStatusError] = useState("");
+  const [landDetails, setLandDetails] = useState<ProjectLand | null>(null);
+  const [landTitle, setLandTitle] = useState("");
+  const [landLocation, setLandLocation] = useState("");
+  const [landDate, setLandDate] = useState("");
+  const [landArea, setLandArea] = useState("");
+  const [landAreaUnit, setLandAreaUnit] = useState<"marla" | "kanal" | "sqft" | "sqyd" | "acre">("sqyd");
+  const [landSeller, setLandSeller] = useState("");
+  const [landPrice, setLandPrice] = useState("");
+  const [landNotes, setLandNotes] = useState("");
   const [partners, setPartners] = useState<ProjectPartnerRow[]>([]);
   const [contributions, setContributions] = useState<Transaction[]>([]);
   const [partnerDialog, setPartnerDialog] = useState<ProjectPartnerRow | "new" | null>(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
-  const [tab, setTab] = useState<Tab>("building");
+  const [constructionCosts, setConstructionCosts] = useState<Transaction[]>([]);
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [buildingTab, setBuildingTab] = useState<BuildingTab>("overview");
   const [dialog, setDialog] = useState<EntryMode | null>(null);
+  const [estimateKind, setEstimateKind] = useState<"cost" | "revenue">("cost");
   const [editingEstimate, setEditingEstimate] = useState<ProjectEstimate | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ProjectEstimate | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -56,16 +97,18 @@ export function ProjectDetailPage() {
     if (!projectId) return;
     let active = true;
     Promise.all([getProjectById(projectId), getProjectBuildingDetails(projectId),
-      listProjectEstimates(projectId), listActualProjectCosts(projectId),
-      listProjectPartners(projectId), listPartnerContributions(projectId)])
-      .then(([projectRow, buildingRow, estimateRows, costRows, partnerRows, contributionRows]) => {
+      listProjectEstimates(projectId), listActualProjectCosts(projectId), listConstructionCosts(projectId),
+      listProjectPartners(projectId), listPartnerContributions(projectId), getProjectLand(projectId)])
+      .then(([projectRow, buildingRow, estimateRows, costRows, constructionRows, partnerRows, contributionRows, landRow]) => {
         if (!active) return;
         setProject(projectRow);
         setBuildingDetails(buildingRow);
         setEstimates(estimateRows);
         setActualCosts(costRows);
+        setConstructionCosts(constructionRows);
         setPartners(partnerRows);
         setContributions(contributionRows);
+        setLandDetails(landRow);
       })
       .catch((cause) => { if (active) setError(String(cause)); })
       .finally(() => { if (active) setLoading(false); });
@@ -90,10 +133,45 @@ export function ProjectDetailPage() {
     toast.success("Actual cost recorded");
   }
 
+  async function saveConstruction(value: ActualCostInput) {
+    const row = await addConstructionCost(value);
+    setConstructionCosts((current) => [row, ...current]);
+    setActualCosts((current) => [row, ...current]);
+    toast.success("Construction cost recorded");
+  }
+
   async function saveBuildingDetails(value: BuildingDetailsInput) {
     const row = await saveProjectBuildingDetails(value);
     setBuildingDetails(row);
     toast.success("Building details saved");
+  }
+
+  async function saveStatus() {
+    if (!project) return;
+    const land = statusDraft === "land acquired" ? LandAcquisitionSchema.safeParse({
+      title: landTitle, location: landLocation, purchase_date: landDate,
+      area_value: landArea.trim() ? Number(landArea) : null, area_unit: landArea.trim() ? landAreaUnit : null,
+      seller_name: landSeller, price: landPrice.trim() ? Number(landPrice.replace(/,/g, "")) : null, notes: landNotes,
+    }) : null;
+    if (land && !land.success) { setStatusError(land.error.issues[0]?.message ?? "Check the land details."); return; }
+    setSavingStatus(true);
+    setStatusError("");
+    try {
+      const updated = land?.success ? await saveProjectStage(project.id, statusDraft, land.data)
+        : await updateProjectStatus(project.id, statusDraft);
+      setProject(updated);
+      if (land?.success) {
+        setLandDetails({ ...land.data, id: landDetails?.id ?? "" });
+        setBuildingDetails((current) => current && { ...current,
+          plot_area_value: land.data.area_value, plot_area_unit: land.data.area_unit });
+      }
+      setStatusDialogOpen(false);
+      toast.success("Project status updated");
+    } catch (cause) {
+      setStatusError(`Could not update status: ${String(cause)}`);
+    } finally {
+      setSavingStatus(false);
+    }
   }
 
   async function refreshPartners(id: string) {
@@ -145,7 +223,12 @@ export function ProjectDetailPage() {
   const costMax = sum(costs.map((item) => item.maximum_amount));
   const revenueMin = sum(revenues.map((item) => item.minimum_amount));
   const revenueMax = sum(revenues.map((item) => item.maximum_amount));
-  const actualTotal = sum(actualCosts.map((item) => item.amount));
+  const landCost = project ? landPurchaseCost(project.id, landDetails) : null;
+  const allActualCosts = landCost ? [landCost, ...actualCosts].sort((a, b) => b.date.localeCompare(a.date)) : actualCosts;
+  const actualTotal = sum(allActualCosts.map((item) => item.amount));
+  const constructionTotal = sum(constructionCosts.map((item) => item.amount));
+  const visibleProjectTabs = projectTabs.filter(({ id }) => id !== "construction" ||
+    project?.status === "under construction" || project?.status === "completed" || constructionCosts.length > 0);
   const allocatedShareBp = sum(partners.map((item) => item.share_bp));
   const contributedTotal = sum(contributions.map((item) => item.amount));
   const selectedPartner = partners.find((item) => item.partnership_id === selectedPartnerId) ?? null;
@@ -153,26 +236,47 @@ export function ProjectDetailPage() {
   const showPlannedSpace = (space: typeof selectedSpaces[number]) => selectedSpaces.length === 0 || selectedSpaces.includes(space);
 
   return <div>
-    <Link to="/projects" className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-      <ArrowLeft className="size-4" />Back to Projects
-    </Link>
     {loading && <p className="py-8 text-sm text-muted-foreground">Loading project…</p>}
     {!loading && error && <p role="alert" className="py-8 text-sm text-destructive">Could not load project: {error}</p>}
     {!loading && !error && !project && <p className="py-8 text-sm text-muted-foreground">Project not found.</p>}
     {!loading && !error && project && <>
-      <PageHeader title={project.name} description={`${project.location || "No address"} · ${project.status || "Planning"}`} />
-      {project.description && <p className="mb-6 text-sm text-muted-foreground">{project.description}</p>}
+      <section className="project-heading-card" aria-label="Project and status">
+        <div className="project-heading-top">
+          <div><Link to="/projects" className="project-heading-back"><ArrowLeft className="size-4" />Back to Projects</Link>
+            <h1>{project.name}</h1><p>{project.location || "No address"}</p></div>
+          <Button variant="outline" onClick={() => {
+            setStatusDraft(ProjectStatuses.includes(project.status as ProjectStatus) ? project.status as ProjectStatus : "planning");
+            setStatusError("");
+            setLandTitle(landDetails?.title ?? project.name);
+            setLandLocation(landDetails?.location ?? project.location ?? "");
+            setLandDate(landDetails?.purchase_date ?? format(new Date(), "yyyy-MM-dd"));
+            setLandArea(landDetails?.area_value?.toString() ?? "");
+            setLandAreaUnit(landDetails?.area_unit ?? "sqyd");
+            setLandSeller(landDetails?.seller_name ?? "");
+            setLandPrice(landDetails?.price?.toString() ?? "");
+            setLandNotes(landDetails?.notes ?? "");
+            setStatusDialogOpen(true);
+          }}><Pencil className="size-4" />Change Status</Button>
+        </div>
+        <ProjectStatusProgress status={project.status} />
+        {project.status === "land acquired" && !landDetails && <p className="project-land-missing">Land details have not been added yet. Select Change Status to record the acquired land.</p>}
+        {landDetails && <div className="project-land-summary"><Landmark size={18} /><div><strong>Land acquired: {landDetails.title}</strong><span>{landDetails.location}{landDetails.area_value ? ` · ${landDetails.area_value} ${landDetails.area_unit}` : ""}{landDetails.price ? ` · ${formatPKR(landDetails.price)}` : ""}</span><span>Acquired {formatDate(landDetails.purchase_date)}{landDetails.seller_name ? ` · Seller: ${landDetails.seller_name}` : ""}{landDetails.notes ? ` · ${landDetails.notes}` : ""}</span></div></div>}
+      </section>
 
       <div role="tablist" aria-label="Project details" className="project-detail-tabs">
-        {projectTabs.map(({ id, label }, index) => <button key={id} id={`project-tab-${id}`} type="button" role="tab"
+        {visibleProjectTabs.map(({ id, label }, index) => <button key={id} id={`project-tab-${id}`} type="button" role="tab"
           aria-selected={tab === id} aria-controls={`project-panel-${id}`} tabIndex={tab === id ? 0 : -1}
           onClick={() => setTab(id)} onKeyDown={(event) => {
-            const next = event.key === "ArrowRight" ? (index + 1) % projectTabs.length :
-              event.key === "ArrowLeft" ? (index - 1 + projectTabs.length) % projectTabs.length :
-              event.key === "Home" ? 0 : event.key === "End" ? projectTabs.length - 1 : -1;
-            if (next >= 0) { event.preventDefault(); setTab(projectTabs[next].id); document.getElementById(`project-tab-${projectTabs[next].id}`)?.focus(); }
+            const next = event.key === "ArrowRight" ? (index + 1) % visibleProjectTabs.length :
+              event.key === "ArrowLeft" ? (index - 1 + visibleProjectTabs.length) % visibleProjectTabs.length :
+              event.key === "Home" ? 0 : event.key === "End" ? visibleProjectTabs.length - 1 : -1;
+            if (next >= 0) { event.preventDefault(); setTab(visibleProjectTabs[next].id); document.getElementById(`project-tab-${visibleProjectTabs[next].id}`)?.focus(); }
           }}>{label}</button>)}
       </div>
+
+      {tab === "dashboard" && <ProjectDashboard project={project} buildingDetails={buildingDetails}
+        land={landDetails}
+        partners={partners} contributions={contributions} estimates={estimates} actualCosts={allActualCosts} />}
 
       {tab === "building" && <section id="project-panel-building" role="tabpanel" aria-labelledby="project-tab-building" className="project-detail-section mb-8 rounded-xl border bg-card p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -185,13 +289,37 @@ export function ProjectDetailPage() {
           </Button>
         </div>
         {buildingDetails ? <>
+          <div role="tablist" aria-label="Building details" className="building-detail-tabs">
+            {buildingTabs.map(({ id, label }, index) => <button key={id} id={`building-tab-${id}`} type="button" role="tab"
+              aria-selected={buildingTab === id} aria-controls={`building-panel-${id}`} tabIndex={buildingTab === id ? 0 : -1}
+              onClick={() => setBuildingTab(id)} onKeyDown={(event) => {
+                const next = event.key === "ArrowRight" ? (index + 1) % buildingTabs.length :
+                  event.key === "ArrowLeft" ? (index - 1 + buildingTabs.length) % buildingTabs.length :
+                  event.key === "Home" ? 0 : event.key === "End" ? buildingTabs.length - 1 : -1;
+                if (next >= 0) { event.preventDefault(); const target = buildingTabs[next].id; setBuildingTab(target); document.getElementById(`building-tab-${target}`)?.focus(); }
+              }}>{label}</button>)}
+          </div>
+          <p className="building-tab-description">{buildingTabs.find((item) => item.id === buildingTab)?.description}</p>
+          {buildingTab === "overview" && <div id="building-panel-overview" role="tabpanel" aria-labelledby="building-tab-overview" className="building-tab-panel">
           {selectedSpaces.length > 0 &&
-            <div className="mb-5 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
               {selectedSpaces.map((space) =>
                 <span key={space} className="rounded-full bg-muted px-2.5 py-1 text-xs capitalize">{space.replace(/_/g, " ")}</span>)}
             </div>}
-          <div className="building-insight-grid"><BuildingMixChart details={buildingDetails} /><BuildingLevelsChart details={buildingDetails} /></div>
-          <div className="building-area-insight"><BuildingAreaChart details={buildingDetails} /></div>
+          <div className="building-overview-chart"><BuildingMixChart details={buildingDetails} /></div>
+          <div className="building-overview-facts">
+            <Detail label="Building use" value={buildingDetails.building_use?.replace("-", " ")} icon={Building2} />
+            <Detail label="Floors above ground" value={buildingDetails.floors_above_ground} icon={Layers} />
+            {showPlannedSpace("flats") && <Detail label="Planned flats" value={buildingDetails.planned_flats} icon={House} />}
+            {showPlannedSpace("shops") && <Detail label="Planned shops" value={buildingDetails.planned_shops} icon={Store} />}
+          </div>
+          </div>}
+          {buildingTab === "floors" && <div id="building-panel-floors" role="tabpanel" aria-labelledby="building-tab-floors" className="building-tab-panel">
+          <div className="building-floors-chart"><BuildingLevelsChart details={buildingDetails} /></div>
+          <FlatLayoutChart details={buildingDetails} />
+          </div>}
+          {buildingTab === "areas" && <div id="building-panel-areas" role="tabpanel" aria-labelledby="building-tab-areas" className="building-tab-panel">
+          <div className="building-area-insight"><BuildingAreaChart details={buildingDetails} land={landDetails} /></div>
           <div className="building-facts-heading"><h3>Plan highlights</h3><p>Only details saved for this building appear here.</p></div>
           <div className="project-details-grid">
             <Detail label="Building use" value={buildingDetails.building_use?.replace("-", " ")} icon={Building2} />
@@ -207,14 +335,12 @@ export function ProjectDetailPage() {
             {buildingDetails.planned_parking_spaces !== null && buildingDetails.parking_area_value === null &&
               <Detail label="Parking spaces" value={buildingDetails.planned_parking_spaces} icon={ParkingSquare} />}
             {buildingDetails.has_masjid === 1 && <Detail label="Masjid" value="Included" icon={Landmark} />}
-            <Detail label="Plot area" value={buildingDetails.plot_area_value === null ? null :
-              `${buildingDetails.plot_area_value.toLocaleString()} ${buildingDetails.plot_area_unit}`} icon={MapPin} />
             <Detail label="Covered area" value={buildingDetails.covered_area_sqft === null ? null :
               `${buildingDetails.covered_area_sqft.toLocaleString()} sq ft`} icon={Ruler} />
           </div>
           {buildingDetails.notes && <p className="mt-5 border-t pt-4 text-sm text-muted-foreground">{buildingDetails.notes}</p>}
-          <FlatLayoutChart details={buildingDetails} />
-        </> : <p className="text-sm text-muted-foreground">No building details added yet.</p>}
+          </div>}
+        </> : landDetails ? <div className="building-area-insight"><BuildingAreaChart details={null} land={landDetails} /><p className="text-sm text-muted-foreground">Add building details to plan floors, flats and covered area.</p></div> : <p className="text-sm text-muted-foreground">No building details added yet.</p>}
       </section>}
 
       {tab === "partners" && <section id="project-panel-partners" role="tabpanel" aria-labelledby="project-tab-partners" className="project-partners-panel project-detail-section mb-8 rounded-xl border bg-card p-5">
@@ -264,7 +390,10 @@ export function ProjectDetailPage() {
             <h2 className="text-lg font-semibold">Project estimate</h2>
             <p className="text-sm text-muted-foreground">Plan minimum and maximum costs and expected recovery.</p>
           </div>
-          <Button onClick={() => { setEditingEstimate(null); setDialog("estimate"); }}><Plus className="size-4" />Add Estimate Item</Button>
+          <div className="estimate-actions">
+            <Button onClick={() => { setEditingEstimate(null); setEstimateKind("cost"); setDialog("estimate"); }}><Plus className="size-4" />Add Expected Cost</Button>
+            <Button variant="outline" onClick={() => { setEditingEstimate(null); setEstimateKind("revenue"); setDialog("estimate"); }}><Plus className="size-4" />Add Expected Recovery</Button>
+          </div>
         </div>
         <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Summary title="Estimated costs" value={`${formatPKR(costMin)} – ${formatPKR(costMax)}`} />
@@ -274,15 +403,15 @@ export function ProjectDetailPage() {
         </div>
         <div className="project-insight-grid"><EstimateChart items={costs} title="Estimated cost breakdown" /><EstimateChart items={revenues} title="Expected recovery breakdown" /></div>
         <EstimateSection title="Cost items" items={costs} onDelete={setItemToDelete}
-          onEdit={(item) => { setEditingEstimate(item); setDialog("estimate"); }} />
+          onEdit={(item) => { setEditingEstimate(item); setEstimateKind("cost"); setDialog("estimate"); }} />
         <EstimateSection title="Recovery / revenue items" items={revenues} onDelete={setItemToDelete}
-          onEdit={(item) => { setEditingEstimate(item); setDialog("estimate"); }} />
+          onEdit={(item) => { setEditingEstimate(item); setEstimateKind("revenue"); setDialog("estimate"); }} />
       </div>}
       {tab === "actual" && <div id="project-panel-actual" role="tabpanel" aria-labelledby="project-tab-actual">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Actual project costs</h2>
-            <p className="text-sm text-muted-foreground">Payments recorded against this project in the ledger.</p>
+            <p className="text-sm text-muted-foreground">Land purchase and construction payments appear here automatically. Add other project costs below.</p>
           </div>
           <Button onClick={() => setDialog("actual")}><Plus className="size-4" />Add Actual Cost</Button>
         </div>
@@ -290,29 +419,74 @@ export function ProjectDetailPage() {
           <Summary title="Total spent" value={formatPKR(actualTotal)} />
           <Summary title="Estimated cost range" value={`${formatPKR(costMin)} – ${formatPKR(costMax)}`} />
         </div>
-        <SpendingChart costs={actualCosts} />
-        {actualCosts.length === 0 ? <p className="rounded-lg border p-8 text-center text-sm text-muted-foreground">No actual costs recorded yet.</p> :
+        <SpendingChart costs={allActualCosts} />
+        {allActualCosts.length === 0 ? <p className="rounded-lg border p-8 text-center text-sm text-muted-foreground">No actual costs recorded yet.</p> :
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-muted-foreground"><tr>
                 <th className="px-4 py-3 font-medium">Date</th><th className="px-4 py-3 font-medium">Description</th>
-                <th className="px-4 py-3 font-medium">Method</th><th className="px-4 py-3 text-right font-medium">Amount</th>
+                <th className="px-4 py-3 font-medium">Source</th><th className="px-4 py-3 font-medium">Method</th><th className="px-4 py-3 text-right font-medium">Amount</th>
               </tr></thead>
-              <tbody>{actualCosts.map((item) => <tr key={item.id} className="border-t">
+              <tbody>{allActualCosts.map((item) => <tr key={item.id} className="border-t">
                 <td className="px-4 py-3">{formatDate(item.date)}</td>
                 <td className="px-4 py-3">{item.description}{item.reference &&
                   <span className="block text-xs text-muted-foreground">Ref: {item.reference}</span>}</td>
+                <td className="px-4 py-3">{item.type === "land_purchase" ? "Land acquired" : item.type === "construction_cost" ? "Construction Cost" : "Added here"}</td>
                 <td className="px-4 py-3 capitalize">{item.method || "—"}</td>
                 <td className="px-4 py-3 text-right font-medium">{formatPKR(item.amount)}</td>
               </tr>)}</tbody>
             </table>
           </div>}
       </div>}
-      {dialog && <ProjectEntryDialog mode={dialog} projectId={project.id} estimate={editingEstimate}
+      {tab === "construction" && <div id="project-panel-construction" role="tabpanel" aria-labelledby="project-tab-construction" className="construction-cost-section">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Construction costs</h2><p className="text-sm text-muted-foreground">Record materials, labour and other building payments here. They also count toward Actual Cost.</p></div>
+          <Button onClick={() => setDialog("construction")}><Plus className="size-4" />Add Construction Cost</Button>
+        </div>
+        <div className="mb-6 grid gap-3 sm:grid-cols-2"><Summary title="Construction spent" value={formatPKR(constructionTotal)} />
+          <Summary title="Payments recorded" value={String(constructionCosts.length)} /></div>
+        {constructionCosts.length > 0 && <SpendingChart costs={constructionCosts} />}
+        {constructionCosts.length === 0 ? <div className="construction-cost-empty"><Building2 size={28} /><strong>No construction costs recorded yet</strong><p>Use Add Construction Cost when you pay for materials, labour or other building work.</p></div> :
+          <div className="overflow-x-auto rounded-lg border"><table className="w-full text-sm"><thead className="bg-muted/50 text-left text-muted-foreground"><tr>
+            <th className="px-4 py-3 font-medium">Date</th><th className="px-4 py-3 font-medium">What was paid for</th>
+            <th className="px-4 py-3 font-medium">Method</th><th className="px-4 py-3 text-right font-medium">Amount</th>
+          </tr></thead><tbody>{constructionCosts.map((item) => <tr key={item.id} className="border-t"><td className="px-4 py-3">{formatDate(item.date)}</td>
+            <td className="px-4 py-3">{item.description}{item.reference && <span className="block text-xs text-muted-foreground">Ref: {item.reference}</span>}</td>
+            <td className="px-4 py-3 capitalize">{item.method || "—"}</td><td className="px-4 py-3 text-right font-medium">{formatPKR(item.amount)}</td></tr>)}</tbody></table></div>}
+      </div>}
+      {dialog && <ProjectEntryDialog mode={dialog === "estimate" ? "estimate" : "actual"} projectId={project.id} estimate={editingEstimate} estimateKind={estimateKind}
+        buildingDetails={buildingDetails} recoveryEstimates={revenues}
         onOpenChange={(open) => { if (!open) { setDialog(null); setEditingEstimate(null); } }}
-        onEstimate={saveEstimate} onActual={saveActual} />}
+        onEstimate={saveEstimate} onActual={dialog === "construction" ? saveConstruction : saveActual}
+        actualTitle={dialog === "construction" ? "Add Construction Cost" : "Add Actual Cost"} />}
       {buildingDialogOpen && <BuildingDetailsDialog projectId={project.id} details={buildingDetails}
         onOpenChange={setBuildingDialogOpen} onSubmit={saveBuildingDetails} />}
+      <Dialog open={statusDialogOpen} onOpenChange={(open) => { if (!savingStatus) setStatusDialogOpen(open); }}>
+        <DialogContent className="project-stage-dialog max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader><DialogTitle>Change project status</DialogTitle><p className="text-sm text-muted-foreground">Choose the stage that best describes this project now.</p></DialogHeader>
+          <div className="space-y-2"><Label htmlFor="project-update-status">Project status</Label>
+            <select id="project-update-status" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={statusDraft} onChange={(event) => setStatusDraft(event.target.value as ProjectStatus)}>
+              {ProjectStatuses.map((status) => <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground">The new status will also appear on the Projects page.</p>
+          </div>
+          {statusDraft === "land acquired" && <div className="project-stage-fields">
+            <div className="project-stage-intro"><Landmark size={20} /><div><strong>Tell us about the land</strong><p>These details will stay with this project so you can see what was acquired.</p></div></div>
+            <div className="project-stage-grid"><div><Label htmlFor="stage-land-title">Land name *</Label><input id="stage-land-title" value={landTitle} onChange={(event) => setLandTitle(event.target.value)} placeholder="e.g. Baloch Residency plot" /></div>
+              <div><Label htmlFor="stage-land-date">Date acquired *</Label><input id="stage-land-date" type="date" value={landDate} onChange={(event) => setLandDate(event.target.value)} /></div></div>
+            <div><Label htmlFor="stage-land-location">Land location *</Label><input id="stage-land-location" value={landLocation} onChange={(event) => setLandLocation(event.target.value)} placeholder="Address or area" /></div>
+            <div className="project-stage-grid"><div><Label htmlFor="stage-land-area">Area (optional)</Label><input id="stage-land-area" type="number" min="0" step="any" value={landArea} onChange={(event) => setLandArea(event.target.value)} placeholder="e.g. 7000" /></div>
+              <div><Label htmlFor="stage-land-unit">Area unit</Label><select id="stage-land-unit" value={landAreaUnit} onChange={(event) => setLandAreaUnit(event.target.value as typeof landAreaUnit)}><option value="sqyd">Square yards</option><option value="sqft">Square feet</option><option value="marla">Marla</option><option value="kanal">Kanal</option><option value="acre">Acre</option></select></div></div>
+            <div className="project-stage-grid"><div><Label htmlFor="stage-land-seller">Seller (optional)</Label><input id="stage-land-seller" value={landSeller} onChange={(event) => setLandSeller(event.target.value)} placeholder="Person or company" /></div>
+              <div><Label htmlFor="stage-land-price">Purchase price in Rs (optional)</Label><input id="stage-land-price" inputMode="numeric" value={landPrice} onChange={(event) => setLandPrice(event.target.value)} placeholder="e.g. 5,000,000" /></div></div>
+            <div><Label htmlFor="stage-land-notes">Notes (optional)</Label><textarea id="stage-land-notes" value={landNotes} onChange={(event) => setLandNotes(event.target.value)} rows={2} placeholder="Any useful detail about this land" /></div>
+          </div>}
+          {statusDraft === "under construction" && <p className="project-stage-hint">Construction payments can be added in the Construction Cost tab after you save this status.</p>}
+          {statusError && <p role="alert" className="text-sm text-destructive">{statusError}</p>}
+          <DialogFooter><Button type="button" variant="outline" disabled={savingStatus} onClick={() => setStatusDialogOpen(false)}>Cancel</Button>
+            <Button type="button" disabled={savingStatus || (statusDraft === project.status && statusDraft !== "land acquired")} onClick={saveStatus}>{savingStatus ? "Saving…" : statusDraft === "land acquired" ? "Save land and status" : "Save status"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!selectedPartner} onOpenChange={(open) => { if (!open) setSelectedPartnerId(null); }}>
         <DialogContent className="partner-dialog partner-profile-modal max-h-[90vh] overflow-y-auto sm:max-w-xl">
           {selectedPartner && <>
@@ -398,6 +572,10 @@ function EstimateSection({ title, items, onEdit, onDelete }: {
           </tr></thead>
           <tbody>{items.map((item) => <tr key={item.id} className="border-t">
             <td className="px-4 py-3"><span className="font-medium">{item.title}</span>
+              {recoveryLink(item) && <span className="block text-xs text-muted-foreground">{recoveryLink(item)!.quantity} planned {recoveryLink(item)!.space} × expected price per unit</span>}
+              {flatRecoveryLines(item).map((line) => <span className="block text-xs text-muted-foreground" key={`${line.floor_index}-${line.rooms}`}>
+                {line.floor_index === 0 ? "Ground" : `Floor ${line.floor_index}`}: {line.quantity} × {line.rooms}-room flats at {formatPKR(line.minimum_unit_price)} – {formatPKR(line.maximum_unit_price)} each
+              </span>)}
               {item.details && <span className="block text-xs text-muted-foreground">{item.details}</span>}</td>
             <td className="px-4 py-3 text-right">{formatPKR(item.minimum_amount)}</td>
             <td className="px-4 py-3 text-right">{formatPKR(item.maximum_amount)}</td>

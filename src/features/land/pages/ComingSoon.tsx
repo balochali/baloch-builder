@@ -10,9 +10,9 @@ export function LandComingSoonPage() {
         description="Track land acquisition, seller details, purchase amounts, and personal vs project holdings."
       />
       <EmptyState
-        icon={<MapPin className="size-10 text-muted-foreground" />}
-        title="Land Module Coming Soon"
-        description="The land tracking and acquisition module will be available in V1 Acquire & Invest."
+        icon={<MapPin className="size-12" />}
+        title="Land — Coming Soon"
+        description="We are working on land records and acquisition details."
       />
     </div>
   );

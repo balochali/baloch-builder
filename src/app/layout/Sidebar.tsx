@@ -5,7 +5,7 @@ import {
   FolderKanban,
   Users,
   Wallet,
-  FileText,
+  ReceiptText,
   BookUser,
   Settings,
 } from "lucide-react";
@@ -17,8 +17,8 @@ const navItems = [
   { to: "/land", label: "Land", icon: MapPin },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/partners", label: "Partners", icon: Users },
-  { to: "/ledger", label: "Ledger", icon: Wallet },
-  { to: "/documents", label: "Documents", icon: FileText },
+  { to: "/personal-expense", label: "Personal Expense", icon: ReceiptText },
+  { to: "/credit-udhaar", label: "Credit / Udhaar", icon: Wallet },
 ];
 
 export function Sidebar() {

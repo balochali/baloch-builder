@@ -42,6 +42,17 @@ export function formatPKR(
   return `${sign}${prefix}${formatted}`;
 }
 
+/** A short amount for overview cards, using familiar lakh and crore words. */
+export function formatPKRInLakhCrore(amount: number): string {
+  if (!Number.isFinite(amount)) return "Rs 0";
+  const absolute = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+  const shortened = (value: number) => value.toFixed(2).replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+  if (absolute >= 10_000_000) return `${sign}Rs ${shortened(absolute / 10_000_000)} crore`;
+  if (absolute >= 100_000) return `${sign}Rs ${shortened(absolute / 100_000)} lakh`;
+  return formatPKR(amount);
+}
+
 /**
  * Format number with Pakistani lakh/crore grouping:
  * 500000 → "5,00,000"

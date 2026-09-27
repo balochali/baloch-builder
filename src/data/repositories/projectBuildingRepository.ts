@@ -2,6 +2,7 @@ import { z } from "zod";
 import { execute, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
 import type { ProjectBuildingDetails } from "@/domain/types";
+import { getProjectLand } from "./projectStageRepository";
 
 const count = z.number().int().min(0).max(1_000_000).nullable();
 const area = z.number().positive().max(1_000_000_000).nullable();
@@ -92,11 +93,17 @@ export async function getProjectBuildingDetails(projectId: string): Promise<Proj
     `SELECT * FROM project_building_details WHERE project_id = ? AND archived = 0`,
     [projectId],
   );
-  return rows[0] ?? null;
+  const details = rows[0];
+  if (!details) return null;
+  const land = await getProjectLand(projectId);
+  return { ...details, plot_area_value: land?.area_value ?? null, plot_area_unit: land?.area_unit ?? null };
 }
 
 export async function saveProjectBuildingDetails(input: BuildingDetailsInput): Promise<ProjectBuildingDetails> {
   const value = BuildingDetailsSchema.parse(input);
+  const land = await getProjectLand(value.project_id);
+  value.plot_area_value = land?.area_value ?? null;
+  value.plot_area_unit = land?.area_unit ?? null;
   const timestamp = now();
   const plannedFlats = value.floor_layout.reduce((total, floor) =>
     total + floor.flat_types.reduce((floorTotal, type) => floorTotal + type.count, 0), 0);

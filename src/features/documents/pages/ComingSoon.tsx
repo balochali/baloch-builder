@@ -10,9 +10,9 @@ export function DocumentsComingSoonPage() {
         description="Local attachment management for land fards, maps, receipts, and agreements."
       />
       <EmptyState
-        icon={<FileText className="size-10 text-muted-foreground" />}
-        title="Documents Module Coming Soon"
-        description="Document attachments and file viewer will be available in V1 Acquire & Invest."
+        icon={<FileText className="size-12" />}
+        title="Documents — Coming Soon"
+        description="We are working on document attachments and a file viewer."
       />
     </div>
   );
