@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
-import { format } from "date-fns";
-import { ArrowRight, CarFront, ChartNoAxesColumn, House, List, MapPinned, MoreHorizontal, Plus, Search, ShoppingBag, Trash2, Watch } from "lucide-react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { differenceInCalendarDays, format, parseISO, startOfMonth, startOfWeek, startOfYear } from "date-fns";
+import { ArrowRight, CarFront, ChartNoAxesColumn, House, List, MapPinned, MoreHorizontal, Plus, Search, ShoppingBag, Trash2, TrendingUp, Watch } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,42 @@ const parseRupees = (value: string) => {
   const amount = Number(value.replace(/,/g, "").trim());
   return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
 };
+type ExpensePeriod = "all" | "daily" | "weekly" | "monthly" | "yearly" | "custom";
+const periodLabels: Record<ExpensePeriod, string> = { all: "All time", daily: "Today", weekly: "This week", monthly: "This month", yearly: "This year", custom: "Custom" };
+function expenseRange(period: ExpensePeriod, from: string, to: string) {
+  const now = new Date();
+  return {
+    start: period === "custom" ? from : period === "daily" ? format(now, "yyyy-MM-dd")
+      : period === "weekly" ? format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd")
+        : period === "monthly" ? format(startOfMonth(now), "yyyy-MM-dd")
+          : period === "yearly" ? format(startOfYear(now), "yyyy-MM-dd") : null,
+    end: period === "custom" ? to : period === "all" ? null : format(now, "yyyy-MM-dd"),
+  };
+}
+
+function ExpenseTrend({ records, start, end }: { records: PersonalExpense[]; start: string | null; end: string | null }) {
+  if (!records.length) return null;
+  const sortedDates = records.map((record) => record.purchase_date).sort();
+  const span = differenceInCalendarDays(parseISO(end ?? sortedDates[sortedDates.length - 1]), parseISO(start ?? sortedDates[0]));
+  const bucket = (date: string) => span > 730 ? format(parseISO(date), "yyyy")
+    : span > 90 ? format(parseISO(date), "yyyy-MM")
+      : span > 31 ? format(startOfWeek(parseISO(date), { weekStartsOn: 1 }), "yyyy-MM-dd") : date;
+  const grouped = new Map<string, number>();
+  records.forEach((record) => { const key = bucket(record.purchase_date); grouped.set(key, (grouped.get(key) ?? 0) + record.amount); });
+  const rows = [...grouped].sort(([a], [b]) => a.localeCompare(b));
+  const points = rows.reduce<{ x: number; amount: number }[]>((result, [, amount], index) => [
+    ...result, { x: rows.length === 1 ? 150 : 12 + index / (rows.length - 1) * 276,
+      amount: (result[result.length - 1]?.amount ?? 0) + amount },
+  ], []);
+  const max = points[points.length - 1].amount || 1;
+  const line = points.map((point) => `${point.x},${108 - point.amount / max * 90}`).join(" ");
+  const display = (key: string) => key.length === 4 ? key : key.length === 7 ? format(parseISO(`${key}-01`), "MMM yyyy") : formatDate(key);
+  return <section className="expense-trend" aria-label="Personal spending trend"><div className="expense-chart-title"><TrendingUp size={21} /><div><h2>Spending over time</h2><p>The line rises as purchases are added in this period.</p></div></div>
+    <strong className="expense-trend-total">{formatPKRInLakhCrore(max)} spent</strong>
+    <svg viewBox="0 0 300 120" preserveAspectRatio="none" role="img" aria-label={`Spending rose to ${formatPKR(max)}`}><line x1="0" x2="300" y1="108" y2="108" stroke="#dce7f0" /><line x1="0" x2="300" y1="64" y2="64" stroke="#edf2f7" /><polyline points={line} fill="none" stroke="#2779b0" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />{points.map((point, index) => <circle key={index} cx={point.x} cy={108 - point.amount / max * 90} r="4" fill="#e8b941" />)}</svg>
+    <div className="expense-trend-dates"><span>{display(rows[0][0])}</span><span>{rows.length > 1 ? display(rows[rows.length - 1][0]) : ""}</span></div>
+  </section>;
+}
 
 export function PersonalExpensePage() {
   const [records, setRecords] = useState<PersonalExpense[]>([]);
@@ -32,6 +68,9 @@ export function PersonalExpensePage() {
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"overview" | "purchases">("overview");
+  const [period, setPeriod] = useState<ExpensePeriod>("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [filter, setFilter] = useState<ExpenseCategory | "all">("all");
   const [editing, setEditing] = useState<PersonalExpense | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -47,15 +86,23 @@ export function PersonalExpensePage() {
     return () => { active = false; };
   }, []);
 
-  const total = records.reduce((sum, record) => sum + record.amount, 0);
+  const validRange = period !== "custom" || !!customFrom && !!customTo && customFrom <= customTo;
+  const { start, end } = expenseRange(period, customFrom, customTo);
+  const periodRecords = validRange ? records.filter((record) => (!start || record.purchase_date >= start) && (!end || record.purchase_date <= end)) : [];
+  const total = periodRecords.reduce((sum, record) => sum + record.amount, 0);
   const byCategory = categories.map((category) => ({ ...category,
-    amount: records.filter((record) => record.category === category.id).reduce((sum, record) => sum + record.amount, 0),
-    count: records.filter((record) => record.category === category.id).length,
+    amount: periodRecords.filter((record) => record.category === category.id).reduce((sum, record) => sum + record.amount, 0),
+    count: periodRecords.filter((record) => record.category === category.id).length,
   }));
   const largest = Math.max(...byCategory.map((category) => category.amount), 1);
-  const visible = useMemo(() => records.filter((record) =>
+  const visible = periodRecords.filter((record) =>
     (filter === "all" || record.category === filter) &&
-    `${record.item_name} ${record.notes}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())), [records, filter, search]);
+    `${record.item_name} ${record.notes}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+  const donutSegments = byCategory.filter((category) => category.amount > 0);
+  const donutStops = donutSegments.reduce<{ stops: string[]; offset: number }>((result, category) => {
+    const endAt = result.offset + category.amount / Math.max(total, 1) * 100;
+    return { stops: [...result.stops, `${category.color} ${result.offset}% ${endAt}%`], offset: endAt };
+  }, { stops: [], offset: 0 });
 
   async function save(value: PersonalExpenseInput) {
     if (editing) await updatePersonalExpense(editing.id, value);
@@ -91,28 +138,36 @@ export function PersonalExpensePage() {
           if (next >= 0) { event.preventDefault(); const target = next === 0 ? "overview" : "purchases"; setView(target); document.getElementById(`expense-tab-${target}`)?.focus(); }
         }}>{tab === "overview" ? <ChartNoAxesColumn size={17} /> : <List size={17} />}{tab === "overview" ? "Overview" : "Purchases"}{tab === "purchases" && records.length > 0 && <span>{records.length}</span>}</button>)}
     </div>
+    <div className="expense-period-panel"><div><strong>Choose a time period</strong><p>All totals, charts and purchases below use the dates you select.</p></div>
+      <div className="expense-period-options" role="group" aria-label="Personal expense time period">{(Object.keys(periodLabels) as ExpensePeriod[]).map((option) => <button type="button" key={option} aria-pressed={period === option} onClick={() => setPeriod(option)}>{periodLabels[option]}</button>)}</div>
+      {period === "custom" && <div className="expense-custom-range"><div><Label htmlFor="expense-from">From date</Label><Input id="expense-from" type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} /></div><div><Label htmlFor="expense-to">To date</Label><Input id="expense-to" type="date" min={customFrom || undefined} value={customTo} onChange={(event) => setCustomTo(event.target.value)} /></div></div>}
+      {!validRange && <p className="expense-period-error" role="status">Choose a start and end date, with the end on or after the start.</p>}
+      {validRange && <span className="expense-period-caption">Showing: {period === "custom" ? `${formatDate(customFrom)} – ${formatDate(customTo)}` : periodLabels[period]}</span>}
+    </div>
     {loading ? <p className="expense-message">Loading purchases…</p> : loadError ? <p role="alert" className="expense-message text-destructive">Could not load purchases: {loadError}</p> : <>
+      {validRange && <>
       {view === "overview" && <section id="expense-panel-overview" role="tabpanel" aria-labelledby="expense-tab-overview" className="expense-tab-panel">
       <section className="expense-summary" aria-label="Purchase summary">
-        <div className="expense-total"><span className="expense-summary-icon"><ShoppingBag size={22} /></span><span>Total spent</span><strong>{formatPKRInLakhCrore(total)}</strong><small>{records.length} {records.length === 1 ? "purchase" : "purchases"} recorded</small></div>
-        <div className="expense-category-strip">{byCategory.map((category) => {
+        <div className="expense-total"><span className="expense-summary-icon"><ShoppingBag size={22} /></span><span>{period === "all" ? "Total spent" : "Spent in this period"}</span><strong>{formatPKRInLakhCrore(total)}</strong><small>{periodRecords.length} {periodRecords.length === 1 ? "purchase" : "purchases"} in this period</small></div>
+        <div className="expense-category-strip">{byCategory.filter((category) => category.count > 0).map((category) => {
           const Icon = category.icon;
           return <div key={category.id} style={{ "--expense-color": category.color } as CSSProperties}><span className="expense-category-icon"><Icon size={19} /></span><span>{category.label}</span><strong>{formatPKRInLakhCrore(category.amount)}</strong></div>;
         })}</div>
       </section>
-      {records.length > 0 && <section className="expense-chart" aria-label="Spending by category"><div><h2>Where your money went</h2><p>Each bar compares your total spending in that category.</p></div>
-        <div className="expense-bars">{byCategory.map((category) => <div className="expense-bar-row" key={category.id}>
+      {periodRecords.length > 0 && <div className="expense-insight-grid"><section className="expense-chart" aria-label="Spending by category"><div><h2>Where your money went</h2><p>Each bar compares spending in a category during this period.</p></div>
+        <div className="expense-bars">{byCategory.filter((category) => category.count > 0).map((category) => <div className="expense-bar-row" key={category.id}>
           <div><strong>{category.label}</strong><span>{category.count} {category.count === 1 ? "item" : "items"} · {formatPKRInLakhCrore(category.amount)}</span></div>
           <span className="expense-bar-track"><span style={{ width: `${category.amount ? Math.max(3, category.amount / largest * 100) : 0}%`, background: category.color }} /></span>
-        </div>)}</div></section>}
-      {records.length === 0 ? <div className="expense-empty expense-overview-empty"><ShoppingBag size={32} /><h3>Your overview starts here</h3><p>Add your first purchase to see totals and a breakdown by category.</p><Button onClick={() => { setEditing(null); setFormOpen(true); }}><Plus size={17} />Add purchase</Button></div> :
-        <Button variant="outline" className="expense-view-purchases" onClick={() => setView("purchases")}>See all purchases <ArrowRight size={17} /></Button>}
+        </div>)}</div></section><section className="expense-share" aria-label="Spending share by category"><h2>Category share</h2><p>Which purchases took the largest share of spending?</p><div className="expense-share-layout"><div className="expense-share-donut" role="img" aria-label={donutSegments.map((category) => `${category.label}: ${formatPKR(category.amount)}`).join(", ")} style={{ background: `conic-gradient(${donutStops.stops.join(", ")})` }}><span><strong>{periodRecords.length}</strong><small>purchases</small></span></div><div className="expense-share-legend">{donutSegments.map((category) => <div key={category.id}><i style={{ background: category.color }} /><span>{category.label}</span><strong>{Math.round(category.amount / total * 100)}%</strong></div>)}</div></div></section></div>}
+      {periodRecords.length > 0 && <ExpenseTrend records={periodRecords} start={start} end={end} />}
+      {records.length === 0 ? <div className="expense-empty expense-overview-empty"><ShoppingBag size={32} /><h3>Your overview starts here</h3><p>Add your first purchase to see totals and a breakdown by category.</p><Button onClick={() => { setEditing(null); setFormOpen(true); }}><Plus size={17} />Add purchase</Button></div> : periodRecords.length === 0 ? <div className="expense-empty expense-overview-empty"><ChartNoAxesColumn size={32} /><h3>No purchases in this period</h3><p>Choose another time period to see your spending.</p><Button variant="outline" onClick={() => setPeriod("all")}>Show all time</Button></div> :
+        <Button variant="outline" className="expense-view-purchases" onClick={() => setView("purchases")}>See purchases in this period <ArrowRight size={17} /></Button>}
       </section>}
       {view === "purchases" && <section id="expense-panel-purchases" role="tabpanel" aria-labelledby="expense-tab-purchases" className="expense-tab-panel">
       <section className="expense-records" aria-labelledby="expense-records-title"><div className="expense-records-heading"><div><h2 id="expense-records-title">Your purchases</h2><p>Select a purchase to change its details.</p></div><span>{visible.length} shown</span></div>
         {records.length > 0 && <div className="expense-tools"><div className="expense-search"><Search size={17} /><Input aria-label="Search purchases" placeholder="Search by item or note…" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
           <div className="expense-filters" aria-label="Filter purchases">{[{ id: "all", label: "All" }, ...categories].map((category) => <button type="button" key={category.id} className={filter === category.id ? "is-active" : ""} aria-pressed={filter === category.id} onClick={() => setFilter(category.id as ExpenseCategory | "all")}>{category.label}</button>)}</div></div>}
-        {records.length === 0 ? <div className="expense-empty"><ShoppingBag size={32} /><h3>No purchases recorded yet</h3><p>Start with a car, watch, land, house or any other personal purchase.</p><Button onClick={() => { setEditing(null); setFormOpen(true); }}><Plus size={17} />Add your first purchase</Button></div> : visible.length === 0 ? <p className="expense-empty">No purchases match this search or category.</p> :
+        {records.length === 0 ? <div className="expense-empty"><ShoppingBag size={32} /><h3>No purchases recorded yet</h3><p>Start with a car, watch, land, house or any other personal purchase.</p><Button onClick={() => { setEditing(null); setFormOpen(true); }}><Plus size={17} />Add your first purchase</Button></div> : visible.length === 0 ? <p className="expense-empty">No purchases match the selected dates, search or category.</p> :
           <div className="expense-list">{visible.map((record) => { const category = categoryInfo(record.category); const Icon = category.icon;
             return <div className="expense-item" key={record.id} style={{ "--expense-color": category.color } as CSSProperties}>
               <span className="expense-item-icon"><Icon size={23} /></span><div className="expense-item-info"><strong>{record.item_name}</strong><span>{category.singular} · Bought {formatDate(record.purchase_date)}</span>{record.notes && <p>{record.notes}</p>}</div>
@@ -121,6 +176,7 @@ export function PersonalExpensePage() {
           })}</div>}
       </section>
       </section>}
+      </>}
     </>}
     {formOpen && <ExpenseForm key={editing?.id ?? "new"} record={editing} onClose={() => { setFormOpen(false); setEditing(null); }} onSave={save} />}
     <Dialog open={Boolean(removing)} onOpenChange={(open) => { if (!open && !busy) setRemoving(null); }}><DialogContent><DialogHeader><DialogTitle>Remove this purchase?</DialogTitle><p className="text-sm text-muted-foreground">{removing?.item_name} will be removed from your spending totals and list.</p></DialogHeader>{actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}<DialogFooter><Button variant="outline" onClick={() => setRemoving(null)} disabled={busy}>Cancel</Button><Button variant="destructive" onClick={remove} disabled={busy}>{busy ? "Removing…" : "Remove purchase"}</Button></DialogFooter></DialogContent></Dialog>

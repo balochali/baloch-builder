@@ -204,7 +204,7 @@ describe("ProjectDetailPage", () => {
     await waitFor(() => expect(addConstructionCost).toHaveBeenCalledWith(expect.objectContaining({
       amount: 50000, description: "Cement",
     })));
-    expect(screen.getByText("Cement")).toBeInTheDocument();
+    expect(screen.getByText("Cement", { selector: ".construction-payment-list td" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
     expect(screen.getByText("Cement")).toBeInTheDocument();
   });

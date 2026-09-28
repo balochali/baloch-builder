@@ -8,8 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
-import { AddUdhaarPaymentSchema, CreateUdhaarSchema, addUdhaarPayment, createUdhaar, listAllUdhaarPayments, listUdhaarPayments, listUdhaars,
-  type AddUdhaarPaymentInput, type CreateUdhaarInput, type Udhaar, type UdhaarPayment } from "@/data/repositories/udhaarRepository";
+import {
+  AddUdhaarPaymentSchema, CreateUdhaarSchema, addUdhaarPayment, createUdhaar, listAllUdhaarPayments, listUdhaarPayments, listUdhaars,
+  type AddUdhaarPaymentInput, type CreateUdhaarInput, type Udhaar, type UdhaarPayment
+} from "@/data/repositories/udhaarRepository";
 
 function rupees(value: string): number | null {
   const trimmed = value.trim();
@@ -41,7 +43,7 @@ function UdhaarActivityCharts({ loans, payments, start, end, allLoans, allPaymen
   allLoans: Udhaar[]; allPayments: UdhaarPayment[];
 }) {
   const events = [...loans.map((loan) => ({ date: loan.given_date, given: loan.amount, paid: 0 })),
-    ...payments.map((payment) => ({ date: payment.paid_date, given: 0, paid: payment.amount }))];
+  ...payments.map((payment) => ({ date: payment.paid_date, given: 0, paid: payment.amount }))];
   if (!events.length) return <div className="udhaar-activity-empty"><BarChart3 size={27} /><strong>No money moved in this period</strong><p>Choose another date range to see lending and repayments.</p></div>;
   const dates = events.map((event) => event.date).sort();
   const span = differenceInCalendarDays(parseISO(end ?? dates[dates.length - 1]), parseISO(start ?? dates[0]));
@@ -49,16 +51,20 @@ function UdhaarActivityCharts({ loans, payments, start, end, allLoans, allPaymen
     : span > 90 ? format(parseISO(date), "yyyy-MM")
       : span > 31 ? format(startOfWeek(parseISO(date), { weekStartsOn: 1 }), "yyyy-MM-dd") : date;
   const grouped = new Map<string, { given: number; paid: number }>();
-  events.forEach((event) => { const key = bucket(event.date); const current = grouped.get(key) ?? { given: 0, paid: 0 };
-    grouped.set(key, { given: current.given + event.given, paid: current.paid + event.paid }); });
+  events.forEach((event) => {
+    const key = bucket(event.date); const current = grouped.get(key) ?? { given: 0, paid: 0 };
+    grouped.set(key, { given: current.given + event.given, paid: current.paid + event.paid });
+  });
   const rows = [...grouped].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => ({ key, ...value }));
   const maxBar = Math.max(...rows.map((row) => Math.max(row.given, row.paid)), 1);
   const before = start ? allLoans.filter((loan) => loan.given_date < start).reduce((total, loan) => total + loan.amount, 0)
     - allPayments.filter((payment) => payment.paid_date < start).reduce((total, payment) => total + payment.amount, 0) : 0;
   const points = rows.reduce<{ x: number; amount: number }[]>((result, row, index) => {
     const previous = result.length ? result[result.length - 1].amount : before;
-    return [...result, { x: rows.length === 1 ? 150 : 12 + index / (rows.length - 1) * 276,
-      amount: Math.max(0, previous + row.given - row.paid) }];
+    return [...result, {
+      x: rows.length === 1 ? 150 : 12 + index / (rows.length - 1) * 276,
+      amount: Math.max(0, previous + row.given - row.paid)
+    }];
   }, []);
   const maxLine = Math.max(...points.map((point) => point.amount), before, 1);
   const line = points.map((point) => `${point.x},${106 - point.amount / maxLine * 88}`).join(" ");
@@ -71,7 +77,7 @@ function UdhaarActivityCharts({ loans, payments, start, end, allLoans, allPaymen
     </section>
     <section className="udhaar-activity-card" aria-label="Outstanding balance trend"><div className="udhaar-chart-head"><TrendingUp size={20} /><div><h3>Still to receive over time</h3><p>The line rises when you lend and falls when someone pays back.</p></div></div>
       <strong className="udhaar-trend-total">{formatPKRInLakhCrore(points[points.length - 1].amount)}</strong>
-      <svg className="udhaar-trend-line" viewBox="0 0 300 120" role="img" aria-label={`Outstanding balance reached ${formatPKR(points[points.length - 1].amount)}`} preserveAspectRatio="none"><line x1="0" x2="300" y1="106" y2="106" stroke="#dce7f0" /><line x1="0" x2="300" y1="62" y2="62" stroke="#edf2f7" /><polyline points={line} fill="none" stroke="#267db6" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />{points.map((point, index) => <circle key={index} cx={point.x} cy={106 - point.amount / maxLine * 88} r="4" fill="#e8b941" />)}</svg>
+      <svg className="udhaar-trend-line" viewBox="0 0 300 120" role="img" aria-label={`Outstanding balance reached ${formatPKR(points[points.length - 1].amount)}`} preserveAspectRatio="none"><line x1="0" x2="300" y1="106" y2="106" stroke="#dce7f0" /><line x1="0" x2="300" y1="62" y2="62" stroke="#edf2f7" /><polyline points={line} fill="none" stroke="#ec6a4f" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />{points.map((point, index) => <circle key={index} cx={point.x} cy={106 - point.amount / maxLine * 88} r="4" fill="#c2451f" />)}</svg>
       <div className="udhaar-trend-dates"><span>{formatBucket(rows[0].key)}</span><span>{rows.length > 1 ? formatBucket(rows[rows.length - 1].key) : ""}</span></div>
     </section>
   </div>;
@@ -108,9 +114,11 @@ export function CreditUdhaarPage() {
   const paidToEnd = paymentsToEnd.reduce((total, payment) => total + payment.amount, 0);
   const totalRemaining = Math.max(0, givenToEnd - paidToEnd);
   const paidPercent = givenToEnd > 0 ? Math.min(100, paidToEnd / givenToEnd * 100) : 0;
-  const largestBalances = loansToEnd.map((record) => ({ record,
+  const largestBalances = loansToEnd.map((record) => ({
+    record,
     balance: Math.max(0, record.amount - paymentsToEnd.filter((payment) => payment.udhaar_id === record.id)
-      .reduce((total, payment) => total + payment.amount, 0)) }))
+      .reduce((total, payment) => total + payment.amount, 0))
+  }))
     .filter((item) => item.balance > 0).sort((a, b) => b.balance - a.balance).slice(0, 4);
   const largestBalance = largestBalances[0]?.balance ?? 0;
   const periodLabel = period === "custom" && validRange ? `${formatDate(customFrom)} – ${formatDate(customTo)}` : periodNames[period];
@@ -153,7 +161,7 @@ export function CreditUdhaarPage() {
   }
 
   return <main className="udhaar-page">
-    <div className="udhaar-heading"><div><p className="projects-eyebrow">MONEY YOU GAVE</p><h1>Credit / Udhaar</h1><p>See who owes you money, how much has come back, and what is still due.</p></div>
+    <div className="udhaar-heading"><div><p className="projects-eyebrow">Money you gave</p><h1>Credit / Udhaar</h1><p>See who owes you money, how much has come back, and what is still due.</p></div>
       <Button onClick={() => setAddOpen(true)}><Plus size={18} />Give Udhaar</Button></div>
     <div className="udhaar-tabs" role="tablist" aria-label="Credit and Udhaar views">
       {(["overview", "people"] as const).map((tab, index) => <button type="button" role="tab" key={tab} id={`udhaar-tab-${tab}`} aria-selected={view === tab} aria-controls={`udhaar-panel-${tab}`} tabIndex={view === tab ? 0 : -1}
@@ -166,51 +174,51 @@ export function CreditUdhaarPage() {
     {!loading && error && <p role="alert" className="py-8 text-destructive">Could not load udhaar records: {error}</p>}
     {!loading && !error && <>
       {view === "overview" && <section id="udhaar-panel-overview" role="tabpanel" aria-labelledby="udhaar-tab-overview" className="udhaar-tab-panel">
-      <div className="udhaar-filter-panel"><div><strong>Choose a time period</strong><p>Given and paid back show activity in this period. Still to receive shows the balance at its end.</p></div>
-        <div className="udhaar-filter-options" role="group" aria-label="Udhaar time period">{(Object.keys(periodNames) as Period[]).map((option) => <button type="button" key={option} aria-pressed={period === option} onClick={() => setPeriod(option)}>{periodNames[option]}</button>)}</div>
-        {period === "custom" && <div className="udhaar-custom-range"><div><Label htmlFor="udhaar-from">From date</Label><Input id="udhaar-from" type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} /></div><div><Label htmlFor="udhaar-to">To date</Label><Input id="udhaar-to" type="date" min={customFrom || undefined} value={customTo} onChange={(event) => setCustomTo(event.target.value)} /></div></div>}
-        {!validRange && <p className="udhaar-filter-error" role="status">Choose a start and end date, with the end on or after the start.</p>}
-        {validRange && <span className="udhaar-filter-caption">Showing: {periodLabel}</span>}
-      </div>
-      {validRange && <>
-      <div className="udhaar-summary">
-        <div className="udhaar-summary-given"><span className="udhaar-summary-icon"><HandCoins size={23} /></span><span>{period === "all" ? "Total given" : "Given in this period"}</span><strong>{formatPKRInLakhCrore(totalLent)}</strong><small>{totalLent >= 100_000 ? `${formatPKR(totalLent, { lakhCrore: true })} in full` : "Money you lent"}</small></div>
-        <div className="udhaar-summary-paid"><span className="udhaar-summary-icon"><CircleCheck size={23} /></span><span>{period === "all" ? "Paid back" : "Paid back in this period"}</span><strong>{formatPKRInLakhCrore(totalPaid)}</strong><small>{totalPaid >= 100_000 ? `${formatPKR(totalPaid, { lakhCrore: true })} in full` : "Money received from people"}</small></div>
-        <div className="udhaar-summary-remaining"><span className="udhaar-summary-icon"><Wallet size={23} /></span><span>{period === "all" ? "Still to receive" : "Still to receive at period end"}</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong><small>{totalRemaining >= 100_000 ? `${formatPKR(totalRemaining, { lakhCrore: true })} in full` : "Money people still owe you"}</small></div>
-      </div>
-      {records.length > 0 && <section className="udhaar-insights" aria-label="Udhaar at a glance">
-        <div className="udhaar-insight-intro"><p className="projects-eyebrow">AT A GLANCE</p><h2>How much has come back?</h2><p>Green shows money paid back. Gold shows money still to receive{period === "all" ? "." : " at the end of the selected period."}</p></div>
-        <div className="udhaar-insight-body"><div className="udhaar-donut-layout">
-          <div className="udhaar-donut" role="img" aria-label={`${formatPKR(paidToEnd)} paid back and ${formatPKR(totalRemaining)} still to receive`} style={{ background: `conic-gradient(#49b9a2 0 ${paidPercent}%, #e8b941 ${paidPercent}% 100%)` }}><span><strong>{Math.round(paidPercent)}%</strong><small>paid back</small></span></div>
-          <div className="udhaar-donut-legend"><div><i className="is-paid" /><span>Paid back</span><strong>{formatPKRInLakhCrore(paidToEnd)}</strong></div><div><i className="is-remaining" /><span>Still to receive</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong></div><p>Out of {formatPKRInLakhCrore(givenToEnd)} given up to this date.</p></div>
-        </div><div className="udhaar-balance-chart"><h3>Largest amounts still due</h3><p>People with the most money left to return at the end of this period.</p>{largestBalances.length === 0 ? <span className="udhaar-all-paid">Everyone has paid back in full.</span> : largestBalances.map(({ record, balance }) => {
-          return <div className="udhaar-balance-row" key={record.id}><div><strong>{record.borrower_name}</strong><span>{formatPKRInLakhCrore(balance)}</span></div><span className="udhaar-balance-track"><span style={{ width: `${balance / largestBalance * 100}%` }} /></span></div>;
-        })}</div></div>
-      </section>}
-      {records.length > 0 && <UdhaarActivityCharts loans={periodLoans} payments={periodPayments} start={start} end={end} allLoans={records} allPayments={allPayments} />}
-      {records.length === 0 && <div className="udhaar-empty"><HandCoins size={34} /><h2>Your overview starts here</h2><p>Add the first udhaar to see how much has been given and paid back.</p><Button onClick={() => setAddOpen(true)}><Plus size={17} />Give Udhaar</Button></div>}
-      {records.length > 0 && <Button variant="outline" className="udhaar-view-people" onClick={() => setView("people")}>See people and remaining balances <ArrowRight size={17} /></Button>}
-      </>}
+        <div className="udhaar-filter-panel"><div><strong>Choose a time period</strong><p>Given and paid back show activity in this period. Still to receive shows the balance at its end.</p></div>
+          <div className="udhaar-filter-options" role="group" aria-label="Udhaar time period">{(Object.keys(periodNames) as Period[]).map((option) => <button type="button" key={option} aria-pressed={period === option} onClick={() => setPeriod(option)}>{periodNames[option]}</button>)}</div>
+          {period === "custom" && <div className="udhaar-custom-range"><div><Label htmlFor="udhaar-from">From date</Label><Input id="udhaar-from" type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} /></div><div><Label htmlFor="udhaar-to">To date</Label><Input id="udhaar-to" type="date" min={customFrom || undefined} value={customTo} onChange={(event) => setCustomTo(event.target.value)} /></div></div>}
+          {!validRange && <p className="udhaar-filter-error" role="status">Choose a start and end date, with the end on or after the start.</p>}
+          {validRange && <span className="udhaar-filter-caption">Showing: {periodLabel}</span>}
+        </div>
+        {validRange && <>
+          <div className="udhaar-summary">
+            <div className="udhaar-summary-given"><span className="udhaar-summary-icon"><HandCoins size={23} /></span><span>{period === "all" ? "Total given" : "Given in this period"}</span><strong>{formatPKRInLakhCrore(totalLent)}</strong><small>{totalLent >= 100_000 ? `${formatPKR(totalLent, { lakhCrore: true })} in full` : "Money you lent"}</small></div>
+            <div className="udhaar-summary-paid"><span className="udhaar-summary-icon"><CircleCheck size={23} /></span><span>{period === "all" ? "Paid back" : "Paid back in this period"}</span><strong>{formatPKRInLakhCrore(totalPaid)}</strong><small>{totalPaid >= 100_000 ? `${formatPKR(totalPaid, { lakhCrore: true })} in full` : "Money received from people"}</small></div>
+            <div className="udhaar-summary-remaining"><span className="udhaar-summary-icon"><Wallet size={23} /></span><span>{period === "all" ? "Still to receive" : "Still to receive at period end"}</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong><small>{totalRemaining >= 100_000 ? `${formatPKR(totalRemaining, { lakhCrore: true })} in full` : "Money people still owe you"}</small></div>
+          </div>
+          {records.length > 0 && <section className="udhaar-insights" aria-label="Udhaar at a glance">
+            <div className="udhaar-insight-intro"><p className="projects-eyebrow">At a glance</p><h2>How much has come back?</h2><p>Green shows money paid back. Coral shows money still to receive{period === "all" ? "." : " at the end of the selected period."}</p></div>
+            <div className="udhaar-insight-body"><div className="udhaar-donut-layout">
+              <div className="udhaar-donut" role="img" aria-label={`${formatPKR(paidToEnd)} paid back and ${formatPKR(totalRemaining)} still to receive`} style={{ background: `conic-gradient(#22b573 0 ${paidPercent}%, #ec6a4f ${paidPercent}% 100%)` }}><span><strong>{Math.round(paidPercent)}%</strong><small>paid back</small></span></div>
+              <div className="udhaar-donut-legend"><div><i className="is-paid" /><span>Paid back</span><strong>{formatPKRInLakhCrore(paidToEnd)}</strong></div><div><i className="is-remaining" /><span>Still to receive</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong></div><p>Out of {formatPKRInLakhCrore(givenToEnd)} given up to this date.</p></div>
+            </div><div className="udhaar-balance-chart"><h3>Largest amounts still due</h3><p>People with the most money left to return at the end of this period.</p>{largestBalances.length === 0 ? <span className="udhaar-all-paid">Everyone has paid back in full.</span> : largestBalances.map(({ record, balance }) => {
+              return <div className="udhaar-balance-row" key={record.id}><div><strong>{record.borrower_name}</strong><span>{formatPKRInLakhCrore(balance)}</span></div><span className="udhaar-balance-track"><span style={{ width: `${balance / largestBalance * 100}%` }} /></span></div>;
+            })}</div></div>
+          </section>}
+          {records.length > 0 && <UdhaarActivityCharts loans={periodLoans} payments={periodPayments} start={start} end={end} allLoans={records} allPayments={allPayments} />}
+          {records.length === 0 && <div className="udhaar-empty"><HandCoins size={34} /><h2>Your overview starts here</h2><p>Add the first udhaar to see how much has been given and paid back.</p><Button onClick={() => setAddOpen(true)}><Plus size={17} />Give Udhaar</Button></div>}
+          {records.length > 0 && <Button variant="outline" className="udhaar-view-people" onClick={() => setView("people")}>See people and remaining balances <ArrowRight size={17} /></Button>}
+        </>}
       </section>}
       {view === "people" && <section id="udhaar-panel-people" role="tabpanel" aria-labelledby="udhaar-tab-people" className="udhaar-tab-panel">
-      <div className="udhaar-list-heading"><div><h2>People who owe you</h2><p>Select a person to see payments and record money received.</p></div><span>{records.length} {records.length === 1 ? "record" : "records"}</span></div>
-      {records.length > 0 && <div className="relative udhaar-search"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="Search udhaar records" placeholder="Search by name or phone…" className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} /></div>}
-      {records.length === 0 ? <div className="udhaar-empty"><HandCoins size={34} /><h2>No udhaar recorded yet</h2><p>Start by adding the name, amount and date for money you have given.</p><Button onClick={() => setAddOpen(true)}><Plus size={17} />Give Udhaar</Button></div> :
-        visible.length === 0 ? <p className="rounded-xl border p-8 text-center text-muted-foreground">No udhaar records match your search.</p> :
-          <div className="udhaar-cards">{visible.map((record) => {
-            const remaining = Math.max(0, record.amount - record.paid_amount);
-            const percent = Math.min(100, record.paid_amount / record.amount * 100);
-            return <button className={`udhaar-card ${remaining === 0 ? "is-settled" : record.paid_amount > 0 ? "is-partial" : "is-unpaid"}`} type="button" key={record.id} onClick={() => openDetails(record.id)} aria-label={`View ${record.borrower_name}'s udhaar`}>
-              <span className="udhaar-card-top"><span className="udhaar-avatar"><UserRound size={25} /></span><span className="udhaar-card-person"><strong>{record.borrower_name}</strong><small>{record.phone || "Phone not added"}</small></span><ArrowRight size={19} /></span>
-              <span className="udhaar-card-status">{remaining === 0 ? <><CircleCheck size={15} />Paid in full</> : record.paid_amount > 0 ? "Partly paid" : "Not paid yet"}</span>
-              <span className="udhaar-card-amount"><small>Still to receive</small><strong>{formatPKRInLakhCrore(remaining)}</strong>{remaining >= 100_000 && <em>{formatPKR(remaining, { lakhCrore: true })} exactly</em>}</span>
-              <span className="udhaar-progress-caption"><span>Repayment progress</span><strong>{Math.round(percent)}% paid</strong></span>
-              <span className="udhaar-progress" role="img" aria-label={`${formatPKR(record.paid_amount)} repaid out of ${formatPKR(record.amount)}`}><span style={{ width: `${percent}%` }} /></span>
-              <span className="udhaar-card-split"><span>Given <strong>{formatPKRInLakhCrore(record.amount)}</strong></span><span>Paid back <strong>{formatPKRInLakhCrore(record.paid_amount)}</strong></span></span>
-              <span className="udhaar-card-date"><CalendarDays size={14} />Given {formatDate(record.given_date)}{record.due_date ? ` · Due ${formatDate(record.due_date)}` : ""}</span>
-              <span className="udhaar-card-action">View details <ArrowRight size={16} /></span>
-            </button>;
-          })}</div>}
+        <div className="udhaar-list-heading"><div><h2>People who owe you</h2><p>Select a person to see payments and record money received.</p></div><span>{records.length} {records.length === 1 ? "record" : "records"}</span></div>
+        {records.length > 0 && <div className="relative udhaar-search"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="Search udhaar records" placeholder="Search by name or phone…" className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} /></div>}
+        {records.length === 0 ? <div className="udhaar-empty"><HandCoins size={34} /><h2>No udhaar recorded yet</h2><p>Start by adding the name, amount and date for money you have given.</p><Button onClick={() => setAddOpen(true)}><Plus size={17} />Give Udhaar</Button></div> :
+          visible.length === 0 ? <p className="rounded-xl border p-8 text-center text-muted-foreground">No udhaar records match your search.</p> :
+            <div className="udhaar-cards">{visible.map((record) => {
+              const remaining = Math.max(0, record.amount - record.paid_amount);
+              const percent = Math.min(100, record.paid_amount / record.amount * 100);
+              return <button className={`udhaar-card ${remaining === 0 ? "is-settled" : record.paid_amount > 0 ? "is-partial" : "is-unpaid"}`} type="button" key={record.id} onClick={() => openDetails(record.id)} aria-label={`View ${record.borrower_name}'s udhaar`}>
+                <span className="udhaar-card-top"><span className="udhaar-avatar"><UserRound size={25} /></span><span className="udhaar-card-person"><strong>{record.borrower_name}</strong><small>{record.phone || "Phone not added"}</small></span><ArrowRight size={19} /></span>
+                <span className="udhaar-card-status">{remaining === 0 ? <><CircleCheck size={15} />Paid in full</> : record.paid_amount > 0 ? "Partly paid" : "Not paid yet"}</span>
+                <span className="udhaar-card-amount"><small>Still to receive</small><strong>{formatPKRInLakhCrore(remaining)}</strong>{remaining >= 100_000 && <em>{formatPKR(remaining, { lakhCrore: true })} exactly</em>}</span>
+                <span className="udhaar-progress-caption"><span>Repayment progress</span><strong>{Math.round(percent)}% paid</strong></span>
+                <span className="udhaar-progress" role="img" aria-label={`${formatPKR(record.paid_amount)} repaid out of ${formatPKR(record.amount)}`}><span style={{ width: `${percent}%` }} /></span>
+                <span className="udhaar-card-split"><span>Given <strong>{formatPKRInLakhCrore(record.amount)}</strong></span><span>Paid back <strong>{formatPKRInLakhCrore(record.paid_amount)}</strong></span></span>
+                <span className="udhaar-card-date"><CalendarDays size={14} />Given {formatDate(record.given_date)}{record.due_date ? ` · Due ${formatDate(record.due_date)}` : ""}</span>
+                <span className="udhaar-card-action">View details <ArrowRight size={16} /></span>
+              </button>;
+            })}</div>}
       </section>}
     </>}
     {addOpen && <UdhaarForm onClose={() => setAddOpen(false)} onSave={addRecord} />}

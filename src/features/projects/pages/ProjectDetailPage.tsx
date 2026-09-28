@@ -20,6 +20,7 @@ import { ProjectEntryDialog } from "@/features/projects/components/ProjectEntryD
 import { flatRecoveryLines, recoveryLink } from "@/features/projects/components/recoverySpaces";
 import { BuildingDetailsDialog } from "@/features/projects/components/BuildingDetailsDialog";
 import { ProjectDashboard } from "@/features/projects/components/ProjectDashboard";
+import { ConstructionCostInsights } from "@/features/projects/components/ConstructionCostInsights";
 import { ProjectStatusProgress } from "@/features/projects/components/ProjectStatusProgress";
 import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
@@ -226,7 +227,6 @@ export function ProjectDetailPage() {
   const landCost = project ? landPurchaseCost(project.id, landDetails) : null;
   const allActualCosts = landCost ? [landCost, ...actualCosts].sort((a, b) => b.date.localeCompare(a.date)) : actualCosts;
   const actualTotal = sum(allActualCosts.map((item) => item.amount));
-  const constructionTotal = sum(constructionCosts.map((item) => item.amount));
   const visibleProjectTabs = projectTabs.filter(({ id }) => id !== "construction" ||
     project?.status === "under construction" || project?.status === "completed" || constructionCosts.length > 0);
   const allocatedShareBp = sum(partners.map((item) => item.share_bp));
@@ -443,16 +443,7 @@ export function ProjectDetailPage() {
           <div><h2 className="text-lg font-semibold">Construction costs</h2><p className="text-sm text-muted-foreground">Record materials, labour and other building payments here. They also count toward Actual Cost.</p></div>
           <Button onClick={() => setDialog("construction")}><Plus className="size-4" />Add Construction Cost</Button>
         </div>
-        <div className="mb-6 grid gap-3 sm:grid-cols-2"><Summary title="Construction spent" value={formatPKR(constructionTotal)} />
-          <Summary title="Payments recorded" value={String(constructionCosts.length)} /></div>
-        {constructionCosts.length > 0 && <SpendingChart costs={constructionCosts} />}
-        {constructionCosts.length === 0 ? <div className="construction-cost-empty"><Building2 size={28} /><strong>No construction costs recorded yet</strong><p>Use Add Construction Cost when you pay for materials, labour or other building work.</p></div> :
-          <div className="overflow-x-auto rounded-lg border"><table className="w-full text-sm"><thead className="bg-muted/50 text-left text-muted-foreground"><tr>
-            <th className="px-4 py-3 font-medium">Date</th><th className="px-4 py-3 font-medium">What was paid for</th>
-            <th className="px-4 py-3 font-medium">Method</th><th className="px-4 py-3 text-right font-medium">Amount</th>
-          </tr></thead><tbody>{constructionCosts.map((item) => <tr key={item.id} className="border-t"><td className="px-4 py-3">{formatDate(item.date)}</td>
-            <td className="px-4 py-3">{item.description}{item.reference && <span className="block text-xs text-muted-foreground">Ref: {item.reference}</span>}</td>
-            <td className="px-4 py-3 capitalize">{item.method || "—"}</td><td className="px-4 py-3 text-right font-medium">{formatPKR(item.amount)}</td></tr>)}</tbody></table></div>}
+        <ConstructionCostInsights costs={constructionCosts} />
       </div>}
       {dialog && <ProjectEntryDialog mode={dialog === "estimate" ? "estimate" : "actual"} projectId={project.id} estimate={editingEstimate} estimateKind={estimateKind}
         buildingDetails={buildingDetails} recoveryEstimates={revenues}
