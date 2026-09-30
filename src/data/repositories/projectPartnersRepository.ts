@@ -1,3 +1,4 @@
+import { BankAccountSchema } from "@/domain/bankAccount";
 import { z } from "zod";
 import { execute, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
@@ -56,6 +57,7 @@ function validateMethod(method: "cash" | "bank" | "cheque" | "other", reference:
 }
 
 export const AddProjectPartnerSchema = z.object({
+  account_key: BankAccountSchema.optional(),
   project_id: z.string().uuid(),
   name: z.string().trim().min(1, "Partner name is required").max(120),
   phone: z.string().trim().min(1, "Mobile number is required").max(30),
@@ -77,6 +79,7 @@ export const AddProjectPartnerSchema = z.object({
 });
 
 export const PartnerContributionSchema = z.object({
+  account_key: BankAccountSchema.optional(),
   project_id: z.string().uuid(),
   partner_id: z.string().uuid(),
   amount: rupees,
@@ -174,16 +177,17 @@ async function insertContribution(value: PartnerContributionInput, contactId: st
   await execute(
     `INSERT INTO transactions
        (id, date, amount, direction, type, method, reference, description, project_id,
-        partner_id, contact_id, created_at, updated_at, archived, custom)
-     VALUES (?, ?, ?, 'in', 'partner_contribution', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+        partner_id, contact_id, created_at, updated_at, archived, custom, account_key)
+     VALUES (?, ?, ?, 'in', 'partner_contribution', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
     [newId(), value.date, value.amount, value.method, value.reference || null,
       value.description || "Partner contribution", value.project_id, value.partner_id,
-      contactId, timestamp, timestamp, JSON.stringify({ payment_details: value.payment_details })],
+      contactId, timestamp, timestamp, JSON.stringify({ payment_details: value.payment_details }), BankAccountSchema.parse(value.account_key)],
   );
 }
 
 export async function addProjectPartner(input: AddProjectPartnerInput): Promise<void> {
   const value = AddProjectPartnerSchema.parse(input);
+  if (value.initial_amount !== null) BankAccountSchema.parse(value.account_key);
   const existing = await listProjectPartners(value.project_id);
   if (existing.reduce((total, item) => total + item.share_bp, 0) + value.share_bp > 10_000) {
     throw new Error("Combined partner shares cannot exceed 100%");
@@ -221,7 +225,7 @@ export async function addProjectPartner(input: AddProjectPartnerInput): Promise<
       await insertContribution({ project_id: value.project_id, partner_id: partnerId,
         amount: value.initial_amount, date: value.initial_date, method: value.initial_method,
         reference: value.initial_reference, description: "Initial partner contribution",
-        payment_details: value.initial_payment_details }, contactId);
+        payment_details: value.initial_payment_details, account_key: value.account_key }, contactId);
     }
   } catch (cause) {
     // The SQL plugin exposes individual statements, so retire earlier records if a later write fails.

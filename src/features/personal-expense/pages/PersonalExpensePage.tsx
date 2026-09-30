@@ -1,3 +1,4 @@
+import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { RingChart } from "@/components/charts/RingChart";
 import { TimeSeriesChart, chartColors } from "@/components/charts/TimeSeriesChart";
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
@@ -670,11 +671,13 @@ function ExpenseForm({
   );
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [error, setError] = useState("");
+  const [accountKey, setAccountKey] = useState(record?.account_key ?? "");
   const [saving, setSaving] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     const result = PersonalExpenseSchema.safeParse({
+      account_key: accountKey,
       category,
       item_name: name,
       amount: parseRupees(amount),
@@ -709,6 +712,7 @@ function ExpenseForm({
           </p>
         </DialogHeader>
         <form id="expense-form" onSubmit={submit} className="expense-form">
+          <BankAccountSelect value={accountKey} onChange={setAccountKey} />
           <div>
             <Label htmlFor="expense-category">What did you buy? *</Label>
             <select

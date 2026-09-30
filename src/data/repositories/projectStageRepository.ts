@@ -1,3 +1,4 @@
+import { BankAccountSchema } from "@/domain/bankAccount";
 import { z } from "zod";
 import { db, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
@@ -8,6 +9,7 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date");
 const amount = z.number().int().positive().safe();
 
 export const LandAcquisitionSchema = z.object({
+  account_key: BankAccountSchema.optional(),
   title: z.string().trim().min(1, "Enter a name for the land").max(120),
   location: z.string().trim().min(1, "Enter the land location").max(500),
   purchase_date: date,
@@ -24,7 +26,7 @@ export type LandAcquisitionInput = z.infer<typeof LandAcquisitionSchema>;
 export type ProjectLand = Omit<LandAcquisitionInput, "seller_name"> & { id: string; seller_name: string };
 
 export async function getProjectLand(projectId: string): Promise<ProjectLand | null> {
-  const rows = await query<ProjectLand & { custom: string }>(`SELECT id, title, location, purchase_date, area_value, area_unit, price,
+  const rows = await query<ProjectLand & { custom: string }>(`SELECT id, account_key, title, location, purchase_date, area_value, area_unit, price,
     notes, custom FROM land WHERE project_id = ? AND archived = 0 ORDER BY created_at LIMIT 1`, [projectId]);
   const row = rows[0];
   if (!row) return null;
@@ -40,6 +42,7 @@ export async function saveProjectStage(projectId: string, status: ProjectStatus,
   if (validStatus === "land acquired" && !land) throw new Error("Land details are required");
   const validLand = land ? LandAcquisitionSchema.parse(land) : null;
   if (validLand && validStatus !== "land acquired") throw new Error("Land details require the Land acquired status");
+  if (validLand?.price != null) BankAccountSchema.parse(validLand.account_key);
   const database = await db();
   const timestamp = now();
   await database.execute("BEGIN IMMEDIATE");
@@ -50,15 +53,15 @@ export async function saveProjectStage(projectId: string, status: ProjectStatus,
       const existing = await database.select<{ id: string }[]>("SELECT id FROM land WHERE project_id = ? AND archived = 0 ORDER BY created_at LIMIT 1", [projectId]);
       if (existing[0]) {
         await database.execute(`UPDATE land SET title = ?, location = ?, purchase_date = ?, area_value = ?, area_unit = ?,
-          price = ?, notes = ?, custom = ?, status = 'acquired', updated_at = ? WHERE id = ?`,
+          price = ?, notes = ?, custom = ?, status = 'acquired', updated_at = ?, account_key = ? WHERE id = ?`,
         [validLand.title, validLand.location, validLand.purchase_date, validLand.area_value, validLand.area_unit,
-          validLand.price, validLand.notes || null, JSON.stringify({ seller_name: validLand.seller_name }), timestamp, existing[0].id]);
+          validLand.price, validLand.notes || null, JSON.stringify({ seller_name: validLand.seller_name }), timestamp, validLand.account_key ?? null, existing[0].id]);
       } else {
         await database.execute(`INSERT INTO land (id, title, location, area_value, area_unit, purchase_date, price,
-          status, project_id, is_personal, notes, created_at, updated_at, archived, custom)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'acquired', ?, 0, ?, ?, ?, 0, ?)`,
+          status, project_id, is_personal, notes, created_at, updated_at, archived, custom, account_key)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'acquired', ?, 0, ?, ?, ?, 0, ?, ?)`,
         [newId(), validLand.title, validLand.location, validLand.area_value, validLand.area_unit, validLand.purchase_date,
-          validLand.price, projectId, validLand.notes || null, timestamp, timestamp, JSON.stringify({ seller_name: validLand.seller_name })]);
+          validLand.price, projectId, validLand.notes || null, timestamp, timestamp, JSON.stringify({ seller_name: validLand.seller_name }), validLand.account_key ?? null]);
       }
       // The acquired land defines the plot size for this project's building plan.
       await database.execute(`UPDATE project_building_details SET plot_area_value = ?, plot_area_unit = ?,

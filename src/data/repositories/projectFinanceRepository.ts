@@ -1,3 +1,4 @@
+import { BankAccountSchema } from "@/domain/bankAccount";
 import { z } from "zod";
 import { execute, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
@@ -23,6 +24,7 @@ export const EstimateInputSchema = z.object({
 });
 
 export const ActualCostInputSchema = z.object({
+  account_key: BankAccountSchema.optional(),
   project_id: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date is required"),
   amount: z.number().int().positive().safe(),
@@ -116,10 +118,10 @@ async function addCost(input: ActualCostInput, type: "project_cost" | "construct
   await execute(
     `INSERT INTO transactions
       (id, date, amount, direction, type, method, reference, description, project_id,
-       created_at, updated_at, archived, custom)
-     VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, 0, '{}')`,
+       created_at, updated_at, archived, custom, account_key)
+     VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, 0, '{}', ?)`,
     [id, value.date, value.amount, type, value.method, value.reference || null,
-      value.description, value.project_id, timestamp, timestamp],
+      value.description, value.project_id, timestamp, timestamp, BankAccountSchema.parse(value.account_key)],
   );
   const rows = await query<Transaction>(`SELECT * FROM transactions WHERE id = ?`, [id]);
   if (!rows[0]) throw new Error("Cost was saved but could not be loaded");

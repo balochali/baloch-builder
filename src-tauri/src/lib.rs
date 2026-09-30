@@ -66,6 +66,12 @@ pub fn run() {
             sql: include_str!("../migrations/010_udhaar_payment_guard.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 11,
+            description: "011_bank_accounts",
+            sql: include_str!("../migrations/011_bank_accounts.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

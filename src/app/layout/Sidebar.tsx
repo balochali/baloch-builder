@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
+  Landmark,
   LayoutDashboard,
   MapPin,
   FolderKanban,
@@ -29,6 +30,7 @@ const groups = [
       { to: "/contacts", label: "Contacts", icon: BookUser },
       { to: "/partners", label: "Partners", icon: Users },
       { to: "/personal-expense", label: "Personal Expense", icon: ReceiptText },
+      { to: "/bank", label: "Bank", icon: Landmark },
       { to: "/credit-udhaar", label: "Credit / Udhaar", icon: Wallet },
     ],
   },

@@ -1,3 +1,4 @@
+import { BankAccountSchema } from "@/domain/bankAccount";
 import { groupUdhaarPeople } from "@/domain/udhaarPeople";
 import { z } from "zod";
 import { execute, query } from "@/data/client";
@@ -8,6 +9,7 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date");
 
 export const CreateUdhaarSchema = z
   .object({
+  account_key: BankAccountSchema.optional(),
     contact_id: z.string().uuid().nullable().optional(),
     borrower_name: z.string().trim().min(1, "Enter the person's name").max(120),
     phone: z.string().trim().max(40),
@@ -22,6 +24,7 @@ export const CreateUdhaarSchema = z
   });
 
 export const AddUdhaarPaymentSchema = z.object({
+  account_key: BankAccountSchema.optional(),
   udhaar_id: z.string().uuid(),
   amount: rupees,
   paid_date: date,
@@ -33,6 +36,7 @@ export type CreateUdhaarInput = z.infer<typeof CreateUdhaarSchema>;
 export type AddUdhaarPaymentInput = z.infer<typeof AddUdhaarPaymentSchema>;
 
 export interface Udhaar {
+  account_key?: string | null;
   contact_id?: string | null;
   id: string;
   borrower_name: string;
@@ -57,7 +61,7 @@ export interface UdhaarPayment {
 }
 
 export async function listUdhaars(): Promise<Udhaar[]> {
-  return query<Udhaar>(`SELECT u.id, u.contact_id, COALESCE(c.name, u.borrower_name) AS borrower_name, CASE WHEN c.id IS NOT NULL THEN c.phone ELSE u.phone END AS phone, u.amount, u.given_date, u.due_date,
+  return query<Udhaar>(`SELECT u.id, u.account_key, u.contact_id, COALESCE(c.name, u.borrower_name) AS borrower_name, CASE WHEN c.id IS NOT NULL THEN c.phone ELSE u.phone END AS phone, u.amount, u.given_date, u.due_date,
     u.notes, u.created_at, COALESCE(SUM(p.amount), 0) AS paid_amount, COUNT(p.id) AS payment_count
     FROM udhaars u LEFT JOIN contacts c ON c.id = u.contact_id LEFT JOIN udhaar_payments p ON p.udhaar_id = u.id AND p.archived = 0
     WHERE u.archived = 0 GROUP BY u.id ORDER BY u.given_date DESC, u.created_at DESC`);
@@ -94,8 +98,8 @@ export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
   const timestamp = now();
   await execute(
     `INSERT INTO udhaars
-    (id, borrower_name, phone, amount, given_date, due_date, notes, created_at, updated_at, contact_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    (id, borrower_name, phone, amount, given_date, due_date, notes, created_at, updated_at, contact_id, account_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       newId(),
       borrowerName,
@@ -107,6 +111,7 @@ export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
       timestamp,
       timestamp,
       value.contact_id ?? null,
+      BankAccountSchema.parse(value.account_key),
     ],
   );
 }
@@ -128,8 +133,8 @@ export async function addUdhaarPayment(input: AddUdhaarPaymentInput): Promise<vo
   const timestamp = now();
   await execute(
     `INSERT INTO udhaar_payments
-    (id, udhaar_id, amount, paid_date, method, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    (id, udhaar_id, amount, paid_date, method, notes, created_at, updated_at, account_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       newId(),
       value.udhaar_id,
@@ -139,6 +144,7 @@ export async function addUdhaarPayment(input: AddUdhaarPaymentInput): Promise<vo
       value.notes || null,
       timestamp,
       timestamp,
+      BankAccountSchema.parse(value.account_key),
     ],
   );
 }
@@ -171,7 +177,7 @@ export async function addPersonUdhaarPayment(input: AddUdhaarPaymentInput): Prom
   for (const loan of eligible) {
     if (!remaining) break;
     const allocated = Math.min(remaining, loan.amount - loan.paid_amount);
-    rows.push("(?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    rows.push("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     params.push(
       newId(),
       loan.id,
@@ -182,11 +188,12 @@ export async function addPersonUdhaarPayment(input: AddUdhaarPaymentInput): Prom
       timestamp,
       timestamp,
       group,
+      BankAccountSchema.parse(value.account_key),
     );
     remaining -= allocated;
   }
   await execute(
-    "INSERT INTO udhaar_payments (id, udhaar_id, amount, paid_date, method, notes, created_at, updated_at, custom) VALUES " +
+    "INSERT INTO udhaar_payments (id, udhaar_id, amount, paid_date, method, notes, created_at, updated_at, custom, account_key) VALUES " +
       rows.join(", "),
     params,
   );

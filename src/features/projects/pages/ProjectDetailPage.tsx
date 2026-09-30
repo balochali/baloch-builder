@@ -1,3 +1,4 @@
+import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
@@ -158,6 +159,7 @@ export function ProjectDetailPage() {
     "sqyd",
   );
   const [landSeller, setLandSeller] = useState("");
+  const [landAccount, setLandAccount] = useState("");
   const [landPrice, setLandPrice] = useState("");
   const [landNotes, setLandNotes] = useState("");
   const [partners, setPartners] = useState<ProjectPartnerRow[]>([]);
@@ -260,6 +262,7 @@ export function ProjectDetailPage() {
     const land =
       statusDraft === "land acquired"
         ? LandAcquisitionSchema.safeParse({
+            account_key: landPrice.trim() ? landAccount : undefined,
             title: landTitle,
             location: landLocation,
             purchase_date: landDate,
@@ -456,6 +459,7 @@ export function ProjectDetailPage() {
                   setLandSeller(landDetails?.seller_name ?? "");
                   setLandPrice(landDetails?.price?.toString() ?? "");
                   setLandNotes(landDetails?.notes ?? "");
+    setLandAccount(landDetails?.account_key ?? "");
                   setStatusDialogOpen(true);
                 }}
               >
@@ -1269,6 +1273,7 @@ export function ProjectDetailPage() {
                     </div>
                   </div>
                   <div>
+                    {landPrice.trim() && <BankAccountSelect value={landAccount} onChange={setLandAccount} />}
                     <Label htmlFor="stage-land-notes">Notes (optional)</Label>
                     <textarea
                       id="stage-land-notes"

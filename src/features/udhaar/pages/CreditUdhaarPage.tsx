@@ -1,3 +1,4 @@
+import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { groupUdhaarPeople } from "@/domain/udhaarPeople";
 import { listContacts } from "@/data/repositories/contactsRepository";
 import type { Contact } from "@/domain/types";
@@ -886,6 +887,7 @@ function UdhaarForm({
   }, []);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [accountKey, setAccountKey] = useState("");
   const [amount, setAmount] = useState("");
   const [givenDate, setGivenDate] = useState(today());
   const [dueDate, setDueDate] = useState("");
@@ -913,6 +915,7 @@ function UdhaarForm({
     setError("");
     const result = CreateUdhaarSchema.safeParse({
       contact_id: contactId,
+      account_key: accountKey,
       borrower_name: name,
       phone,
       amount: rupees(amount),
@@ -953,6 +956,7 @@ function UdhaarForm({
           </div>
         </DialogHeader>
         <form id="udhaar-form" onSubmit={submit} className="udhaar-entry-form">
+          <BankAccountSelect value={accountKey} onChange={setAccountKey} />
           <section className="udhaar-entry-section" aria-labelledby="udhaar-person-heading">
             <div className="udhaar-entry-section-title">
               <span>1</span>
@@ -1126,6 +1130,7 @@ function RepaymentForm({
   onSave: (value: AddUdhaarPaymentInput) => Promise<void>;
 }) {
   const remaining = record.amount - record.paid_amount;
+  const [accountKey, setAccountKey] = useState("");
   const [amount, setAmount] = useState("");
   const [paidDate, setPaidDate] = useState(today());
   const [method, setMethod] = useState<"cash" | "bank" | "cheque" | "other">("cash");
@@ -1136,6 +1141,7 @@ function RepaymentForm({
     event.preventDefault();
     setError("");
     const result = AddUdhaarPaymentSchema.safeParse({
+      account_key: accountKey,
       udhaar_id: record.id,
       amount: rupees(amount),
       paid_date: paidDate,
@@ -1175,6 +1181,7 @@ function RepaymentForm({
           Total still to receive: <strong>{formatPKR(remaining)}</strong>
         </p>
         <form id="udhaar-payment-form" onSubmit={submit} className="space-y-4">
+          <BankAccountSelect value={accountKey} onChange={setAccountKey} direction="in" />
           <div>
             <Label htmlFor="repayment-amount">Amount received (Rs) *</Label>
             <Input

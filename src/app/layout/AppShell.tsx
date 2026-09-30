@@ -17,6 +17,7 @@ export function AppShell() {
           "/partners": "Partners",
           "/personal-expense": "Personal Expense",
           "/credit-udhaar": "Credit / Udhaar",
+          "/bank": "Bank",
           "/settings": "Settings",
         } as Record<string, string>
       )[pathname] ?? "Workspace");

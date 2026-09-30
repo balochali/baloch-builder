@@ -1,3 +1,6 @@
+import { listBankEntries, assignBankAccount } from "@/data/repositories/bankRepository";
+import { createPersonalExpense, updatePersonalExpense } from "@/data/repositories/personalExpenseRepository";
+import { addConstructionCost } from "@/data/repositories/projectFinanceRepository";
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
@@ -15,6 +18,7 @@ vi.mock("@/data/client", () => ({ query: vi.fn(), execute: vi.fn() }));
 let database: DatabaseSync;
 const contactId = "22222222-2222-4222-8222-222222222222";
 const input = {
+  account_key: "builder" as const,
   borrower_name: "Ali",
   phone: "03001234567",
   amount: 50000,
@@ -152,7 +156,7 @@ it("accepts one repayment larger than a single loan and allocates it oldest-firs
   const first = (await listUdhaars())[0];
   await createUdhaar({ ...input, contact_id: first.contact_id, amount: 200000 });
   await addPersonUdhaarPayment({
-    udhaar_id: first.id,
+    account_key: "personal", udhaar_id: first.id,
     amount: 200000,
     paid_date: "2026-09-30",
     method: "cash",
@@ -165,7 +169,7 @@ it("accepts one repayment larger than a single loan and allocates it oldest-firs
   expect(new Set(payments.map((payment) => payment.payment_group_id)).size).toBe(1);
   await expect(
     addPersonUdhaarPayment({
-      udhaar_id: first.id,
+      account_key: "personal", udhaar_id: first.id,
       amount: 80001,
       paid_date: "2026-09-30",
       method: "cash",
@@ -182,7 +186,7 @@ it("rolls back every allocation when one allocation fails", async () => {
   );
   await expect(
     addPersonUdhaarPayment({
-      udhaar_id: first.id,
+      account_key: "personal", udhaar_id: first.id,
       amount: 200000,
       paid_date: "2026-09-30",
       method: "cash",
@@ -195,6 +199,32 @@ it("rolls back every allocation when one allocation fails", async () => {
 it("rejects repayments dated before eligible borrowing", async () => {
   await createUdhaar(input);
   const loan = (await listUdhaars())[0];
-  await expect(addPersonUdhaarPayment({ udhaar_id: loan.id, amount: 10000, paid_date: "2026-09-01", method: "cash", notes: "" })).rejects.toThrow("for this date");
+  await expect(addPersonUdhaarPayment({ account_key: "personal", udhaar_id: loan.id, amount: 10000, paid_date: "2026-09-01", method: "cash", notes: "" })).rejects.toThrow("for this date");
   expect(await listAllUdhaarPayments()).toHaveLength(0);
+});
+
+it("combines source records without duplicating repayments and synchronizes account changes and deletion", async () => {
+  await createUdhaar({ ...input, amount: 80000, given_date: "2026-09-01" });
+  const first = (await listUdhaars())[0];
+  await createUdhaar({ ...input, contact_id: first.contact_id, amount: 200000 });
+  await addPersonUdhaarPayment({ account_key: "personal", udhaar_id: first.id, amount: 200000, paid_date: "2026-09-30", method: "cash", notes: "Combined" });
+  const expense = { account_key: "personal" as const, category: "car" as const, item_name: "Car", amount: 1000, purchase_date: "2026-09-30", notes: "" };
+  await createPersonalExpense(expense);
+  const project = "33333333-3333-4333-8333-333333333333";
+  database.prepare("INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, 'Site', '', '')").run(project);
+  await addConstructionCost({ project_id: project, account_key: "builder", date: "2026-09-30", amount: 5000, description: "Cement", method: "cash", reference: "" });
+  let entries = await listBankEntries();
+  expect(entries).toHaveLength(5);
+  expect(entries.filter(entry => entry.category === "Udhaar repayment")).toHaveLength(1);
+  const repayment = entries.find(entry => entry.category === "Udhaar repayment")!;
+  expect(repayment).toMatchObject({ amount: 200000, direction: "in", account_key: "personal" });
+  await assignBankAccount(repayment, "builder");
+  expect(database.prepare("SELECT DISTINCT account_key FROM udhaar_payments").all()).toEqual([{ account_key: "builder" }]);
+  const purchase = entries.find(entry => entry.source === "personal_expenses")!;
+  await updatePersonalExpense(purchase.source_id, { ...expense, amount: 1500, account_key: "builder" });
+  expect((await listBankEntries()).find(entry => entry.id === purchase.id)).toMatchObject({ amount: 1500, account_key: "builder" });
+  await clearAllUdhaarData();
+  entries = await listBankEntries();
+  expect(entries).toHaveLength(2);
+  expect(entries.every(entry => entry.direction === "out")).toBe(true);
 });

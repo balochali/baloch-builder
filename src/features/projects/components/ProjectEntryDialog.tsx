@@ -1,3 +1,4 @@
+import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { useState, type FormEvent } from "react";
 import { format } from "date-fns";
 import { ActualCostInputSchema, EstimateInputSchema,
@@ -79,6 +80,7 @@ export function ProjectEntryDialog({ mode, projectId, estimate, estimateKind = "
   const [unitMaximum, setUnitMaximum] = useState(linkedRecovery ? String(estimate!.maximum_amount / linkedRecovery.quantity) : "");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [amount, setAmount] = useState("");
+  const [accountKey, setAccountKey] = useState("");
   const [method, setMethod] = useState<"cash" | "bank" | "cheque" | "other">("cash");
   const [reference, setReference] = useState("");
   const [error, setError] = useState("");
@@ -115,7 +117,7 @@ export function ProjectEntryDialog({ mode, projectId, estimate, estimateKind = "
       }
       value = parsed.data;
     } else {
-      const parsed = ActualCostInputSchema.safeParse({
+      const parsed = ActualCostInputSchema.safeParse({ account_key: accountKey,
         project_id: projectId, date, amount: wholeRupees(amount),
         description: title, method, reference,
       });
@@ -142,6 +144,7 @@ export function ProjectEntryDialog({ mode, projectId, estimate, estimateKind = "
     <DialogContent className={`max-h-[90vh] overflow-y-auto ${detailedFlats ? "sm:max-w-2xl" : "sm:max-w-lg"}`}>
       <DialogHeader><DialogTitle>{estimate ? `Edit ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}` : mode === "estimate" ? `Add ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}` : actualTitle}</DialogTitle></DialogHeader>
       <form id="project-entry-form" onSubmit={save} className="space-y-4">
+        {mode !== "estimate" && <BankAccountSelect value={accountKey} onChange={setAccountKey} />}
         {mode === "estimate" && kind === "cost" && <div className="space-y-1.5">
           <Label htmlFor="entry-cost-choice">Cost item *</Label>
           <select id="entry-cost-choice" value={costChoice} onChange={(event) => {

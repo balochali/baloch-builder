@@ -59,10 +59,12 @@ describe("CreditUdhaarPage", () => {
     expect(screen.getAllByText(/Money given ·/)).toHaveLength(2);
     expect(screen.getByText(/Paid back ·/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Record repayment against")).not.toBeInTheDocument();
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Record repayment" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), {
       target: { value: "200000" },
     });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));
     await waitFor(() =>
       expect(addPersonUdhaarPayment).toHaveBeenCalledWith(
@@ -94,6 +96,7 @@ describe("CreditUdhaarPage", () => {
     expect(screen.getByLabelText("Phone (optional)")).toHaveValue("03001234567");
     expect(screen.getByLabelText("Phone (optional)")).toHaveAttribute("readonly");
     fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "50000" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save udhaar" }));
     await waitFor(() =>
       expect(createUdhaar).toHaveBeenCalledWith(
@@ -143,16 +146,19 @@ describe("CreditUdhaarPage", () => {
     expect(
       await screen.findByText("Rs 30,000", { selector: ".udhaar-history strong" }),
     ).toBeInTheDocument();
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Record repayment" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), {
       target: { value: "80000" },
     });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));
     expect(screen.getByRole("alert")).toHaveTextContent("cannot exceed Rs 70,000");
     expect(addPersonUdhaarPayment).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), {
       target: { value: "20000" },
     });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));
     await waitFor(() =>
       expect(addPersonUdhaarPayment).toHaveBeenCalledWith(
@@ -167,6 +173,7 @@ describe("CreditUdhaarPage", () => {
     fireEvent.change(screen.getByLabelText("Person's name *"), { target: { value: "Bilal" } });
     fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "50000" } });
     fireEvent.change(screen.getByLabelText("Date given *"), { target: { value: "2026-09-24" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save udhaar" }));
     await waitFor(() =>
       expect(createUdhaar).toHaveBeenCalledWith(

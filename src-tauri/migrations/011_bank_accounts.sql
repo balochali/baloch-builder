@@ -1,0 +1,10 @@
+ALTER TABLE transactions ADD COLUMN account_key TEXT CHECK(account_key IN ('personal', 'builder'));
+CREATE INDEX idx_transactions_account ON transactions(account_key);
+ALTER TABLE udhaars ADD COLUMN account_key TEXT CHECK(account_key IN ('personal', 'builder'));
+CREATE INDEX idx_udhaars_account ON udhaars(account_key);
+ALTER TABLE udhaar_payments ADD COLUMN account_key TEXT CHECK(account_key IN ('personal', 'builder'));
+CREATE INDEX idx_udhaar_payments_account ON udhaar_payments(account_key);
+ALTER TABLE personal_expenses ADD COLUMN account_key TEXT CHECK(account_key IN ('personal', 'builder'));
+CREATE INDEX idx_personal_expenses_account ON personal_expenses(account_key);
+ALTER TABLE land ADD COLUMN account_key TEXT CHECK(account_key IN ('personal', 'builder'));
+CREATE INDEX idx_land_account ON land(account_key);

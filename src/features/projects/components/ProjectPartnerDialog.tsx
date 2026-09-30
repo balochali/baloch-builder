@@ -1,3 +1,4 @@
+import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { useState, type FormEvent } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function ProjectPartnerDialog({ projectId, partner, remainingShareBp = 10
   const [agreed, setAgreed] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [accountKey, setAccountKey] = useState("");
   const [method, setMethod] = useState<"cash" | "bank" | "cheque" | "other">("cash");
   const [reference, setReference] = useState("");
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({ ...emptyPaymentDetails });
@@ -64,7 +66,7 @@ export function ProjectPartnerDialog({ projectId, partner, remainingShareBp = 10
     event.preventDefault();
     setError("");
     if (partner) {
-      const parsed = PartnerContributionSchema.safeParse({ project_id: projectId,
+      const parsed = PartnerContributionSchema.safeParse({ account_key: accountKey, project_id: projectId,
         partner_id: partner.partner_id, amount: wholeRupees(amount), date, method, reference,
         description, payment_details: relevantDetails() });
       if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check payment details"); return; }
@@ -80,7 +82,7 @@ export function ProjectPartnerDialog({ projectId, partner, remainingShareBp = 10
     if ((agreed.trim() && wholeRupees(agreed) === null) || (amount.trim() && wholeRupees(amount) === null)) {
       setError("Enter whole rupee amounts using digits and optional commas."); return;
     }
-    const parsed = AddProjectPartnerSchema.safeParse({ project_id: projectId, name, phone, phone2,
+    const parsed = AddProjectPartnerSchema.safeParse({ account_key: amount.trim() ? accountKey : undefined, project_id: projectId, name, phone, phone2,
       address, notes, share_bp: shareBp, agreed_contribution: agreed.trim() ? wholeRupees(agreed) : null,
       initial_amount: amount.trim() ? wholeRupees(amount) : null,
       initial_date: amount.trim() ? date : null, initial_method: method, initial_reference: reference,
@@ -119,6 +121,7 @@ export function ProjectPartnerDialog({ projectId, partner, remainingShareBp = 10
           <Field id="partner-date" label="Date received" type="date" value={date} onChange={setDate} required={!!partner} />
         </div>
         {(partner || amount.trim()) && <>
+          <BankAccountSelect value={accountKey} onChange={setAccountKey} direction="in" />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5"><Label htmlFor="partner-method">Payment method</Label>
               <select id="partner-method" value={method} onChange={(event) => setMethod(event.target.value as typeof method)}

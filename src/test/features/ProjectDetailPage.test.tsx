@@ -76,6 +76,7 @@ describe("ProjectDetailPage", () => {
     expect(await screen.findByRole("heading", { name: "Baloch Residency" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Change Status" }));
     fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "under construction" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save status" }));
     await waitFor(() => expect(updateProjectStatus).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "under construction"));
     expect(screen.getByText("Quetta")).toBeInTheDocument();
@@ -130,11 +131,13 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "land acquired" } });
     expect(screen.getByText("Tell us about the land")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Land location *"), { target: { value: "" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Enter the land location");
     expect(saveProjectStage).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Land location *"), { target: { value: "Gul Muhammad Lane" } });
     fireEvent.change(screen.getByLabelText("Area (optional)"), { target: { value: "7000" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
     await waitFor(() => expect(saveProjectStage).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111", "land acquired",
@@ -166,6 +169,7 @@ describe("ProjectDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Change Status" }));
     fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "land acquired" } });
     fireEvent.change(screen.getByLabelText("Area (optional)"), { target: { value: "10000" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
     await waitFor(() => expect(saveProjectStage).toHaveBeenCalledWith(expect.any(String), "land acquired",
       expect.objectContaining({ area_value: 10000 })));
@@ -193,6 +197,7 @@ describe("ProjectDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Change Status" }));
     fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "under construction" } });
     expect(screen.queryByLabelText("Amount paid (Rs) *")).not.toBeInTheDocument();
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save status" }));
     await waitFor(() => expect(updateProjectStatus).toHaveBeenCalledWith(expect.any(String), "under construction"));
     fireEvent.click(screen.getByRole("tab", { name: "Construction Cost" }));
@@ -200,6 +205,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent("Add Construction Cost");
     fireEvent.change(screen.getByLabelText("Amount paid (Rs) *"), { target: { value: "50000" } });
     fireEvent.change(screen.getByLabelText("Cost description *"), { target: { value: "Cement" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(addConstructionCost).toHaveBeenCalledWith(expect.objectContaining({
       amount: 50000, description: "Cement",
@@ -254,6 +260,7 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Other cost name *"), { target: { value: "Transport Cost" } });
     fireEvent.change(screen.getByLabelText(/Minimum estimate/i), { target: { value: "1000" } });
     fireEvent.change(screen.getByLabelText(/Maximum estimate/i), { target: { value: "2000" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(addProjectEstimate).toHaveBeenCalledWith(expect.objectContaining({ kind: "cost", title: "Transport Cost" })));
     fireEvent.click(screen.getByRole("button", { name: "Add Expected Recovery" }));
@@ -261,6 +268,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByLabelText("Number of flats to sell *")).toHaveValue(13);
     fireEvent.change(screen.getByLabelText(/Lowest expected selling price/i), { target: { value: "5000" } });
     fireEvent.change(screen.getByLabelText(/Highest expected selling price/i), { target: { value: "7000" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(addProjectEstimate).toHaveBeenCalledWith(expect.objectContaining({
       kind: "revenue", title: "Flats sales", recovery_space: "flats", recovery_quantity: 13,
@@ -295,6 +303,7 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Highest price per flat (Rs)", { selector: "#flat-max-0" }), { target: { value: "120000" } });
     fireEvent.change(screen.getByLabelText("Lowest price per flat (Rs)", { selector: "#flat-min-1" }), { target: { value: "200000" } });
     fireEvent.change(screen.getByLabelText("Highest price per flat (Rs)", { selector: "#flat-max-1" }), { target: { value: "250000" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(addProjectEstimate).toHaveBeenCalledWith(expect.objectContaining({
       recovery_space: "flats", recovery_quantity: 3, minimum_amount: 400_000, maximum_amount: 490_000,
@@ -362,6 +371,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByLabelText("Other cost name *")).toHaveValue("Cement");
     expect(screen.getByLabelText(/Minimum estimate/i)).toHaveValue("100000");
     fireEvent.change(screen.getByLabelText(/Minimum estimate/i), { target: { value: "120000" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateProjectEstimate).toHaveBeenCalledWith("estimate-1",
       expect.objectContaining({ minimum_amount: 120_000 })));
