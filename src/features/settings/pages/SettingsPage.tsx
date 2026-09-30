@@ -1,3 +1,4 @@
+import { ResetBusinessData } from "../components/ResetBusinessData";
 import { useState } from "react";
 import { clearAllUdhaarData } from "@/data/repositories/udhaarRepository";
 import { Button } from "@/components/ui/button";
@@ -144,6 +145,7 @@ export function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ResetBusinessData />
       <div className="settings-grid">
         <section className="settings-section">
           <Database size={24} />

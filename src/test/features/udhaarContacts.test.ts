@@ -29,7 +29,7 @@ const input = {
 beforeEach(() => {
   database = new DatabaseSync(":memory:");
   database.exec("PRAGMA foreign_keys = ON");
-  for (const file of ["001_init", "006_udhaars", "008_udhaar_contacts", "009_udhaar_delete", "010_udhaar_payment_guard"]) {
+  for (const file of ["001_init", "006_udhaars", "007_personal_expenses", "008_udhaar_contacts", "009_udhaar_delete", "010_udhaar_payment_guard", "011_bank_accounts"]) {
     database.exec(readFileSync(`src-tauri/migrations/${file}.sql`, "utf8"));
   }
   vi.mocked(query).mockImplementation(
@@ -227,4 +227,16 @@ it("combines source records without duplicating repayments and synchronizes acco
   entries = await listBankEntries();
   expect(entries).toHaveLength(2);
   expect(entries.every(entry => entry.direction === "out")).toBe(true);
+});
+it("persists payment details on loans and every part of an overall repayment", async () => {
+  const details = { method: "digital" as const, received_by: "Ali", provider: "JazzCash", account: "03001234567", reference: "TX-123" };
+  await createUdhaar({ ...input, account_key: "personal", payment_details: details, amount: 80000, given_date: "2026-09-01" });
+  const first = (await listUdhaars())[0];
+  expect(JSON.parse(first.payment_details!)).toEqual(details);
+  await createUdhaar({ ...input, contact_id: first.contact_id, amount: 200000 });
+  await addPersonUdhaarPayment({ account_key: "personal", payment_details: details, udhaar_id: first.id, amount: 200000, paid_date: "2026-09-30", method: "digital", notes: "" });
+  const payments = await listAllUdhaarPayments();
+  expect(payments).toHaveLength(2);
+  for (const payment of payments) expect(JSON.parse(payment.payment_details!)).toEqual(details);
+  expect((await listBankEntries()).find(entry => entry.source_id === first.id)?.method).toBe("digital");
 });

@@ -95,8 +95,11 @@ describe("CreditUdhaarPage", () => {
     expect(screen.getByLabelText("Person's name *")).toHaveValue("Ahmed Khan");
     expect(screen.getByLabelText("Phone (optional)")).toHaveValue("03001234567");
     expect(screen.getByLabelText("Phone (optional)")).toHaveAttribute("readonly");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "50000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Save udhaar" }));
     await waitFor(() =>
       expect(createUdhaar).toHaveBeenCalledWith(
@@ -109,6 +112,49 @@ describe("CreditUdhaarPage", () => {
     );
   });
 
+  it("saves personal payment details for lending and repayment", async () => {
+    render(<CreditUdhaarPage />);
+    await screen.findByText("Largest amounts still due");
+    fireEvent.click(screen.getByRole("button", { name: "Give Udhaar" }));
+    fireEvent.change(screen.getByLabelText("Person's name *"), { target: { value: "Ali" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "5000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText(/Pay from account/), { target: { value: "personal" } });
+    fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save udhaar" }));
+    await waitFor(() => expect(createUdhaar).toHaveBeenCalledWith(expect.objectContaining({ payment_details: expect.objectContaining({ method: "cash", received_by: "Ali" }) })));
+    await waitFor(() => expect(screen.queryByLabelText("Received by *")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("tab", { name: /People & balances/ }));
+    fireEvent.click(screen.getByRole("button", { name: "View Ali's udhaar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Record repayment" }));
+    fireEvent.change(screen.getByLabelText(/Receive into account/), { target: { value: "personal" } });
+    fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), { target: { value: "1000" } });
+    fireEvent.change(screen.getByLabelText("How was it paid? *"), { target: { value: "digital" } });
+    fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ahmed" } });
+    fireEvent.change(screen.getByLabelText("Wallet / app name *"), { target: { value: "Easypaisa" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));
+    await waitFor(() => expect(addPersonUdhaarPayment).toHaveBeenCalledWith(expect.objectContaining({ method: "digital", payment_details: expect.objectContaining({ received_by: "Ahmed", provider: "Easypaisa" }) })));
+  });
+
+  it("validates each step and preserves values when going back", async () => {
+    render(<CreditUdhaarPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Give Udhaar" }));
+    expect(screen.queryByLabelText("Amount given (Rs) *")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save udhaar" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Person's name *"), { target: { value: "Ali" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "-5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("positive amount");
+    fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "5000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByLabelText("Person's name *")).toHaveValue("Ali");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByLabelText("Amount given (Rs) *")).toHaveValue("5000");
+    expect(createUdhaar).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.mocked(listContacts).mockResolvedValue([]);
     vi.mocked(listUdhaars).mockResolvedValue([record]);
@@ -171,9 +217,12 @@ describe("CreditUdhaarPage", () => {
     render(<CreditUdhaarPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Give Udhaar" }));
     fireEvent.change(screen.getByLabelText("Person's name *"), { target: { value: "Bilal" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "50000" } });
     fireEvent.change(screen.getByLabelText("Date given *"), { target: { value: "2026-09-24" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Save udhaar" }));
     await waitFor(() =>
       expect(createUdhaar).toHaveBeenCalledWith(

@@ -72,6 +72,12 @@ pub fn run() {
             sql: include_str!("../migrations/011_bank_accounts.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "012_business_reset",
+            sql: include_str!("../migrations/012_business_reset.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

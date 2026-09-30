@@ -1,3 +1,4 @@
+import { PaymentDetailsSchema } from "@/domain/udhaarPaymentDetails";
 import { BankAccountSchema } from "@/domain/bankAccount";
 import { groupUdhaarPeople } from "@/domain/udhaarPeople";
 import { z } from "zod";
@@ -9,7 +10,8 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date");
 
 export const CreateUdhaarSchema = z
   .object({
-  account_key: BankAccountSchema.optional(),
+    account_key: BankAccountSchema.optional(),
+    payment_details: PaymentDetailsSchema.optional(),
     contact_id: z.string().uuid().nullable().optional(),
     borrower_name: z.string().trim().min(1, "Enter the person's name").max(120),
     phone: z.string().trim().max(40),
@@ -25,10 +27,11 @@ export const CreateUdhaarSchema = z
 
 export const AddUdhaarPaymentSchema = z.object({
   account_key: BankAccountSchema.optional(),
+  payment_details: PaymentDetailsSchema.optional(),
   udhaar_id: z.string().uuid(),
   amount: rupees,
   paid_date: date,
-  method: z.enum(["cash", "bank", "cheque", "other"]),
+  method: z.enum(["cash", "bank", "digital", "cheque", "other"]),
   notes: z.string().trim().max(500),
 });
 
@@ -36,6 +39,7 @@ export type CreateUdhaarInput = z.infer<typeof CreateUdhaarSchema>;
 export type AddUdhaarPaymentInput = z.infer<typeof AddUdhaarPaymentSchema>;
 
 export interface Udhaar {
+  payment_details?: string | null;
   account_key?: string | null;
   contact_id?: string | null;
   id: string;
@@ -51,6 +55,7 @@ export interface Udhaar {
 }
 
 export interface UdhaarPayment {
+  payment_details?: string | null;
   payment_group_id?: string | null;
   id: string;
   udhaar_id: string;
@@ -61,7 +66,7 @@ export interface UdhaarPayment {
 }
 
 export async function listUdhaars(): Promise<Udhaar[]> {
-  return query<Udhaar>(`SELECT u.id, u.account_key, u.contact_id, COALESCE(c.name, u.borrower_name) AS borrower_name, CASE WHEN c.id IS NOT NULL THEN c.phone ELSE u.phone END AS phone, u.amount, u.given_date, u.due_date,
+  return query<Udhaar>(`SELECT json_extract(u.custom, '$.payment_details') AS payment_details, u.id, u.account_key, u.contact_id, COALESCE(c.name, u.borrower_name) AS borrower_name, CASE WHEN c.id IS NOT NULL THEN c.phone ELSE u.phone END AS phone, u.amount, u.given_date, u.due_date,
     u.notes, u.created_at, COALESCE(SUM(p.amount), 0) AS paid_amount, COUNT(p.id) AS payment_count
     FROM udhaars u LEFT JOIN contacts c ON c.id = u.contact_id LEFT JOIN udhaar_payments p ON p.udhaar_id = u.id AND p.archived = 0
     WHERE u.archived = 0 GROUP BY u.id ORDER BY u.given_date DESC, u.created_at DESC`);
@@ -69,14 +74,14 @@ export async function listUdhaars(): Promise<Udhaar[]> {
 
 export async function listUdhaarPayments(udhaarId: string): Promise<UdhaarPayment[]> {
   return query<UdhaarPayment>(
-    `SELECT id, udhaar_id, amount, paid_date, method, notes FROM udhaar_payments
+    `SELECT json_extract(custom, '$.payment_details') AS payment_details, id, udhaar_id, amount, paid_date, method, notes FROM udhaar_payments
     WHERE udhaar_id = ? AND archived = 0 ORDER BY paid_date DESC, created_at DESC`,
     [udhaarId],
   );
 }
 
 export async function listAllUdhaarPayments(): Promise<UdhaarPayment[]> {
-  return query<UdhaarPayment>(`SELECT p.id, p.udhaar_id, p.amount, p.paid_date, p.method, p.notes, json_extract(p.custom, '$.payment_group_id') AS payment_group_id
+  return query<UdhaarPayment>(`SELECT json_extract(p.custom, '$.payment_details') AS payment_details, p.id, p.udhaar_id, p.amount, p.paid_date, p.method, p.notes, json_extract(p.custom, '$.payment_group_id') AS payment_group_id
     FROM udhaar_payments p JOIN udhaars u ON u.id = p.udhaar_id
     WHERE p.archived = 0 AND u.archived = 0 ORDER BY p.paid_date ASC, p.created_at ASC`);
 }
@@ -98,8 +103,8 @@ export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
   const timestamp = now();
   await execute(
     `INSERT INTO udhaars
-    (id, borrower_name, phone, amount, given_date, due_date, notes, created_at, updated_at, contact_id, account_key)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    (id, borrower_name, phone, amount, given_date, due_date, notes, created_at, updated_at, contact_id, account_key, custom)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       newId(),
       borrowerName,
@@ -112,6 +117,9 @@ export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
       timestamp,
       value.contact_id ?? null,
       BankAccountSchema.parse(value.account_key),
+      JSON.stringify({
+        payment_details: value.account_key === "personal" ? value.payment_details : undefined,
+      }),
     ],
   );
 }
@@ -133,8 +141,8 @@ export async function addUdhaarPayment(input: AddUdhaarPaymentInput): Promise<vo
   const timestamp = now();
   await execute(
     `INSERT INTO udhaar_payments
-    (id, udhaar_id, amount, paid_date, method, notes, created_at, updated_at, account_key)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    (id, udhaar_id, amount, paid_date, method, notes, created_at, updated_at, account_key, custom)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       newId(),
       value.udhaar_id,
@@ -145,6 +153,9 @@ export async function addUdhaarPayment(input: AddUdhaarPaymentInput): Promise<vo
       timestamp,
       timestamp,
       BankAccountSchema.parse(value.account_key),
+      JSON.stringify({
+        payment_details: value.account_key === "personal" ? value.payment_details : undefined,
+      }),
     ],
   );
 }
@@ -171,7 +182,10 @@ export async function addPersonUdhaarPayment(input: AddUdhaarPaymentInput): Prom
     throw new Error("Payment exceeds the person's outstanding balance for this date.");
   let remaining = value.amount;
   const timestamp = now();
-  const group = JSON.stringify({ payment_group_id: newId() });
+  const group = JSON.stringify({
+    payment_group_id: newId(),
+    payment_details: value.account_key === "personal" ? value.payment_details : undefined,
+  });
   const params: unknown[] = [];
   const rows: string[] = [];
   for (const loan of eligible) {

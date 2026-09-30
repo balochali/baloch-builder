@@ -324,6 +324,7 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Project share (%) *"), { target: { value: "25.5" } });
     fireEvent.change(screen.getByLabelText("Amount received (Rs)"), { target: { value: "200000" } });
     fireEvent.change(screen.getByLabelText("Date received"), { target: { value: "2026-09-22" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Add Partner" }));
     await waitFor(() => expect(addProjectPartner).toHaveBeenCalledWith(expect.objectContaining({
       name: "Ali", phone: "03001234567", share_bp: 2550,

@@ -6,7 +6,7 @@ import { AddProjectPartnerSchema, PartnerContributionSchema,
 const projectId = "11111111-1111-4111-8111-111111111111";
 const partnerId = "22222222-2222-4222-8222-222222222222";
 
-const partner = {
+const partner = { account_key: "builder" as const,
   project_id: projectId, name: "Ali", phone: "03001234567", phone2: "", address: "Quetta",
   notes: "", share_bp: 2500, agreed_contribution: 1_000_000,
   initial_amount: 200_000, initial_date: "2026-09-22",
@@ -78,7 +78,7 @@ describe("project partners", () => {
   it("only records payments for a partner linked to this project", async () => {
     const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
     const query = vi.spyOn(client, "query").mockResolvedValueOnce([]);
-    const payment = { project_id: projectId, partner_id: partnerId, amount: 50_000,
+    const payment = { account_key: "builder" as const, project_id: projectId, partner_id: partnerId, amount: 50_000,
       date: "2026-09-22", method: "bank" as const, reference: "ABC", description: "Second payment",
       payment_details: partner.initial_payment_details };
     await expect(addPartnerContribution(payment)).rejects.toThrow("not part of this project");

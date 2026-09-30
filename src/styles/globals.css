@@ -434,6 +434,24 @@ button, input, select, textarea { font: inherit; }
 .udhaar-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }.udhaar-entry-field { display: grid; align-content: start; gap: 7px; min-width: 0; }.udhaar-entry-field label { color: var(--foreground); font-size: 14px; font-weight: 650; }.udhaar-entry-field input { min-height: 44px; font-size: 16px; }.udhaar-entry-field small { color: var(--muted-foreground); font-size: 12px; line-height: 1.4; }.udhaar-entry-amount { margin-bottom: 16px; }.udhaar-entry-amount input { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .udhaar-entry-preview { display: grid; gap: 2px; margin: 19px 0; padding: 14px 17px; border-left: 3px solid #e8b941; border-radius: 9px; background: var(--muted); }.udhaar-entry-preview span, .udhaar-entry-preview small { color: var(--muted-foreground); font-size: 12px; }.udhaar-entry-preview strong { color: var(--foreground); font-size: 21px; font-variant-numeric: tabular-nums; }.udhaar-entry-error { padding: 10px 12px; margin-bottom: 16px; border-radius: 8px; background: #d6494930; color: var(--destructive); font-size: 14px; }
 .udhaar-entry-footer { padding: 17px 30px 22px; border-top: 1px solid var(--border); }.udhaar-entry-footer [data-slot="button"] { min-height: 43px; font-size: 15px; }
+
+/* Contact picker suggestions — shown in Step 1 of Give Udhaar form */
+.udhaar-contact-picker { margin-top: 18px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--background); }
+.udhaar-contact-picker-heading { display: flex; align-items: center; justify-content: space-between; padding: 11px 16px; background: var(--muted); border-bottom: 1px solid var(--border); }
+.udhaar-contact-picker-heading span { font-size: 13px; font-weight: 650; color: var(--foreground); }
+.udhaar-contact-picker-heading small { font-size: 11px; color: var(--muted-foreground); }
+.udhaar-contact-results { display: grid; gap: 0; max-height: 280px; overflow-y: auto; overscroll-behavior: contain; }
+.udhaar-contact-option { display: flex; align-items: center; gap: 13px; width: 100%; padding: 13px 16px; background: transparent; border: 0; border-bottom: 1px solid var(--border); text-align: left; cursor: pointer; transition: background 0.15s; }
+.udhaar-contact-option:last-child { border-bottom: 0; }
+.udhaar-contact-option:hover, .udhaar-contact-option:focus-visible { background: color-mix(in srgb, var(--primary) 6%, var(--background)); outline: none; }
+.udhaar-contact-avatar { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 50%; background: color-mix(in srgb, var(--primary) 15%, var(--background)); color: var(--primary); font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
+.udhaar-contact-copy { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.udhaar-contact-copy strong { font-size: 14px; font-weight: 650; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.udhaar-contact-copy span { font-size: 12px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.udhaar-contact-copy small { font-size: 11px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.udhaar-contact-action { display: flex; align-items: center; gap: 5px; flex: none; font-size: 12px; font-weight: 600; color: var(--primary); opacity: 0; transition: opacity 0.15s; }
+.udhaar-contact-option:hover .udhaar-contact-action, .udhaar-contact-option:focus-visible .udhaar-contact-action { opacity: 1; }
+
 @media (max-width: 640px) { .udhaar-entry-header { padding: 22px 20px 18px; }.udhaar-entry-form { padding: 0 20px; }.udhaar-entry-grid { grid-template-columns: 1fr; }.udhaar-entry-footer { padding: 16px 20px 20px; } }
 
 /* Credit overview: color and scale reflect recorded amounts. */

@@ -1273,3 +1273,67 @@ button:disabled {
     font-size: 24px;
   }
 }
+.udhaar-entry-dialog[data-slot="dialog-content"] {
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 48px);
+  max-width: 720px;
+  max-height: calc(100dvh - 48px);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 24px 80px #071c3833;
+}
+.udhaar-entry-dialog .udhaar-entry-header {
+  flex: none;
+  padding: 28px 56px 24px 28px;
+  gap: 16px;
+  background: var(--background);
+  border-bottom: 0;
+}
+.udhaar-entry-dialog .udhaar-entry-icon {
+  width: 48px;
+  height: 48px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--background));
+  color: var(--primary);
+  border-radius: 16px;
+}
+.udhaar-entry-dialog .udhaar-entry-eyebrow { color: var(--primary); font-size: 10px; }
+.udhaar-entry-dialog .udhaar-entry-header [data-slot="dialog-title"] { font-size: 24px; }
+.udhaar-entry-progress { flex: none; padding: 0 28px 24px; border-bottom: 1px solid var(--border); }
+.udhaar-entry-progress > p { margin: 0 0 12px; font-size: 12px; font-weight: 600; color: var(--muted-foreground); }
+.udhaar-entry-progress ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; list-style: none; padding: 0; margin: 0; }
+.udhaar-entry-progress li { display: flex; align-items: center; gap: 7px; padding: 10px 0; border-bottom: 3px solid var(--border); color: var(--muted-foreground); font-size: 12px; font-weight: 600; }
+.udhaar-step-number { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--muted); }
+.udhaar-entry-progress li[data-state="current"], .udhaar-entry-progress li[data-state="complete"] { border-color: var(--primary); color: var(--primary); }
+.udhaar-entry-progress li[data-state="current"] .udhaar-step-number { background: var(--primary); color: var(--primary-foreground); }
+.udhaar-entry-dialog .udhaar-entry-form { display: grid; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 28px; gap: 20px; }
+.udhaar-entry-dialog .udhaar-entry-section { padding: 0; border: 0; }
+.udhaar-entry-dialog .udhaar-entry-section-title { margin-bottom: 24px; }
+.udhaar-entry-dialog .udhaar-entry-section-title > span { display: none; }
+.udhaar-entry-dialog .udhaar-entry-section-title h3 { font-size: 20px; line-height: 1.4; letter-spacing: -.02em; }
+.udhaar-entry-dialog .udhaar-entry-section-title p { margin-top: 6px; line-height: 1.6; }
+.udhaar-entry-dialog .udhaar-entry-grid { gap: 20px; }
+.udhaar-entry-dialog .udhaar-entry-field { gap: 10px; }
+.udhaar-entry-dialog .udhaar-entry-field input { min-height: 48px; border-radius: 10px; font-size: 14px; }
+.udhaar-entry-dialog .udhaar-entry-amount { margin-bottom: 24px; }
+.udhaar-entry-dialog .udhaar-entry-amount input { font-size: 24px; min-height: 60px; }
+.udhaar-entry-dialog .udhaar-entry-preview { margin: 0; padding: 20px; gap: 6px; border: 1px solid var(--border); border-radius: 14px; background: color-mix(in srgb, var(--primary) 5%, var(--background)); }
+.udhaar-entry-dialog .udhaar-entry-preview strong { font-size: 28px; }
+.udhaar-entry-dialog .udhaar-entry-error { margin: 0; }
+.udhaar-entry-dialog .udhaar-entry-footer { flex: none; display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 18px 28px; margin: 0; background: var(--background); border-top: 1px solid var(--border); }
+.udhaar-entry-dialog .udhaar-entry-footer button { min-height: 44px; border-radius: 10px; padding-inline: 20px; font-size: 14px; }
+.udhaar-entry-dialog .udhaar-entry-cancel { margin-right: auto; }
+@media (max-width: 540px) {
+  .udhaar-entry-dialog[data-slot="dialog-content"] { width: calc(100% - 24px); max-height: calc(100dvh - 24px); border-radius: 18px; }
+  .udhaar-entry-dialog .udhaar-entry-header { padding: 22px 44px 20px 20px; }
+  .udhaar-entry-dialog .udhaar-entry-icon { display: none; }
+  .udhaar-entry-progress { padding: 0 20px 18px; }
+  .udhaar-entry-progress li { flex-direction: column; align-items: flex-start; gap: 8px; font-size: 11px; }
+  .udhaar-entry-dialog .udhaar-entry-form { padding: 24px 20px; }
+  .udhaar-entry-dialog .udhaar-entry-grid { grid-template-columns: 1fr; }
+  .udhaar-entry-dialog .udhaar-entry-footer { padding: 16px 20px; }
+  .udhaar-entry-dialog .udhaar-entry-footer button { padding-inline: 14px; }
+}

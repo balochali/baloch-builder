@@ -1,3 +1,5 @@
+import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
+import { emptyPaymentDetails, paymentSummary } from "@/domain/udhaarPaymentDetails";
 import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { groupUdhaarPeople } from "@/domain/udhaarPeople";
 import { listContacts } from "@/data/repositories/contactsRepository";
@@ -32,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -270,7 +273,7 @@ export function CreditUdhaarPage() {
           date: loan.given_date,
           amount: loan.amount,
           kind: "Money given",
-          method: "",
+          method: paymentSummary(loan.payment_details),
           notes: loan.notes,
           loanDate: loan.given_date,
         })),
@@ -279,7 +282,7 @@ export function CreditUdhaarPage() {
           date: payment.paid_date,
           amount: payment.amount,
           kind: "Paid back",
-          method: payment.method,
+          method: paymentSummary(payment.payment_details) || payment.method,
           notes: payment.notes,
           loanDate: selected.loans.find((loan) => loan.id === payment.udhaar_id)!.given_date,
         })),
@@ -864,6 +867,8 @@ function UdhaarForm({
   onClose: () => void;
   onSave: (value: CreateUdhaarInput) => Promise<void>;
 }) {
+  const [step, setStep] = useState(0);
+  const steps = ["Person", "Amount & date", "Payment", "Review"];
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactId, setContactId] = useState<string | null>(null);
   const [peopleLoading, setPeopleLoading] = useState(true);
@@ -888,6 +893,7 @@ function UdhaarForm({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [accountKey, setAccountKey] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState(emptyPaymentDetails);
   const [amount, setAmount] = useState("");
   const [givenDate, setGivenDate] = useState(today());
   const [dueDate, setDueDate] = useState("");
@@ -913,9 +919,31 @@ function UdhaarForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (step === 0) {
+      if (!name.trim() || name.trim().length > 120 || phone.length > 40) {
+        setError("Enter a valid name and phone number.");
+        return;
+      }
+      setStep(1);
+      return;
+    }
+    if (step === 1) {
+      const value = rupees(amount);
+      if (!value || !Number.isSafeInteger(value) || value <= 0) {
+        setError("Enter a positive amount in whole rupees.");
+        return;
+      }
+      if (!givenDate || (dueDate && dueDate < givenDate)) {
+        setError("Check the given and expected return dates.");
+        return;
+      }
+      setStep(2);
+      return;
+    }
     const result = CreateUdhaarSchema.safeParse({
       contact_id: contactId,
       account_key: accountKey,
+      payment_details: accountKey === "personal" ? paymentDetails : undefined,
       borrower_name: name,
       phone,
       amount: rupees(amount),
@@ -925,6 +953,10 @@ function UdhaarForm({
     });
     if (!result.success) {
       setError(result.error.issues[0]?.message ?? "Check the details.");
+      return;
+    }
+    if (step === 2) {
+      setStep(3);
       return;
     }
     setSaving(true);
@@ -944,7 +976,7 @@ function UdhaarForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="udhaar-entry-dialog max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="udhaar-entry-dialog">
         <DialogHeader className="udhaar-entry-header">
           <span className="udhaar-entry-icon">
             <HandCoins size={26} aria-hidden="true" />
@@ -952,155 +984,210 @@ function UdhaarForm({
           <div>
             <p className="udhaar-entry-eyebrow">NEW MONEY LENT</p>
             <DialogTitle>Give Udhaar</DialogTitle>
-            <p>Write down who received the money and when. You can record repayments later.</p>
+            <DialogDescription>Record who you lent to, the amount, and how it was paid.</DialogDescription>
           </div>
         </DialogHeader>
+        <nav className="udhaar-entry-progress" aria-label="Udhaar steps">
+          <p role="status">Step {step + 1} of 4 · {steps[step]}</p>
+          <ol>
+            {steps.map((label, index) => (
+              <li key={label} aria-current={index === step ? "step" : undefined}
+                data-state={index < step ? "complete" : index === step ? "current" : "upcoming"}>
+                <span className="udhaar-step-number">
+                  {index < step ? <CircleCheck size={16} aria-hidden="true" /> : index + 1}
+                </span>
+                <span>{label}</span>
+              </li>
+            ))}
+          </ol>
+        </nav>
         <form id="udhaar-form" onSubmit={submit} className="udhaar-entry-form">
-          <BankAccountSelect value={accountKey} onChange={setAccountKey} />
-          <section className="udhaar-entry-section" aria-labelledby="udhaar-person-heading">
-            <div className="udhaar-entry-section-title">
-              <span>1</span>
-              <div>
-                <h3 id="udhaar-person-heading">Who received the money?</h3>
-                <p>Search saved people by name or phone, or enter a new person.</p>
-              </div>
-            </div>
-            <div className="udhaar-entry-grid">
-              <div className="udhaar-entry-field">
-                <Label htmlFor="udhaar-name">Person's name *</Label>
-                <Input
-                  id="udhaar-name"
-                  value={name}
-                  onChange={(event) => {
-                    setName(event.target.value);
-                    if (contactId) {
-                      setContactId(null);
-                      setPhone("");
-                    }
-                  }}
-                  autoComplete="off"
-                  aria-describedby="udhaar-person-help"
-                  placeholder="e.g. Ali Baloch"
-                  autoFocus
-                  required
-                />
-                <div
-                  id="udhaar-person-help"
-                  className="mt-2 text-sm text-muted-foreground"
-                  aria-live="polite"
-                >
-                  {peopleLoading
-                    ? "Loading saved people…"
-                    : peopleError ||
-                      (contactId
-                        ? "Linked to Contacts. Name and phone stay in sync. Edit the name above to choose a different person."
-                        : "Choose a saved person below, or save this name as a new contact.")}
+          {step === 0 && (
+            <section className="udhaar-entry-section" aria-labelledby="udhaar-person-heading">
+              <div className="udhaar-entry-section-title">
+                <span>1</span>
+                <div>
+                  <h3 id="udhaar-person-heading">Who received the money?</h3>
+                  <p>Search saved people by name or phone, or enter a new person.</p>
                 </div>
-                {matches.length > 0 && (
+              </div>
+              <div className="udhaar-entry-grid">
+                <div className="udhaar-entry-field">
+                  <Label htmlFor="udhaar-name">Person's name *</Label>
+                  <Input
+                    id="udhaar-name"
+                    value={name}
+                    onChange={(event) => {
+                      setName(event.target.value);
+                      if (contactId) {
+                        setContactId(null);
+                        setPhone("");
+                      }
+                    }}
+                    autoComplete="off"
+                    aria-describedby="udhaar-person-help"
+                    placeholder="e.g. Ali Baloch"
+                    autoFocus
+                    required
+                  />
                   <div
-                    className="mt-2 max-h-52 overflow-y-auto rounded-lg border bg-background p-1"
-                    aria-label="Suggested people"
+                    id="udhaar-person-help"
+                    className="mt-2 text-sm text-muted-foreground"
+                    aria-live="polite"
                   >
+                    {peopleLoading
+                      ? "Loading saved people…"
+                      : peopleError ||
+                        (contactId
+                          ? "Linked to Contacts. Name and phone stay in sync. Edit the name above to choose a different person."
+                          : "Choose a saved person below, or save this name as a new contact.")}
+                  </div>
+                </div>
+                <div className="udhaar-entry-field">
+                  <Label htmlFor="udhaar-phone">Phone (optional)</Label>
+                  <Input
+                    id="udhaar-phone"
+                    readOnly={!!contactId}
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="e.g. 0300 1234567"
+                  />
+                </div>
+              </div>
+              {matches.length > 0 && (
+                <div className="udhaar-contact-picker" role="group" aria-label="Suggested people">
+                  <div className="udhaar-contact-picker-heading">
+                    <span>Matching contacts</span>
+                    <small>{matches.length} shown · Select a person</small>
+                  </div>
+                  <div className="udhaar-contact-results">
                     {matches.map((person) => (
                       <button
                         type="button"
                         key={person.id}
                         onClick={() => selectPerson(person)}
-                        className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-2"
+                        className="udhaar-contact-option"
                       >
-                        <strong className="block">{person.name}</strong>
-                        <span className="text-muted-foreground">
-                          {person.phone || person.phone2 || "No phone"}
-                          {person.address ? " · " + person.address : ""}
+                        <span className="udhaar-contact-avatar" aria-hidden="true">
+                          {person.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toLocaleUpperCase()}
+                        </span>
+                        <span className="udhaar-contact-copy">
+                          <strong>{person.name}</strong>
+                          <span>{person.phone || person.phone2 || "No phone number"}</span>
+                          {person.address && <small>{person.address}</small>}
+                        </span>
+                        <span className="udhaar-contact-action" aria-hidden="true">
+                          Select <ArrowRight size={16} />
                         </span>
                       </button>
                     ))}
                   </div>
-                )}
+                </div>
+              )}
+            </section>
+          )}
+          {step === 1 && (
+            <section className="udhaar-entry-section" aria-labelledby="udhaar-money-heading">
+              <div className="udhaar-entry-section-title">
+                <span>2</span>
+                <div>
+                  <h3 id="udhaar-money-heading">How much did you give?</h3>
+                  <p>Enter the amount and the day you handed it over.</p>
+                </div>
               </div>
-              <div className="udhaar-entry-field">
-                <Label htmlFor="udhaar-phone">Phone (optional)</Label>
+              <div className="udhaar-entry-field udhaar-entry-amount">
+                <Label htmlFor="udhaar-amount">Amount given (Rs) *</Label>
                 <Input
-                  id="udhaar-phone"
-                  readOnly={!!contactId}
-                  type="tel"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="e.g. 0300 1234567"
-                />
-              </div>
-            </div>
-          </section>
-          <section className="udhaar-entry-section" aria-labelledby="udhaar-money-heading">
-            <div className="udhaar-entry-section-title">
-              <span>2</span>
-              <div>
-                <h3 id="udhaar-money-heading">How much did you give?</h3>
-                <p>Enter the amount and the day you handed it over.</p>
-              </div>
-            </div>
-            <div className="udhaar-entry-field udhaar-entry-amount">
-              <Label htmlFor="udhaar-amount">Amount given (Rs) *</Label>
-              <Input
-                id="udhaar-amount"
-                inputMode="numeric"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                placeholder="e.g. 50,000"
-                aria-describedby="udhaar-amount-help"
-                required
-              />
-              <small id="udhaar-amount-help">
-                Whole rupees only. Repayments will reduce this balance.
-              </small>
-            </div>
-            <div className="udhaar-entry-grid">
-              <div className="udhaar-entry-field">
-                <Label htmlFor="udhaar-date">Date given *</Label>
-                <Input
-                  id="udhaar-date"
-                  type="date"
-                  value={givenDate}
-                  onChange={(event) => setGivenDate(event.target.value)}
+                  id="udhaar-amount"
+                  inputMode="numeric"
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  placeholder="e.g. 50,000"
+                  aria-describedby="udhaar-amount-help"
                   required
                 />
+                <small id="udhaar-amount-help">
+                  Whole rupees only. Repayments will reduce this balance.
+                </small>
+              </div>
+              <div className="udhaar-entry-grid">
+                <div className="udhaar-entry-field">
+                  <Label htmlFor="udhaar-date">Date given *</Label>
+                  <Input
+                    id="udhaar-date"
+                    type="date"
+                    value={givenDate}
+                    onChange={(event) => setGivenDate(event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="udhaar-entry-field">
+                  <Label htmlFor="udhaar-due">Expected return date (optional)</Label>
+                  <Input
+                    id="udhaar-due"
+                    type="date"
+                    min={givenDate}
+                    value={dueDate}
+                    onChange={(event) => setDueDate(event.target.value)}
+                  />
+                  <small>Leave blank if no return date was agreed.</small>
+                </div>
+              </div>
+            </section>
+          )}
+          {step === 2 && (
+            <section className="udhaar-entry-section" aria-labelledby="udhaar-payment-heading">
+              <div className="udhaar-entry-section-title">
+                <span>3</span>
+                <div>
+                  <h3 id="udhaar-payment-heading">How did you pay?</h3>
+                  <p>Choose the account used and add the payment details.</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <BankAccountSelect value={accountKey} onChange={setAccountKey} />
+                {accountKey === "personal" && (
+                  <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />
+                )}
+              </div>
+            </section>
+          )}
+          {step === 3 && (
+            <section className="udhaar-entry-section" aria-labelledby="udhaar-notes-heading">
+              <div className="udhaar-entry-section-title">
+                <span>4</span>
+                <div>
+                  <h3 id="udhaar-notes-heading">Review your udhaar</h3>
+                  <p>Check the details below and add a note before saving.</p>
+                </div>
               </div>
               <div className="udhaar-entry-field">
-                <Label htmlFor="udhaar-due">Expected return date (optional)</Label>
+                <Label htmlFor="udhaar-notes">Notes (optional)</Label>
                 <Input
-                  id="udhaar-due"
-                  type="date"
-                  min={givenDate}
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
+                  id="udhaar-notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="e.g. Given for shop supplies"
                 />
-                <small>Leave blank if no return date was agreed.</small>
               </div>
+            </section>
+          )}
+          {step === 3 && (
+            <div className="udhaar-entry-preview" aria-live="polite">
+              <span>Amount to be recorded</span>
+              <strong>{rupees(amount) ? formatPKR(rupees(amount)!) : "Enter an amount"}</strong>
+              <small>{name.trim() ? `For ${name.trim()}` : "Add the person's name above"}</small>
+              <small>
+                Given {formatDate(givenDate)}
+                {dueDate ? ` · Return by ${formatDate(dueDate)}` : ""}
+              </small>
+              <small>{accountKey === "personal" ? "Personal Account" : "Builder Account"}</small>
+              {accountKey === "personal" && (
+                <small>{paymentSummary(JSON.stringify(paymentDetails))}</small>
+              )}
             </div>
-          </section>
-          <section className="udhaar-entry-section" aria-labelledby="udhaar-notes-heading">
-            <div className="udhaar-entry-section-title">
-              <span>3</span>
-              <div>
-                <h3 id="udhaar-notes-heading">Anything else to remember?</h3>
-                <p>Add a short note if it will help identify this udhaar.</p>
-              </div>
-            </div>
-            <div className="udhaar-entry-field">
-              <Label htmlFor="udhaar-notes">Notes (optional)</Label>
-              <Input
-                id="udhaar-notes"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="e.g. Given for shop supplies"
-              />
-            </div>
-          </section>
-          <div className="udhaar-entry-preview" aria-live="polite">
-            <span>Amount to be recorded</span>
-            <strong>{rupees(amount) ? formatPKR(rupees(amount)!) : "Enter an amount"}</strong>
-            <small>{name.trim() ? `For ${name.trim()}` : "Add the person's name above"}</small>
-          </div>
+          )}
           {error && (
             <p role="alert" className="udhaar-entry-error">
               {error}
@@ -1108,11 +1195,24 @@ function UdhaarForm({
           )}
         </form>
         <DialogFooter className="udhaar-entry-footer">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+          <Button className="udhaar-entry-cancel" type="button" variant="ghost" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
+          {step > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => {
+                setError("");
+                setStep(step - 1);
+              }}
+            >
+              Back
+            </Button>
+          )}
           <Button type="submit" form="udhaar-form" disabled={saving}>
-            {saving ? "Saving…" : "Save udhaar"}
+            {saving ? "Saving…" : step === 3 ? "Save udhaar" : "Next"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1131,6 +1231,7 @@ function RepaymentForm({
 }) {
   const remaining = record.amount - record.paid_amount;
   const [accountKey, setAccountKey] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState(emptyPaymentDetails);
   const [amount, setAmount] = useState("");
   const [paidDate, setPaidDate] = useState(today());
   const [method, setMethod] = useState<"cash" | "bank" | "cheque" | "other">("cash");
@@ -1142,10 +1243,11 @@ function RepaymentForm({
     setError("");
     const result = AddUdhaarPaymentSchema.safeParse({
       account_key: accountKey,
+      payment_details: accountKey === "personal" ? paymentDetails : undefined,
       udhaar_id: record.id,
       amount: rupees(amount),
       paid_date: paidDate,
-      method,
+      method: accountKey === "personal" ? paymentDetails.method : method,
       notes,
     });
     if (!result.success) {
@@ -1173,7 +1275,7 @@ function RepaymentForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Record repayment from {record.borrower_name}</DialogTitle>
         </DialogHeader>
@@ -1182,6 +1284,9 @@ function RepaymentForm({
         </p>
         <form id="udhaar-payment-form" onSubmit={submit} className="space-y-4">
           <BankAccountSelect value={accountKey} onChange={setAccountKey} direction="in" />
+          {accountKey === "personal" && (
+            <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />
+          )}
           <div>
             <Label htmlFor="repayment-amount">Amount received (Rs) *</Label>
             <Input
@@ -1204,20 +1309,22 @@ function RepaymentForm({
                 required
               />
             </div>
-            <div>
-              <Label htmlFor="repayment-method">Payment method</Label>
-              <select
-                id="repayment-method"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={method}
-                onChange={(event) => setMethod(event.target.value as typeof method)}
-              >
-                <option value="cash">Cash</option>
-                <option value="bank">Bank</option>
-                <option value="cheque">Cheque</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
+            {accountKey !== "personal" && (
+              <div>
+                <Label htmlFor="repayment-method">Payment method</Label>
+                <select
+                  id="repayment-method"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={method}
+                  onChange={(event) => setMethod(event.target.value as typeof method)}
+                >
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            )}
           </div>
           <div>
             <Label htmlFor="repayment-notes">Notes (optional)</Label>

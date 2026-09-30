@@ -1,9 +1,19 @@
 import { query, execute } from "@/data/client";
 import { BankAccountSchema, type BankAccount } from "@/domain/bankAccount";
 export interface BankEntry {
-  id: string; source: string; source_id: string; account_key: BankAccount | null;
-  date: string; amount: number; direction: "in" | "out"; category: string;
-  person: string; description: string; method: string; project: string; project_id: string | null;
+  id: string;
+  source: string;
+  source_id: string;
+  account_key: BankAccount | null;
+  date: string;
+  amount: number;
+  direction: "in" | "out";
+  category: string;
+  person: string;
+  description: string;
+  method: string;
+  project: string;
+  project_id: string | null;
 }
 /** Read the original records directly so edits, archives and Udhaar deletion stay in sync. */
 export async function listBankEntries(): Promise<BankEntry[]> {
@@ -16,7 +26,7 @@ export async function listBankEntries(): Promise<BankEntry[]> {
     FROM transactions t LEFT JOIN contacts c ON c.id = t.contact_id LEFT JOIN projects pr ON pr.id = t.project_id WHERE t.archived = 0
     UNION ALL
     SELECT 'udhaar:' || u.id, 'udhaars', u.id, u.account_key, u.given_date, u.amount, 'out', 'Udhaar given',
-      COALESCE(c.name, u.borrower_name), COALESCE(u.notes, ''), 'Not recorded', '', NULL
+      COALESCE(c.name, u.borrower_name), COALESCE(u.notes, ''), COALESCE(json_extract(u.custom, '$.payment_details.method'), 'Not recorded'), '', NULL
     FROM udhaars u LEFT JOIN contacts c ON c.id = u.contact_id WHERE u.archived = 0
     UNION ALL
     SELECT 'repayment:' || COALESCE(json_extract(p.custom, '$.payment_group_id'), p.id), 'udhaar_payments',
@@ -40,10 +50,19 @@ export async function assignBankAccount(entry: BankEntry, account: BankAccount):
   const value = BankAccountSchema.parse(account);
   const allowed = ["transactions", "udhaars", "udhaar_payments", "personal_expenses", "land"];
   if (!allowed.includes(entry.source)) throw new Error("Unknown payment source");
-  const where = entry.source === "udhaar_payments"
-    ? `id = ? OR json_extract(custom, '$.payment_group_id') = (SELECT json_extract(custom, '$.payment_group_id') FROM udhaar_payments WHERE id = ?)`
-    : "id = ?";
-  const result = await execute(`UPDATE ${entry.source} SET account_key = ?, updated_at = ? WHERE archived = 0 AND (${where})`,
-    [value, new Date().toISOString(), entry.source_id, ...(entry.source === "udhaar_payments" ? [entry.source_id] : [])]);
-  if (!result.rowsAffected) throw new Error("This payment is no longer available. Refresh the list.");
+  const where =
+    entry.source === "udhaar_payments"
+      ? `id = ? OR json_extract(custom, '$.payment_group_id') = (SELECT json_extract(custom, '$.payment_group_id') FROM udhaar_payments WHERE id = ?)`
+      : "id = ?";
+  const result = await execute(
+    `UPDATE ${entry.source} SET account_key = ?, updated_at = ? WHERE archived = 0 AND (${where})`,
+    [
+      value,
+      new Date().toISOString(),
+      entry.source_id,
+      ...(entry.source === "udhaar_payments" ? [entry.source_id] : []),
+    ],
+  );
+  if (!result.rowsAffected)
+    throw new Error("This payment is no longer available. Refresh the list.");
 }
