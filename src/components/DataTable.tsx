@@ -50,17 +50,28 @@ export function DataTable<TData, TValue>({
                 <th
                   key={header.id}
                   className="px-4 py-3 text-left font-medium text-muted-foreground"
-                  onClick={header.column.getToggleSortingHandler()}
-                  style={{ cursor: header.column.getCanSort() ? "pointer" : "default" }}
+                  aria-sort={
+                    header.column.getIsSorted() === "asc"
+                      ? "ascending"
+                      : header.column.getIsSorted() === "desc"
+                        ? "descending"
+                        : "none"
+                  }
                 >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                  {header.column.getIsSorted() === "asc"
-                    ? " ↑"
-                    : header.column.getIsSorted() === "desc"
-                      ? " ↓"
-                      : ""}
+                  {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                    <button type="button" onClick={header.column.getToggleSortingHandler()}>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      <span aria-hidden="true">
+                        {header.column.getIsSorted() === "asc"
+                          ? "↑"
+                          : header.column.getIsSorted() === "desc"
+                            ? "↓"
+                            : "↕"}
+                      </span>
+                    </button>
+                  ) : (
+                    flexRender(header.column.columnDef.header, header.getContext())
+                  )}
                 </th>
               ))}
             </tr>

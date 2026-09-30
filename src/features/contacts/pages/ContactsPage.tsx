@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UserPlus, Search } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import type { Contact } from "@/domain/types";
 import { useContacts } from "@/features/contacts/hooks/useContacts";
 import { ContactDialog } from "@/features/contacts/components/ContactDialog";
@@ -8,14 +8,28 @@ import type { ContactFormValues } from "@/features/contacts/schemas";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useRecordFilters } from "@/components/RecordFilters";
 
 export function ContactsPage() {
-  const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
 
-  const { contacts, isLoading, error, addContact, editContact, archive } = useContacts(search);
+  const { contacts, isLoading, error, addContact, editContact, archive } = useContacts("");
+  const { visible, controls, active } = useRecordFilters(contacts, {
+    label: "contacts",
+    searchText: (contact) =>
+      [contact.name, contact.phone, contact.phone2, contact.address, contact.notes]
+        .filter(Boolean)
+        .join(" "),
+    date: (contact) => contact.created_at,
+    dateLabel: "Added",
+    facets: [
+      {
+        label: "Phone details",
+        value: (contact) => (contact.phone || contact.phone2 ? "Phone recorded" : "Missing phone"),
+      },
+    ],
+  });
 
   function openAdd() {
     setEditingContact(null);
@@ -48,17 +62,7 @@ export function ContactsPage() {
         }
       />
 
-      {/* Search bar */}
-      <div className="relative mb-4 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-        <Input
-          id="contacts-search"
-          className="pl-9"
-          placeholder="Search by name, phone or address…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+      {controls}
 
       {/* States */}
       {isLoading && (
@@ -69,7 +73,7 @@ export function ContactsPage() {
         <p className="text-sm text-destructive py-8 text-center">Error: {error}</p>
       )}
 
-      {!isLoading && !error && contacts.length === 0 && !search && (
+      {!isLoading && !error && contacts.length === 0 && !active && (
         <EmptyState
           icon={<UserPlus className="size-12" />}
           title="No contacts yet"
@@ -83,13 +87,8 @@ export function ContactsPage() {
         />
       )}
 
-      {!isLoading && !error && (contacts.length > 0 || search) && (
-        <ContactsTable
-          contacts={contacts}
-          search={search}
-          onEdit={openEdit}
-          onArchive={archive}
-        />
+      {!isLoading && !error && (contacts.length > 0 || active) && (
+        <ContactsTable contacts={visible} search="" onEdit={openEdit} onArchive={archive} />
       )}
 
       <ContactDialog

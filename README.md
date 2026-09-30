@@ -7,9 +7,22 @@ instead of scattered notebooks, phone notes and Excel files.
 Built with **Tauri 2 + React + TypeScript**, storing all data locally in a
 single **SQLite** database. It works fully offline.
 
-This repository currently contains **Version 1 (Acquire & Invest)** in
-progress: the application shell, database foundation, and the Contacts
-module as a proof of the full stack.
+The workspace includes a business dashboard, projects and building plans,
+partner profiles and contributions, contacts, personal purchases, and
+credit / Udhaar records. The Land view collects acquisitions saved through
+projects. Settings offers light, dark, and device-matched themes.
+
+Record views share labelled search, relevant category/status filters,
+date and amount ranges where applicable, sorting, result counts, and a
+reset action. Page summaries describe their scope; filtering a record
+list does not change saved data. Project-wide financial totals remain
+visible when filtering individual cost or payment lists.
+
+Trend charts share labelled rupee/date axes, line and bar views, selectable
+series, exact values on hover/tap or keyboard navigation, and expandable
+data tables. Dates use actual elapsed time, and smooth curves stay within
+the recorded values. Single-date records show a point instead of an
+invented trend.
 
 ## Prerequisites
 

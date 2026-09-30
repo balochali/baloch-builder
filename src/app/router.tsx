@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { MapPin } from "lucide-react";
 import { AppShell } from "./layout/AppShell";
-import { TemporaryModulePage } from "@/components/TemporaryModulePage";
+import { LandPage } from "@/features/land/pages/LandPage";
 import { AuthPage } from "@/features/auth/AuthPage";
 
 // Feature pages
@@ -22,13 +21,25 @@ export function AppRouter() {
   useEffect(() => {
     let active = true;
     invoke<boolean>("auth_status")
-      .then((exists) => { if (active) setAuth(exists ? "login" : "setup"); })
-      .catch(() => { if (active) setAuth("error"); });
-    return () => { active = false; };
+      .then((exists) => {
+        if (active) setAuth(exists ? "login" : "setup");
+      })
+      .catch(() => {
+        if (active) setAuth("error");
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  if (auth === "loading") return <div className="min-h-screen grid place-items-center">Opening Baloch Builder…</div>;
-  if (auth === "error") return <div className="min-h-screen grid place-items-center text-destructive">Unable to load account. Restart the desktop app.</div>;
+  if (auth === "loading")
+    return <div className="min-h-screen grid place-items-center">Opening Baloch Builder…</div>;
+  if (auth === "error")
+    return (
+      <div className="min-h-screen grid place-items-center text-destructive">
+        Unable to load account. Restart the desktop app.
+      </div>
+    );
   if (auth !== "ready") return <AuthPage mode={auth} onSuccess={() => setAuth("ready")} />;
 
   return (
@@ -37,7 +48,7 @@ export function AppRouter() {
         <Route element={<AppShell />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/land" element={<TemporaryModulePage title="Land" icon={MapPin} description="Land records and acquisition details will be available here." />} />
+          <Route path="/land" element={<LandPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/partners" element={<PartnersPage />} />
