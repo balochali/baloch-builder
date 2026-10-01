@@ -798,3 +798,7 @@
     transform: none;
   }
 }
+.udhaar-page.udhaar-page .udhaar-heading [data-slot="button"] { display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; }
+.udhaar-page.udhaar-page .udhaar-summary > div .udhaar-summary-icon { color: white; background: var(--summary-color); }
+.udhaar-page.udhaar-page .udhaar-tabs button[aria-selected] > span { color: #4f46e5; background: color-mix(in srgb,#6366f1 12%,var(--card)); }
+.udhaar-page.udhaar-page .udhaar-cards .udhaar-card .udhaar-card-status { color: var(--person-color); background: color-mix(in srgb,var(--person-color) 10%,var(--card)); }
