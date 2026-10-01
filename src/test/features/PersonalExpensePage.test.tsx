@@ -1,11 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalExpensePage } from "@/features/personal-expense/pages/PersonalExpensePage";
-import { listPersonalExpenses } from "@/data/repositories/personalExpenseRepository";
+import { createPersonalExpense, listPersonalExpenses } from "@/data/repositories/personalExpenseRepository";
 
 vi.mock("@/data/repositories/personalExpenseRepository", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/data/repositories/personalExpenseRepository")>(),
   listPersonalExpenses: vi.fn(),
+  createPersonalExpense: vi.fn(),
 }));
 
 describe("PersonalExpensePage", () => {
@@ -18,6 +19,44 @@ describe("PersonalExpensePage", () => {
     ]);
   });
 
+  it("walks through purchase, payment and review while preserving entries", async () => {
+    vi.mocked(createPersonalExpense).mockResolvedValue();
+    render(<PersonalExpensePage />);
+    await screen.findByRole("heading", { name: "Where your money went" });
+    fireEvent.click(screen.getByRole("button", { name: "Add purchase" }));
+    expect(screen.queryByLabelText("Amount paid (Rs) *")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save purchase" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Car name or details *"), { target: { value: "Corolla" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Amount paid (Rs) *"), { target: { value: "500000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByLabelText("Car name or details *")).toHaveValue("Corolla");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByLabelText("Amount paid (Rs) *")).toHaveValue("500000");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText(/Pay from account/), { target: { value: "personal" } });
+    fireEvent.change(screen.getByLabelText("How was it paid? *"), { target: { value: "digital" } });
+    fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
+    fireEvent.change(screen.getByLabelText("Wallet / app name *"), { target: { value: "JazzCash" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText(/Step 4 of 4/)).toBeInTheDocument();
+    expect(createPersonalExpense).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save purchase" }));
+    await waitFor(() => expect(createPersonalExpense).toHaveBeenCalledWith(expect.objectContaining({ item_name: "Corolla", amount: 500000, account_key: "personal", payment_details: expect.objectContaining({ method: "digital", provider: "JazzCash", received_by: "Ali" }) })));
+  });
+
+  it("shares category filters across charts, purchases and payments", async () => {
+    render(<PersonalExpensePage />);
+    await screen.findByRole("heading", { name: "Where your money went" });
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "Cars" } });
+    expect(screen.getByRole("img", { name: "Spending rose to Rs 200,000" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Payments" }));
+    expect(screen.getByRole("heading", { name: "Payment history" })).toBeInTheDocument();
+    expect(screen.getByText("Family car")).toBeInTheDocument();
+    expect(screen.queryByText("Watch", { selector: "strong" })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Payments" }), { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+  });
   it("filters totals, charts and purchases by the same custom dates", async () => {
     render(<PersonalExpensePage />);
     expect(await screen.findByRole("heading", { name: "Where your money went" })).toBeInTheDocument();

@@ -37,7 +37,7 @@ export async function listBankEntries(): Promise<BankEntry[]> {
     GROUP BY COALESCE(json_extract(p.custom, '$.payment_group_id'), p.id), p.account_key
     UNION ALL
     SELECT 'expense:' || id, 'personal_expenses', id, account_key, purchase_date, amount, 'out', 'Personal expense',
-      '', item_name || CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' · ' || notes END, 'Not recorded', '', NULL
+      '', item_name || CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' · ' || notes END, COALESCE(json_extract(payment_details, '$.method'), 'Not recorded'), '', NULL
     FROM personal_expenses WHERE archived = 0
     UNION ALL
     SELECT 'land:' || l.id, 'land', l.id, l.account_key, l.purchase_date, l.price, 'out', 'Land acquisition',

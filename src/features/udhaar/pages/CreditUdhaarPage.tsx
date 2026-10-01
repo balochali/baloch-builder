@@ -178,11 +178,13 @@ function UdhaarActivityCharts({
   return (
     <div className="udhaar-activity-grid">
       <section className="udhaar-activity-card" aria-label="Money given and paid back by date">
-        <div className="udhaar-chart-head">
-          <BarChart3 size={20} />
-          <div>
-            <h3>Money moving</h3>
-            <p>Blue is money given; green is money paid back.</p>
+        <div className="udhaar-chart-head-wrap">
+          <div className="udhaar-chart-head">
+            <BarChart3 size={20} />
+            <div>
+              <h3>Money moving</h3>
+              <p>Red is money given; green is money paid back.</p>
+            </div>
           </div>
         </div>
         <TimeSeriesChart
@@ -192,7 +194,7 @@ function UdhaarActivityCharts({
             values: { given: row.given, paid: row.paid },
           }))}
           series={[
-            { key: "given", label: "Money given", color: chartColors.blue },
+            { key: "given", label: "Money given", color: "#ef4444" },
             { key: "paid", label: "Paid back", color: chartColors.green },
           ]}
           defaultMode="bar"
@@ -209,16 +211,21 @@ function UdhaarActivityCharts({
         />
       </section>
       <section className="udhaar-activity-card" aria-label="Outstanding balance trend">
-        <div className="udhaar-chart-head">
-          <TrendingUp size={20} />
-          <div>
-            <h3>Still to receive over time</h3>
-            <p>The line rises when you lend and falls when someone pays back.</p>
+        <div className="udhaar-chart-head-wrap">
+          <div className="udhaar-chart-head">
+            <TrendingUp size={20} />
+            <div>
+              <h3>Still to receive over time</h3>
+              <p>The line rises when you lend and falls when someone pays back.</p>
+            </div>
+          </div>
+          <div className="udhaar-trend-badge">
+            <span className="udhaar-trend-badge-label"><Wallet size={14} aria-hidden="true" />Outstanding</span>
+            <strong className="udhaar-trend-total">
+              {formatPKRInLakhCrore(points[points.length - 1].amount)}
+            </strong>
           </div>
         </div>
-        <strong className="udhaar-trend-total">
-          {formatPKRInLakhCrore(points[points.length - 1].amount)}
-        </strong>
         <TimeSeriesChart
           points={rows.map((row, index) => ({
             key: row.key,
@@ -943,7 +950,7 @@ function UdhaarForm({
     const result = CreateUdhaarSchema.safeParse({
       contact_id: contactId,
       account_key: accountKey,
-      payment_details: accountKey === "personal" ? paymentDetails : undefined,
+      payment_details: accountKey ? paymentDetails : undefined,
       borrower_name: name,
       phone,
       amount: rupees(amount),
@@ -1147,7 +1154,7 @@ function UdhaarForm({
               </div>
               <div className="space-y-4">
                 <BankAccountSelect value={accountKey} onChange={setAccountKey} />
-                {accountKey === "personal" && (
+                {accountKey && (
                   <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />
                 )}
               </div>
@@ -1234,7 +1241,6 @@ function RepaymentForm({
   const [paymentDetails, setPaymentDetails] = useState(emptyPaymentDetails);
   const [amount, setAmount] = useState("");
   const [paidDate, setPaidDate] = useState(today());
-  const [method, setMethod] = useState<"cash" | "bank" | "cheque" | "other">("cash");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1243,11 +1249,11 @@ function RepaymentForm({
     setError("");
     const result = AddUdhaarPaymentSchema.safeParse({
       account_key: accountKey,
-      payment_details: accountKey === "personal" ? paymentDetails : undefined,
+      payment_details: accountKey ? paymentDetails : undefined,
       udhaar_id: record.id,
       amount: rupees(amount),
       paid_date: paidDate,
-      method: accountKey === "personal" ? paymentDetails.method : method,
+      method: paymentDetails.method,
       notes,
     });
     if (!result.success) {
@@ -1284,7 +1290,7 @@ function RepaymentForm({
         </p>
         <form id="udhaar-payment-form" onSubmit={submit} className="space-y-4">
           <BankAccountSelect value={accountKey} onChange={setAccountKey} direction="in" />
-          {accountKey === "personal" && (
+          {accountKey && (
             <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />
           )}
           <div>
@@ -1298,33 +1304,15 @@ function RepaymentForm({
               required
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="repayment-date">Date received *</Label>
-              <Input
-                id="repayment-date"
-                type="date"
-                value={paidDate}
-                onChange={(event) => setPaidDate(event.target.value)}
-                required
-              />
-            </div>
-            {accountKey !== "personal" && (
-              <div>
-                <Label htmlFor="repayment-method">Payment method</Label>
-                <select
-                  id="repayment-method"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={method}
-                  onChange={(event) => setMethod(event.target.value as typeof method)}
-                >
-                  <option value="cash">Cash</option>
-                  <option value="bank">Bank</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-            )}
+          <div>
+            <Label htmlFor="repayment-date">Date received *</Label>
+            <Input
+              id="repayment-date"
+              type="date"
+              value={paidDate}
+              onChange={(event) => setPaidDate(event.target.value)}
+              required
+            />
           </div>
           <div>
             <Label htmlFor="repayment-notes">Notes (optional)</Label>

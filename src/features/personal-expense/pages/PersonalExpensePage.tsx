@@ -1,3 +1,6 @@
+import { accountName } from "@/domain/bankAccount";
+import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
+import { emptyPaymentDetails, paymentSummary } from "@/domain/udhaarPaymentDetails";
 import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { RingChart } from "@/components/charts/RingChart";
 import { TimeSeriesChart, chartColors } from "@/components/charts/TimeSeriesChart";
@@ -11,7 +14,11 @@ import {
   startOfYear,
 } from "date-fns";
 import {
+  Wallet,
+  ReceiptText,
+  PieChart,
   ArrowRight,
+  CalendarDays,
   CarFront,
   ChartNoAxesColumn,
   House,
@@ -50,20 +57,22 @@ import {
 } from "@/data/repositories/personalExpenseRepository";
 
 const categories = [
-  { id: "car", label: "Cars", singular: "Car", icon: CarFront, color: "#2779b0" },
-  { id: "watch", label: "Watches", singular: "Watch", icon: Watch, color: "#deaa35" },
-  { id: "land", label: "Land", singular: "Land", icon: MapPinned, color: "#42a88c" },
-  { id: "house", label: "Houses", singular: "House", icon: House, color: "#8b72ba" },
-  { id: "other", label: "Other", singular: "Other", icon: MoreHorizontal, color: "#dc7974" },
+  { id: "car", label: "Cars", singular: "Car", icon: CarFront, color: "#2563eb" },
+  { id: "watch", label: "Watches", singular: "Watch", icon: Watch, color: "#d97706" },
+  { id: "land", label: "Land", singular: "Land", icon: MapPinned, color: "#059669" },
+  { id: "house", label: "Houses", singular: "House", icon: House, color: "#7c3aed" },
+  { id: "other", label: "Other", singular: "Other", icon: MoreHorizontal, color: "#e11d48" },
 ] as const;
 
 const categoryInfo = (category: ExpenseCategory) =>
   categories.find((item) => item.id === category) ?? categories[4];
+
 const parseRupees = (value: string) => {
   if (!/^\d[\d,]*$/.test(value.trim())) return null;
   const amount = Number(value.replace(/,/g, "").trim());
   return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
 };
+
 type ExpensePeriod = "all" | "daily" | "weekly" | "monthly" | "yearly" | "custom";
 const periodLabels: Record<ExpensePeriod, string> = {
   all: "All time",
@@ -73,6 +82,7 @@ const periodLabels: Record<ExpensePeriod, string> = {
   yearly: "This year",
   custom: "Custom",
 };
+
 function expenseRange(period: ExpensePeriod, from: string, to: string) {
   const now = new Date();
   return {
@@ -147,26 +157,64 @@ function ExpenseTrend({
         ? format(parseISO(`${key}-01`), "MMM yyyy")
         : formatDate(key);
   return (
-    <section className="expense-trend" aria-label="Personal spending trend">
-      <div className="expense-chart-title">
-        <TrendingUp size={21} />
-        <div>
-          <h2>Spending over time</h2>
-          <p>The line rises as purchases are added in this period.</p>
+    <div className="expense-trends-row">
+      <section className="expense-trend" aria-label="Personal spending trend">
+        <div className="expense-chart-head-wrap">
+          <div className="expense-chart-title">
+            <TrendingUp size={21} />
+            <div>
+              <h2>Total spent so far</h2>
+              <p>Running total: each point adds earlier purchases in the selected range.</p>
+            </div>
+          </div>
+          <div className="expense-trend-badge">
+            <span className="expense-trend-badge-label">Total Spent</span>
+            <strong className="expense-trend-total">{formatPKRInLakhCrore(max)} spent</strong>
+          </div>
         </div>
-      </div>
-      <strong className="expense-trend-total">{formatPKRInLakhCrore(max)} spent</strong>
-      <TimeSeriesChart
-        points={rows.map(([key], index) => ({
-          key,
-          label: display(key),
-          values: { spent: points[index].amount },
-        }))}
-        series={[{ key: "spent", label: "Cumulative spending", color: chartColors.purple }]}
-        ariaLabel={"Spending rose to " + formatPKR(max)}
-        caption={groupingNote + "Each point includes purchases through the end of that period."}
-      />
-    </section>
+        <TimeSeriesChart
+          points={rows.map(([key], index) => ({
+            key,
+            label: display(key),
+            values: { spent: points[index].amount },
+          }))}
+          series={[{ key: "spent", label: "Cumulative spending", color: chartColors.purple }]}
+          ariaLabel={"Spending rose to " + formatPKR(max)}
+          caption={groupingNote + "Each point includes purchases through the end of that period."}
+        />
+      </section>
+      <section className="expense-trend" aria-label="Spending in individual periods">
+        <div className="expense-chart-head-wrap">
+          <div className="expense-chart-title">
+            <ChartNoAxesColumn size={21} aria-hidden="true" />
+            <div>
+              <h2>Spending per period</h2>
+              <p>Separate totals: each bar shows only that period’s purchases.</p>
+            </div>
+          </div>
+          <div className="expense-trend-badge">
+            <span className="expense-trend-badge-label">Peak Period</span>
+            <strong className="expense-trend-total">
+              {formatPKRInLakhCrore(Math.max(...rows.map(([, amount]) => amount)))} peak period
+            </strong>
+          </div>
+        </div>
+        <TimeSeriesChart
+          defaultMode="bar"
+          points={rows.map(([key, amount]) => ({
+            key,
+            label: display(key),
+            values: { spent: amount },
+          }))}
+          series={[{ key: "spent", label: "Money spent", color: chartColors.coral }]}
+          ariaLabel="Spending per period"
+          caption={
+            groupingNote +
+            "Earlier periods are not included. With just one period, both charts show the same amount."
+          }
+        />
+      </section>
+    </div>
   );
 }
 
@@ -175,7 +223,7 @@ export function PersonalExpensePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  const [view, setView] = useState<"overview" | "purchases">("overview");
+  const [view, setView] = useState<"overview" | "purchases" | "payments">("overview");
   const [period, setPeriod] = useState<ExpensePeriod>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -211,24 +259,35 @@ export function PersonalExpensePage() {
           (!start || record.purchase_date >= start) && (!end || record.purchase_date <= end),
       )
     : [];
-  const total = periodRecords.reduce((sum, record) => sum + record.amount, 0);
-  const byCategory = categories.map((category) => ({
-    ...category,
-    amount: periodRecords
-      .filter((record) => record.category === category.id)
-      .reduce((sum, record) => sum + record.amount, 0),
-    count: periodRecords.filter((record) => record.category === category.id).length,
-  }));
-  const largest = Math.max(...byCategory.map((category) => category.amount), 1);
   const { visible, controls } = useRecordFilters(periodRecords, {
     label: "purchases",
-    searchText: (record) => [record.item_name, record.notes].filter(Boolean).join(" "),
+    searchText: (record) =>
+      [record.item_name, record.notes, paymentSummary(JSON.stringify(record.payment_details ?? {}))]
+        .filter(Boolean)
+        .join(" "),
     amount: (record) => record.amount,
     date: (record) => record.purchase_date,
     dateLabel: "Purchased",
-    facets: [{ label: "Category", value: (record) => categoryInfo(record.category).label }],
+    facets: [
+      { label: "Category", value: (record) => categoryInfo(record.category).label },
+      { label: "Account", value: (record) => accountName(record.account_key) },
+      {
+        label: "Payment method",
+        value: (record) => record.payment_details?.method ?? "Not recorded",
+      },
+    ],
   });
+  const total = visible.reduce((sum, record) => sum + record.amount, 0);
+  const byCategory = categories.map((category) => ({
+    ...category,
+    amount: visible
+      .filter((record) => record.category === category.id)
+      .reduce((sum, record) => sum + record.amount, 0),
+    count: visible.filter((record) => record.category === category.id).length,
+  }));
+  const largest = Math.max(...byCategory.map((category) => category.amount), 1);
   const donutSegments = byCategory.filter((category) => category.amount > 0);
+
   async function save(value: PersonalExpenseInput) {
     if (editing) await updatePersonalExpense(editing.id, value);
     else await createPersonalExpense(value);
@@ -262,12 +321,13 @@ export function PersonalExpensePage() {
   return (
     <main className="expense-page">
       <header className="expense-heading">
-        <div>
+        <div className="expense-heading-content">
           <p className="projects-eyebrow">PERSONAL PURCHASES</p>
           <h1>Personal Expense</h1>
           <p>Keep a clear record of the cars, watches, property and other things you buy.</p>
         </div>
         <Button
+          className="expense-add-btn"
           onClick={() => {
             setEditing(null);
             setFormOpen(true);
@@ -277,8 +337,9 @@ export function PersonalExpensePage() {
           Add purchase
         </Button>
       </header>
+
       <div className="expense-tabs" role="tablist" aria-label="Personal Expense views">
-        {(["overview", "purchases"] as const).map((tab, index) => (
+        {(["overview", "purchases", "payments"] as const).map((tab, index) => (
           <button
             type="button"
             role="tab"
@@ -291,30 +352,42 @@ export function PersonalExpensePage() {
             onKeyDown={(event) => {
               const next =
                 event.key === "ArrowRight" || event.key === "ArrowLeft"
-                  ? (index + 1) % 2
+                  ? (index + (event.key === "ArrowRight" ? 1 : 2)) % 3
                   : event.key === "Home"
                     ? 0
                     : event.key === "End"
-                      ? 1
+                      ? 2
                       : -1;
               if (next >= 0) {
                 event.preventDefault();
-                const target = next === 0 ? "overview" : "purchases";
+                const target = (["overview", "purchases", "payments"] as const)[next];
                 setView(target);
                 document.getElementById(`expense-tab-${target}`)?.focus();
               }
             }}
           >
-            {tab === "overview" ? <ChartNoAxesColumn size={17} /> : <List size={17} />}
-            {tab === "overview" ? "Overview" : "Purchases"}
-            {tab === "purchases" && records.length > 0 && <span>{records.length}</span>}
+            {tab === "overview" ? (
+              <ChartNoAxesColumn size={17} />
+            ) : tab === "payments" ? (
+              <Wallet size={17} />
+            ) : (
+              <List size={17} />
+            )}
+            <span>{tab === "overview" ? "Overview" : tab === "payments" ? "Payments" : "Purchases"}</span>
+            {tab === "purchases" && records.length > 0 && <span className="expense-tab-count">{records.length}</span>}
           </button>
         ))}
       </div>
+
       <div className="expense-period-panel">
-        <div>
-          <strong>Choose a time period</strong>
-          <p>All totals, charts and purchases below use the dates you select.</p>
+        <div className="expense-period-head">
+          <div className="expense-period-icon">
+            <CalendarDays size={18} />
+          </div>
+          <div>
+            <strong>Choose a time period</strong>
+            <p>All totals, charts and purchases below use the dates you select.</p>
+          </div>
         </div>
         <div
           className="expense-period-options"
@@ -369,6 +442,7 @@ export function PersonalExpensePage() {
           </span>
         )}
       </div>
+
       {loading ? (
         <p className="expense-message">Loading purchases…</p>
       ) : loadError ? (
@@ -377,6 +451,7 @@ export function PersonalExpensePage() {
         </p>
       ) : (
         <>
+          {controls}
           {validRange && (
             <>
               {view === "overview" && (
@@ -388,14 +463,17 @@ export function PersonalExpensePage() {
                 >
                   <section className="expense-summary" aria-label="Purchase summary">
                     <div className="expense-total">
-                      <span className="expense-summary-icon">
-                        <ShoppingBag size={22} />
-                      </span>
-                      <span>{period === "all" ? "Total spent" : "Spent in this period"}</span>
-                      <strong>{formatPKRInLakhCrore(total)}</strong>
-                      <small>
-                        {periodRecords.length}{" "}
-                        {periodRecords.length === 1 ? "purchase" : "purchases"} in this period
+                      <div className="expense-total-top">
+                        <span className="expense-summary-icon">
+                          <ShoppingBag size={22} />
+                        </span>
+                        <span className="expense-total-badge">Overview</span>
+                      </div>
+                      <span className="expense-total-label">{period === "all" ? "Total spent" : "Spent in this period"}</span>
+                      <strong className="expense-total-amount">{formatPKRInLakhCrore(total)}</strong>
+                      <small className="expense-total-count">
+                        {visible.length} {visible.length === 1 ? "purchase" : "purchases"} in this
+                        period
                       </small>
                     </div>
                     <div className="expense-category-strip">
@@ -406,23 +484,70 @@ export function PersonalExpensePage() {
                           return (
                             <div
                               key={category.id}
+                              className="expense-category-item"
                               style={{ "--expense-color": category.color } as CSSProperties}
                             >
-                              <span className="expense-category-icon">
-                                <Icon size={19} />
-                              </span>
-                              <span>{category.label}</span>
-                              <strong>{formatPKRInLakhCrore(category.amount)}</strong>
+                              <div className="expense-category-top">
+                                <span className="expense-category-icon">
+                                  <Icon size={19} />
+                                </span>
+                                <span className="expense-category-count">
+                                  {category.count} {category.count === 1 ? "item" : "items"}
+                                </span>
+                              </div>
+                              <span className="expense-category-name">{category.label}</span>
+                              <strong className="expense-category-amount">{formatPKRInLakhCrore(category.amount)}</strong>
                             </div>
                           );
                         })}
                     </div>
                   </section>
-                  {periodRecords.length > 0 && (
+                  <div className="expense-kpis">
+                    <article className="expense-kpi-card">
+                      <div className="expense-kpi-icon expense-kpi-avg">
+                        <ReceiptText size={20} aria-hidden="true" />
+                      </div>
+                      <div className="expense-kpi-content">
+                        <span>Average purchase</span>
+                        <strong>
+                          {formatPKR(visible.length ? Math.round(total / visible.length) : 0)}
+                        </strong>
+                      </div>
+                    </article>
+                    <article className="expense-kpi-card">
+                      <div className="expense-kpi-icon expense-kpi-max">
+                        <TrendingUp size={20} aria-hidden="true" />
+                      </div>
+                      <div className="expense-kpi-content">
+                        <span>Largest purchase</span>
+                        <strong>
+                          {formatPKR(visible.length ? Math.max(...visible.map((r) => r.amount)) : 0)}
+                        </strong>
+                      </div>
+                    </article>
+                    <article className="expense-kpi-card">
+                      <div className="expense-kpi-icon expense-kpi-wallet">
+                        <Wallet size={20} aria-hidden="true" />
+                      </div>
+                      <div className="expense-kpi-content">
+                        <span>Personal account spending</span>
+                        <strong>
+                          {formatPKR(
+                            visible
+                              .filter((r) => r.account_key === "personal")
+                              .reduce((sum, r) => sum + r.amount, 0),
+                          )}
+                        </strong>
+                      </div>
+                    </article>
+                  </div>
+                  {visible.length > 0 && (
                     <div className="expense-insight-grid">
                       <section className="expense-chart" aria-label="Spending by category">
-                        <div>
-                          <h2>Where your money went</h2>
+                        <div className="expense-section-head">
+                          <h2>
+                            <ChartNoAxesColumn size={19} aria-hidden="true" /> Where your money went
+                          </h2>
                           <p>Each bar compares spending in a category during this period.</p>
                         </div>
                         <div className="expense-bars">
@@ -430,7 +555,7 @@ export function PersonalExpensePage() {
                             .filter((category) => category.count > 0)
                             .map((category) => (
                               <div className="expense-bar-row" key={category.id}>
-                                <div>
+                                <div className="expense-bar-info">
                                   <strong>{category.label}</strong>
                                   <span>
                                     {category.count} {category.count === 1 ? "item" : "items"} ·{" "}
@@ -450,11 +575,15 @@ export function PersonalExpensePage() {
                         </div>
                       </section>
                       <section className="expense-share" aria-label="Spending share by category">
-                        <h2>Category share</h2>
-                        <p>Which purchases took the largest share of spending?</p>
+                        <div className="expense-section-head">
+                          <h2>
+                            <PieChart size={19} aria-hidden="true" /> Category share
+                          </h2>
+                          <p>Which purchases took the largest share of spending?</p>
+                        </div>
                         <div className="expense-share-layout">
                           <RingChart
-                            value={periodRecords.length}
+                            value={visible.length}
                             label="purchases"
                             ariaLabel={donutSegments
                               .map((category) => category.label + ": " + formatPKR(category.amount))
@@ -468,9 +597,9 @@ export function PersonalExpensePage() {
                           />
                           <div className="expense-share-legend">
                             {donutSegments.map((category) => (
-                              <div key={category.id}>
+                              <div key={category.id} className="expense-share-legend-item">
                                 <i style={{ background: category.color }} />
-                                <span>{category.label}</span>
+                                <span className="expense-legend-label">{category.label}</span>
                                 <strong>{Math.round((category.amount / total) * 100)}%</strong>
                               </div>
                             ))}
@@ -479,9 +608,7 @@ export function PersonalExpensePage() {
                       </section>
                     </div>
                   )}
-                  {periodRecords.length > 0 && (
-                    <ExpenseTrend records={periodRecords} start={start} end={end} />
-                  )}
+                  {visible.length > 0 && <ExpenseTrend records={visible} start={start} end={end} />}
                   {records.length === 0 ? (
                     <div className="expense-empty expense-overview-empty">
                       <ShoppingBag size={32} />
@@ -497,7 +624,7 @@ export function PersonalExpensePage() {
                         Add purchase
                       </Button>
                     </div>
-                  ) : periodRecords.length === 0 ? (
+                  ) : visible.length === 0 ? (
                     <div className="expense-empty expense-overview-empty">
                       <ChartNoAxesColumn size={32} />
                       <h3>No purchases in this period</h3>
@@ -517,6 +644,79 @@ export function PersonalExpensePage() {
                   )}
                 </section>
               )}
+              {view === "payments" && (
+                <section
+                  id="expense-panel-payments"
+                  role="tabpanel"
+                  aria-labelledby="expense-tab-payments"
+                  className="expense-tab-panel"
+                >
+                  <div className="expense-account-grid">
+                    {(["personal", "builder", undefined] as const).map((account) => {
+                      const rows = visible.filter((r) => (r.account_key ?? undefined) === account);
+                      const totalSpent = rows.reduce((sum, r) => sum + r.amount, 0);
+                      return (
+                        <article key={account ?? "unassigned"} className="expense-account-card">
+                          <div className="expense-account-icon">
+                            <Wallet aria-hidden="true" />
+                          </div>
+                          <div className="expense-account-info">
+                            <h2>{accountName(account)}</h2>
+                            <strong>{formatPKR(totalSpent)}</strong>
+                            <p>{rows.length} {rows.length === 1 ? "purchase" : "purchases"} · selected filters</p>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <section className="expense-records">
+                    <div className="expense-records-heading">
+                      <div>
+                        <h2>
+                          <ReceiptText size={19} aria-hidden="true" /> Payment history
+                        </h2>
+                        <p>Receiver, payment service and receipt details saved with each purchase.</p>
+                      </div>
+                      <span className="expense-records-count">{visible.length} shown</span>
+                    </div>
+                    <div className="expense-payment-list">
+                      {visible.length ? (
+                        visible.map((record) => (
+                          <article key={record.id} className="expense-payment-card">
+                            <div className="expense-payment-meta">
+                              <strong>{record.item_name}</strong>
+                              <small>
+                                {formatDate(record.purchase_date)} ·{" "}
+                                {accountName(record.account_key)}
+                              </small>
+                              <p>
+                                {record.payment_details
+                                  ? paymentSummary(JSON.stringify(record.payment_details))
+                                  : "Payment details not recorded. Edit this purchase to add them."}
+                              </p>
+                            </div>
+                            <div className="expense-payment-amount-wrap">
+                              <strong>{formatPKR(record.amount)}</strong>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditing(record);
+                                  setFormOpen(true);
+                                }}
+                              >
+                                Edit details
+                              </Button>
+                            </div>
+                          </article>
+                        ))
+                      ) : (
+                        <p className="expense-empty">No payments match these filters.</p>
+                      )}
+                    </div>
+                  </section>
+                </section>
+              )}
               {view === "purchases" && (
                 <section
                   id="expense-panel-purchases"
@@ -530,9 +730,9 @@ export function PersonalExpensePage() {
                         <h2 id="expense-records-title">Your purchases</h2>
                         <p>Select a purchase to change its details.</p>
                       </div>
-                      <span>{visible.length} shown</span>
+                      <span className="expense-records-count">{visible.length} shown</span>
                     </div>
-                    {controls}
+
                     {records.length === 0 ? (
                       <div className="expense-empty">
                         <ShoppingBag size={32} />
@@ -564,18 +764,34 @@ export function PersonalExpensePage() {
                               style={{ "--expense-color": category.color } as CSSProperties}
                             >
                               <span className="expense-item-icon">
-                                <Icon size={23} />
+                                <Icon size={22} />
                               </span>
                               <div className="expense-item-info">
-                                <strong>{record.item_name}</strong>
-                                <span>
-                                  {category.singular} · Bought {formatDate(record.purchase_date)}
-                                </span>
-                                {record.notes && <p>{record.notes}</p>}
+                                <div className="expense-item-title-row">
+                                  <strong>{record.item_name}</strong>
+                                  <span className="expense-category-tag" style={{ color: category.color, borderColor: category.color }}>
+                                    {category.singular}
+                                  </span>
+                                </div>
+                                <div className="expense-item-meta-row">
+                                  <span>
+                                    <CalendarDays size={13} aria-hidden="true" />
+                                    Bought {formatDate(record.purchase_date)}
+                                  </span>
+                                  <span>
+                                    <Wallet size={13} aria-hidden="true" />
+                                    {accountName(record.account_key)} ·{" "}
+                                    {record.payment_details?.method ?? "Payment not recorded"}
+                                  </span>
+                                </div>
+                                {record.notes && <p className="expense-item-notes">{record.notes}</p>}
                               </div>
-                              <strong className="expense-item-amount">
-                                {formatPKRInLakhCrore(record.amount)}
-                              </strong>
+                              <div className="expense-item-amount-wrap">
+                                <strong className="expense-item-amount">
+                                  {formatPKRInLakhCrore(record.amount)}
+                                </strong>
+                                <span className="expense-item-exact">{formatPKR(record.amount)}</span>
+                              </div>
                               <div className="expense-item-actions">
                                 <Button
                                   variant="outline"
@@ -596,7 +812,7 @@ export function PersonalExpensePage() {
                                     setRemoving(record);
                                   }}
                                 >
-                                  <Trash2 size={17} />
+                                  <Trash2 size={16} />
                                 </Button>
                               </div>
                             </div>
@@ -611,6 +827,7 @@ export function PersonalExpensePage() {
           )}
         </>
       )}
+
       {formOpen && (
         <ExpenseForm
           key={editing?.id ?? "new"}
@@ -622,6 +839,7 @@ export function PersonalExpensePage() {
           onSave={save}
         />
       )}
+
       <Dialog
         open={Boolean(removing)}
         onOpenChange={(open) => {
@@ -663,6 +881,11 @@ function ExpenseForm({
   onClose: () => void;
   onSave: (value: PersonalExpenseInput) => Promise<void>;
 }) {
+  const [step, setStep] = useState(0);
+  const steps = ["Purchase", "Amount", "Payment", "Review"];
+  const [paymentDetails, setPaymentDetails] = useState(
+    record?.payment_details ?? emptyPaymentDetails,
+  );
   const [category, setCategory] = useState<ExpenseCategory>(record?.category ?? "car");
   const [name, setName] = useState(record?.item_name ?? "");
   const [amount, setAmount] = useState(record ? String(record.amount) : "");
@@ -673,10 +896,36 @@ function ExpenseForm({
   const [error, setError] = useState("");
   const [accountKey, setAccountKey] = useState(record?.account_key ?? "");
   const [saving, setSaving] = useState(false);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (step === 0) {
+      const details = PersonalExpenseSchema.pick({ category: true, item_name: true }).safeParse({
+        category,
+        item_name: name,
+      });
+      if (!details.success) {
+        setError(details.error.issues[0]?.message ?? "Check the purchase details.");
+        return;
+      }
+      setStep(1);
+      return;
+    }
+    if (step === 1) {
+      const amountCheck = PersonalExpenseSchema.pick({
+        amount: true,
+        purchase_date: true,
+      }).safeParse({ amount: parseRupees(amount), purchase_date: purchaseDate });
+      if (!amountCheck.success) {
+        setError("Enter a valid amount and purchase date.");
+        return;
+      }
+      setStep(2);
+      return;
+    }
     const result = PersonalExpenseSchema.safeParse({
+      payment_details: paymentDetails,
       account_key: accountKey,
       category,
       item_name: name,
@@ -688,6 +937,10 @@ function ExpenseForm({
       setError(result.error.issues[0]?.message ?? "Check the purchase details.");
       return;
     }
+    if (step === 2) {
+      setStep(3);
+      return;
+    }
     setSaving(true);
     try {
       await onSave(result.data);
@@ -697,6 +950,7 @@ function ExpenseForm({
       setSaving(false);
     }
   }
+
   return (
     <Dialog
       open
@@ -704,96 +958,167 @@ function ExpenseForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="expense-dialog max-h-[92vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="expense-dialog expense-wizard max-h-[92vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{record ? "Edit purchase" : "Add a personal purchase"}</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Choose a type, then write what you bought and how much you paid.
-          </p>
+          <div className="expense-wizard-head">
+            <span className="expense-wizard-icon">
+              <ShoppingBag size={22} aria-hidden="true" />
+            </span>
+            <div>
+              <DialogTitle>{record ? "Edit purchase" : "Add a personal purchase"}</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Complete one short step at a time, then review your purchase.
+              </p>
+            </div>
+          </div>
         </DialogHeader>
-        <form id="expense-form" onSubmit={submit} className="expense-form">
-          <BankAccountSelect value={accountKey} onChange={setAccountKey} />
-          <div>
-            <Label htmlFor="expense-category">What did you buy? *</Label>
-            <select
-              id="expense-category"
-              value={category}
-              onChange={(event) => {
-                setCategory(event.target.value as ExpenseCategory);
-                setName("");
-              }}
-              className="expense-select"
+        <p role="status" className="text-sm font-semibold text-primary">
+          Step {step + 1} of 4 · {steps[step]}
+        </p>
+        <ol className="expense-wizard-steps" aria-label="Purchase progress">
+          {steps.map((label, index) => (
+            <li
+              key={label}
+              aria-current={step === index ? "step" : undefined}
+              data-complete={index < step}
             >
-              <option value="car">Car</option>
-              <option value="watch">Watch</option>
-              <option value="land">Land</option>
-              <option value="house">House</option>
-              <option value="other">Other item</option>
-            </select>
-          </div>
-          <div>
-            <Label htmlFor="expense-name">
-              {category === "other"
-                ? "Write your own item *"
-                : `${categoryInfo(category).singular} name or details *`}
-            </Label>
-            <Input
-              id="expense-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={
-                category === "other"
-                  ? "e.g. Furniture, phone or jewellery"
-                  : category === "car"
-                    ? "e.g. Toyota Corolla"
-                    : category === "watch"
-                      ? "e.g. Seiko watch"
-                      : category === "land"
-                        ? "e.g. Plot in Gulshan"
-                        : "e.g. Family house"
-              }
-              required
-            />
-          </div>
-          <div className="expense-form-grid">
-            <div>
-              <Label htmlFor="expense-amount">Amount paid (Rs) *</Label>
-              <Input
-                id="expense-amount"
-                inputMode="numeric"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                placeholder="e.g. 500,000"
-                required
-              />
+              <span className="expense-step-num">{index + 1}</span>
+              <span className="expense-step-name">{label}</span>
+            </li>
+          ))}
+        </ol>
+        <form id="expense-form" onSubmit={submit} className="expense-form">
+          {step === 0 && (
+            <>
+              <div>
+                <Label htmlFor="expense-category">What did you buy? *</Label>
+                <div className="expense-category-grid-select">
+                  {categories.map((item) => {
+                    const Icon = item.icon;
+                    const isSelected = category === item.id;
+                    return (
+                      <button
+                        type="button"
+                        key={item.id}
+                        className={`expense-cat-option ${isSelected ? "is-selected" : ""}`}
+                        style={{ "--cat-color": item.color } as CSSProperties}
+                        onClick={() => {
+                          setCategory(item.id as ExpenseCategory);
+                          setName("");
+                        }}
+                      >
+                        <span className="expense-cat-icon">
+                          <Icon size={18} />
+                        </span>
+                        <span>{item.singular}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <select
+                  id="expense-category"
+                  value={category}
+                  onChange={(event) => {
+                    setCategory(event.target.value as ExpenseCategory);
+                    setName("");
+                  }}
+                  className="expense-select"
+                >
+                  <option value="car">Car</option>
+                  <option value="watch">Watch</option>
+                  <option value="land">Land</option>
+                  <option value="house">House</option>
+                  <option value="other">Other item</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="expense-name">
+                  {category === "other"
+                    ? "Write your own item *"
+                    : `${categoryInfo(category).singular} name or details *`}
+                </Label>
+                <Input
+                  id="expense-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={
+                    category === "other"
+                      ? "e.g. Furniture, phone or jewellery"
+                      : category === "car"
+                        ? "e.g. Toyota Corolla"
+                        : category === "watch"
+                          ? "e.g. Seiko watch"
+                          : category === "land"
+                            ? "e.g. Plot in Gulshan"
+                            : "e.g. Family house"
+                  }
+                  required
+                />
+              </div>
+            </>
+          )}
+          {step === 1 && (
+            <>
+              <div className="expense-form-grid">
+                <div>
+                  <Label htmlFor="expense-amount">Amount paid (Rs) *</Label>
+                  <Input
+                    id="expense-amount"
+                    inputMode="numeric"
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    placeholder="e.g. 500,000"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="expense-date">Purchase date *</Label>
+                  <Input
+                    id="expense-date"
+                    type="date"
+                    value={purchaseDate}
+                    onChange={(event) => setPurchaseDate(event.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          )}
+          {step === 2 && (
+            <div className="space-y-4">
+              <BankAccountSelect value={accountKey} onChange={setAccountKey} />
+              {accountKey && (
+                <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />
+              )}
             </div>
-            <div>
-              <Label htmlFor="expense-date">Purchase date *</Label>
-              <Input
-                id="expense-date"
-                type="date"
-                value={purchaseDate}
-                onChange={(event) => setPurchaseDate(event.target.value)}
-                required
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="expense-notes">Notes (optional)</Label>
-            <Input
-              id="expense-notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="e.g. Location, model or payment details"
-            />
-          </div>
-          <div className="expense-form-preview">
-            <span>Purchase to record</span>
-            <strong>
-              {parseRupees(amount) ? formatPKR(parseRupees(amount)!) : "Enter an amount"}
-            </strong>
-            <small>{name.trim() || "Write what you bought above"}</small>
-          </div>
+          )}
+          {step === 3 && (
+            <>
+              <div>
+                <Label htmlFor="expense-notes">Notes (optional)</Label>
+                <Input
+                  id="expense-notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="e.g. Location, model or payment details"
+                />
+              </div>
+              <div className="expense-form-preview">
+                <span className="expense-preview-eyebrow">Purchase to record</span>
+                <strong className="expense-preview-amount">
+                  {parseRupees(amount) ? formatPKR(parseRupees(amount)!) : "Enter an amount"}
+                </strong>
+                <div className="expense-preview-list">
+                  <small>{name.trim() || "Write what you bought above"}</small>
+                  <small>
+                    {categoryInfo(category).singular} · {formatDate(purchaseDate)}
+                  </small>
+                  <small>{accountKey === "personal" ? "Personal Account" : "Builder Account"}</small>
+                  <small>{paymentSummary(JSON.stringify(paymentDetails))}</small>
+                </div>
+              </div>
+            </>
+          )}
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -804,8 +1129,21 @@ function ExpenseForm({
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
+          {step > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => {
+                setError("");
+                setStep(step - 1);
+              }}
+            >
+              Back
+            </Button>
+          )}
           <Button type="submit" form="expense-form" disabled={saving}>
-            {saving ? "Saving…" : record ? "Save changes" : "Save purchase"}
+            {saving ? "Saving…" : step < 3 ? "Next" : record ? "Save changes" : "Save purchase"}
           </Button>
         </DialogFooter>
       </DialogContent>

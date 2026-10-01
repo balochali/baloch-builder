@@ -2,208 +2,352 @@
 .time-series-chart {
   min-width: 0;
   width: 100%;
-  margin-top: 20px;
+  margin-top: 16px;
 }
+
+/* ── Toolbar ────────────────────────────────────────────── */
 .viz-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
+
 .viz-series {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 7px 15px;
+  gap: 8px 16px;
 }
+
 .viz-series button {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 0;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
   color: var(--foreground);
   font-size: 12px;
   font-weight: 500;
   background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
+
+.viz-series button:hover:not(:disabled) {
+  background: var(--muted);
+}
+
 .viz-series button[aria-pressed="false"] {
-  opacity: 0.4;
+  opacity: 0.38;
   text-decoration: line-through;
 }
+
 .viz-series button:disabled {
   cursor: default;
+  opacity: 0.75;
 }
-.viz-series i,
-.viz-readout i {
+
+.viz-series i {
   display: inline-block;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex: none;
+  box-shadow: 0 0 0 2px var(--card);
 }
+
+/* ── Segmented Mode Switcher (Line vs Bars) ─────────────── */
 .viz-mode {
-  display: flex;
-  gap: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--muted);
 }
+
 .viz-mode button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 9px;
-  border-radius: 5px;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
   font-size: 11px;
+  font-weight: 500;
   color: var(--muted-foreground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .viz-mode button[aria-pressed="true"] {
   color: var(--primary);
   background: var(--card);
-  box-shadow: 0 1px 4px #102c3010;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
+
+.viz-mode button:hover:not([aria-pressed="true"]) {
+  color: var(--foreground);
+}
+
+/* ── SVG Plot Container ─────────────────────────────────── */
 .viz-plot {
+  position: relative;
   width: 100%;
-  border-radius: 8px;
+  border-radius: 10px;
   touch-action: pan-y;
+  outline: none;
 }
+
+.viz-plot:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
 .time-series-chart .viz-plot svg {
   display: block;
   width: 100%;
   height: auto;
-  max-height: none;
   margin: 0;
   overflow: visible;
 }
+
+.viz-plot-bg {
+  fill: var(--muted);
+  opacity: 0.28;
+}
+
 .viz-tick {
   fill: var(--muted-foreground);
   font-size: 11px;
   font-family: inherit;
-  font-weight: 450;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: fill 0.15s ease;
 }
+
+.viz-tick-active {
+  fill: var(--foreground);
+  font-weight: 700;
+}
+
 .viz-unit {
   fill: var(--muted-foreground);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
+
 .viz-gridline {
   stroke: var(--border);
-  stroke-dasharray: 3 5;
+  stroke-dasharray: 4 6;
   stroke-width: 1;
-  opacity: 0.65;
+  opacity: 0.7;
 }
+
 .viz-baseline {
   stroke: var(--border);
-  stroke-width: 1;
+  stroke-width: 1.25;
+  opacity: 0.9;
 }
+
 .viz-crosshair {
-  stroke: var(--muted-foreground);
-  stroke-width: 1;
-  stroke-dasharray: 4 5;
-  opacity: 0.3;
+  stroke: var(--primary);
+  stroke-width: 1.25;
+  stroke-dasharray: 4 4;
+  opacity: 0.45;
   pointer-events: none;
 }
+
+/* Bars hover/active states */
+.viz-bar {
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+
+.viz-bar-group {
+  cursor: pointer;
+}
+
+.viz-bar-group-active .viz-bar {
+  opacity: 1 !important;
+}
+
+/* ── Interactive Readout Bar ────────────────────────────── */
 .viz-readout {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px 24px;
-  min-height: 68px;
-  padding: 13px 16px;
+  gap: 12px 16px;
+  margin-top: 14px;
+  padding: 10px 14px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--muted);
+  background-color: color-mix(in srgb, var(--muted) 65%, var(--card));
 }
-.viz-readout > div {
+
+.viz-readout-nav {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-right: auto;
+  gap: 8px;
 }
-.viz-readout > div > strong {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--foreground);
-}
-.viz-readout button {
+
+.viz-readout-nav button {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 28px;
-  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   color: var(--muted-foreground);
-}
-.viz-readout button:hover:not(:disabled) {
   background: var(--card);
-  color: var(--primary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.12s ease;
 }
-.viz-readout button:disabled {
-  opacity: 0.25;
+
+.viz-readout-nav button:hover:not(:disabled) {
+  color: var(--foreground);
+  border-color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
-.viz-readout > span {
+
+.viz-readout-nav button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.viz-readout-date {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--foreground);
+  padding: 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.viz-readout-values {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.viz-readout-pill {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  font-size: 10px;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.viz-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.viz-readout-pill-label {
+  font-size: 11px;
   color: var(--muted-foreground);
+  font-weight: 500;
 }
-.viz-readout > span strong {
-  display: block;
-  margin-top: 2px;
+
+.viz-readout-pill-val {
+  font-size: 13px;
+  font-weight: 700;
   color: var(--foreground);
-  font-size: 14px;
-  font-weight: 650;
   font-variant-numeric: tabular-nums;
+  margin-left: 2px;
 }
+
+/* ── Footnote & Legend ──────────────────────────────────── */
 .viz-footnote {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 5px 16px;
-  margin-top: 11px;
-  font-size: 10px;
+  gap: 6px 16px;
+  margin-top: 10px;
+  font-size: 11px;
   color: var(--muted-foreground);
-  line-height: 1.6;
+  line-height: 1.5;
 }
+
+.viz-footnote-legend {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* ── Accessible Data Table ──────────────────────────────── */
 .viz-data {
   margin-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
 }
+
 .viz-data summary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 12px 0 0;
+  gap: 6px;
+  padding: 10px 0 0;
   color: var(--primary);
   font-size: 11px;
-  font-weight: 550;
+  font-weight: 600;
   cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s ease;
 }
+
+.viz-data summary:hover {
+  opacity: 0.85;
+}
+
 .viz-data table {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 10px;
   border-collapse: collapse;
 }
+
 .viz-data th,
 .viz-data td {
   border-bottom: 1px solid var(--border);
-  padding: 10px 12px;
+  padding: 8px 12px;
+  font-size: 12px;
   text-align: right;
 }
+
 .viz-data th:first-child,
 .viz-data td:first-child {
   text-align: left;
 }
+
+.viz-data th {
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.viz-data td {
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
 .viz-empty {
-  padding: 35px 20px;
+  padding: 40px 20px;
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--muted);
   color: var(--muted-foreground);
   text-align: center;
+  font-size: 13px;
 }
 .viz-ring {
   width: clamp(160px, 18vw, 230px);
@@ -268,13 +412,48 @@
   display: flex;
   flex-direction: column;
 }
+
+.udhaar-chart-head-wrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  min-height: 50px;
+}
+
+.udhaar-trend-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.udhaar-trend-badge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+  line-height: 1.2;
+}
+
 .udhaar-activity-card .time-series-chart {
   margin-top: auto;
-  padding-top: 18px;
+  padding-top: 14px;
 }
 .udhaar-chart-head,
 .expense-chart-title,
 .construction-chart-title {
+  display: flex;
   gap: 11px;
   align-items: flex-start;
 }
@@ -552,3 +731,29 @@
     width: 180px;
   }
 }
+
+/* The header total is a compact badge, not a standalone chart headline. */
+.udhaar-page .udhaar-trend-badge .udhaar-trend-total {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 650;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+
+/* Coral ties the outstanding total to its balance series. */
+.udhaar-trend-badge {
+  background: linear-gradient(135deg, color-mix(in srgb, #fb923c 14%, var(--card)), color-mix(in srgb, #f43f5e 10%, var(--card)));
+  border-color: color-mix(in srgb, #f97316 32%, var(--border));
+  box-shadow: 0 2px 6px #f9731610;
+}
+.udhaar-trend-badge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #a84418;
+}
+.udhaar-page .udhaar-trend-badge .udhaar-trend-total { color: #a84418; }
+.dark .udhaar-trend-badge-label,
+.dark .udhaar-page .udhaar-trend-badge .udhaar-trend-total { color: #fdba8c; }

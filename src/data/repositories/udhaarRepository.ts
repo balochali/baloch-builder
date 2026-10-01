@@ -118,7 +118,7 @@ export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
       value.contact_id ?? null,
       BankAccountSchema.parse(value.account_key),
       JSON.stringify({
-        payment_details: value.account_key === "personal" ? value.payment_details : undefined,
+        payment_details: value.payment_details,
       }),
     ],
   );
@@ -154,7 +154,7 @@ export async function addUdhaarPayment(input: AddUdhaarPaymentInput): Promise<vo
       timestamp,
       BankAccountSchema.parse(value.account_key),
       JSON.stringify({
-        payment_details: value.account_key === "personal" ? value.payment_details : undefined,
+        payment_details: value.payment_details,
       }),
     ],
   );
@@ -184,7 +184,7 @@ export async function addPersonUdhaarPayment(input: AddUdhaarPaymentInput): Prom
   const timestamp = now();
   const group = JSON.stringify({
     payment_group_id: newId(),
-    payment_details: value.account_key === "personal" ? value.payment_details : undefined,
+    payment_details: value.payment_details,
   });
   const params: unknown[] = [];
   const rows: string[] = [];

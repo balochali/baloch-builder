@@ -78,6 +78,7 @@ pub fn run() {
             sql: include_str!("../migrations/012_business_reset.sql"),
             kind: MigrationKind::Up,
         },
+        Migration { version: 13, description: "013_expense_payment_details", sql: include_str!("../migrations/013_expense_payment_details.sql"), kind: MigrationKind::Up },
     ];
 
     tauri::Builder::default()

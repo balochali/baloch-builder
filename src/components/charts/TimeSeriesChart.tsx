@@ -6,11 +6,11 @@ import { chartDate, chartScale, compactAxis, datePosition, smoothPath } from "./
 export type ChartSeries = { key: string; label: string; color: string };
 export type ChartPoint = { key: string; label?: string; values: Record<string, number> };
 export const chartColors = {
-  blue: "#3986e8",
-  green: "#19aa82",
-  coral: "#ed745f",
-  gold: "#e6ac43",
-  purple: "#9473d8",
+  blue: "#3b82f6",
+  green: "#10b981",
+  coral: "#f43f5e",
+  gold: "#f59e0b",
+  purple: "#8b5cf6",
 };
 
 export function TimeSeriesChart({
@@ -34,14 +34,16 @@ export function TimeSeriesChart({
   const [width, setWidth] = useState(640);
   const container = useRef<HTMLDivElement>(null);
   const id = useId().replace(/:/g, "");
+
   useEffect(() => {
     if (!container.current || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(280, entry.contentRect.width)),
+      setWidth(Math.max(260, entry.contentRect.width)),
     );
     observer.observe(container.current);
     return () => observer.disconnect();
   }, []);
+
   const visibleSeries = series.filter((item) => !hidden.includes(item.key));
   const rows = [...points].sort((a, b) => a.key.localeCompare(b.key));
   const foundIndex = rows.findIndex((point) => point.key === selectedKey);
@@ -49,38 +51,79 @@ export function TimeSeriesChart({
   const selected = rows.find((point) => point.key === selectedKey) ?? rows[rows.length - 1];
   const values = rows.flatMap((point) => visibleSeries.map((item) => point.values[item.key] ?? 0));
   const { min, max, ticks } = chartScale(values);
-  const height = 300,
-    left = width < 420 ? 52 : 66,
-    right = 24,
-    top = 24,
-    bottom = 54;
-  const plotWidth = width - left - right,
-    plotHeight = height - top - bottom;
+
+  const height = 240;
+  const left = width < 380 ? 46 : 56;
+  const right = 20;
+  const top = 18;
+  const bottom = 44;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+
   const dates = rows.map((point) => datePosition(point.key));
-  const start = dates[0] || 0,
-    end = dates[dates.length - 1] || 0;
-  const x = (i: number) =>
+  const start = dates[0] || 0;
+  const end = dates[dates.length - 1] || 0;
+
+  // Spacing calculation: Prevents bars from spreading too far when there are few data points (1, 2, etc.)
+  // While smoothly scaling to full width when there are many data points.
+  const availableWidth = plotWidth - 48;
+  const targetSpacing = mode === "bar" ? 84 : 96;
+  const desiredSpan =
     rows.length <= 1
-      ? left + plotWidth / 2
-      : left + 12 + ((dates[i] - start) / (end - start || 1)) * (plotWidth - 24);
-  const y = (value: number) => top + ((max - value) / (max - min)) * plotHeight;
+      ? 0
+      : Math.min(availableWidth, Math.max(64, (rows.length - 1) * targetSpacing));
+  const startX = left + 24 + (availableWidth - desiredSpan) / 2;
+
+  const timeRatio = (i: number) => {
+    if (rows.length <= 1) return 0.5;
+    if (end <= start) return i / (rows.length - 1);
+    // Bar charts use discrete category spacing for balanced bars
+    if (mode === "bar") return i / (rows.length - 1);
+    // Line charts with varied dates can reflect time ratio if desired, or smooth index
+    const t = (dates[i] - start) / (end - start);
+    return Number.isFinite(t) ? t : i / (rows.length - 1);
+  };
+
+  const x = (i: number) =>
+    rows.length <= 1 ? left + plotWidth / 2 : startX + timeRatio(i) * desiredSpan;
+
+  const y = (value: number) => top + ((max - value) / (max - min || 1)) * plotHeight;
+
+  // Determine tick step for X axis labels to prevent overlap
   const tickStep = Math.max(
     1,
-    Math.ceil((rows.length - 1) / Math.max(1, Math.floor(plotWidth / 100))),
+    Math.ceil((rows.length - 1) / Math.max(1, Math.floor(plotWidth / 85))),
   );
-  const minSpacing = Math.min(plotWidth, ...rows.slice(1).map((_, i) => x(i + 1) - x(i)));
+
+  // Bar sizing calculation
+  const spacing =
+    rows.length <= 1
+      ? 84
+      : Math.min(...rows.slice(1).map((_, i) => Math.max(16, x(i + 1) - x(i))));
+
+  const numSeries = Math.max(1, visibleSeries.length);
+  const maxSingleBarWidth = numSeries === 1 ? 32 : 22;
+  const groupAllocation = Math.min(68, spacing * 0.65);
+  const barGap = numSeries > 1 ? 3 : 0;
   const barWidth = Math.max(
-    1,
-    Math.min(26, (minSpacing * 0.7) / Math.max(1, visibleSeries.length)),
+    4,
+    Math.min(maxSingleBarWidth, (groupAllocation - (numSeries - 1) * barGap) / numSeries),
   );
+  const totalGroupWidth = numSeries * barWidth + (numSeries - 1) * barGap;
+
   function move(direction: number) {
     const current = selectedKey ? selectedIndex : rows.length - 1;
     setSelectedKey(rows[Math.max(0, Math.min(rows.length - 1, current + direction))]?.key ?? null);
   }
+
   if (!rows.length)
-    return <div className="viz-empty">No records in this selection. Try another date range.</div>;
+    return (
+      <div className="viz-empty">No records in this selection. Try another date range.</div>
+    );
+
   return (
     <div className="time-series-chart" ref={container}>
+      {/* Toolbar */}
       <div className="viz-toolbar">
         <div className="viz-series" aria-label="Chart series">
           {series.map((item) => (
@@ -96,9 +139,10 @@ export function TimeSeriesChart({
                     : [...current, item.key],
                 )
               }
+              title={`Toggle ${item.label}`}
             >
               <i style={{ background: item.color }} />
-              {item.label}
+              <span>{item.label}</span>
             </button>
           ))}
         </div>
@@ -109,8 +153,8 @@ export function TimeSeriesChart({
             aria-pressed={mode === "line"}
             onClick={() => setMode("line")}
           >
-            <ChartSpline size={15} />
-            Line
+            <ChartSpline size={13} />
+            <span>Line</span>
           </button>
           <button
             type="button"
@@ -118,11 +162,13 @@ export function TimeSeriesChart({
             aria-pressed={mode === "bar"}
             onClick={() => setMode("bar")}
           >
-            <ChartColumn size={15} />
-            Bars
+            <ChartColumn size={13} />
+            <span>Bars</span>
           </button>
         </div>
       </div>
+
+      {/* SVG Plot */}
       <div
         className="viz-plot"
         tabIndex={0}
@@ -149,44 +195,93 @@ export function TimeSeriesChart({
         >
           <defs>
             {visibleSeries.map((item) => (
-              <linearGradient key={item.key} id={`${id}-${item.key}`} x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stopColor={item.color} stopOpacity=".16" />
-                <stop offset="1" stopColor={item.color} stopOpacity=".01" />
+              <linearGradient
+                key={`area-${item.key}`}
+                id={`${id}-area-${item.key}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor={item.color} stopOpacity="0.30" />
+                <stop offset="70%" stopColor={item.color} stopOpacity="0.06" />
+                <stop offset="100%" stopColor={item.color} stopOpacity="0.0" />
               </linearGradient>
             ))}
+            {visibleSeries.map((item) => (
+              <linearGradient
+                key={`bar-${item.key}`}
+                id={`${id}-bar-${item.key}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor={item.color} stopOpacity="0.95" />
+                <stop offset="100%" stopColor={item.color} stopOpacity="0.75" />
+              </linearGradient>
+            ))}
+            <clipPath id={`${id}-clip`}>
+              <rect x={left} y={top} width={plotWidth} height={plotHeight} rx="8" />
+            </clipPath>
+            <filter id={`${id}-glow`} x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.25" />
+            </filter>
           </defs>
-          <text x={left - 10} y={12} textAnchor="end" className="viz-unit">
+
+          {/* Plot background surface */}
+          <rect
+            x={left}
+            y={top}
+            width={plotWidth}
+            height={plotHeight}
+            rx="8"
+            className="viz-plot-bg"
+          />
+
+          {/* Y-axis Unit */}
+          <text x={left - 8} y={top - 4} textAnchor="end" className="viz-unit">
             Rs
           </text>
+
+          {/* Grid lines + Y ticks */}
           {ticks.map((tick) => (
             <g key={tick}>
               <line
                 x1={left}
-                x2={width - right}
+                x2={left + plotWidth}
                 y1={y(tick)}
                 y2={y(tick)}
                 className={tick === 0 ? "viz-baseline" : "viz-gridline"}
               />
-              <text x={left - 10} y={y(tick) + 4} textAnchor="end" className="viz-tick">
+              <text x={left - 8} y={y(tick) + 4} textAnchor="end" className="viz-tick">
                 {compactAxis(tick)}
               </text>
             </g>
           ))}
-          {rows.map(
-            (point, i) =>
-              ((i % tickStep === 0 && i < rows.length - 1 - tickStep / 2) ||
-                i === rows.length - 1) && (
-                <text
-                  key={point.key}
-                  x={x(i)}
-                  y={height - 22}
-                  textAnchor={i === 0 ? "start" : i === rows.length - 1 ? "end" : "middle"}
-                  className="viz-tick"
-                >
-                  {point.label || chartDate(point.key)}
-                </text>
-              ),
-          )}
+
+          {/* X-axis date labels */}
+          {rows.map((point, i) => {
+            const showTick =
+              rows.length <= 6 ||
+              i % tickStep === 0 ||
+              i === rows.length - 1;
+            if (!showTick) return null;
+            const isSelected = selected?.key === point.key;
+            return (
+              <text
+                key={point.key}
+                x={x(i)}
+                y={height - 12}
+                textAnchor="middle"
+                className={`viz-tick ${isSelected ? "viz-tick-active" : ""}`}
+              >
+                {point.label || chartDate(point.key)}
+              </text>
+            );
+          })}
+
+          {/* LINE MODE */}
           {mode === "line" &&
             visibleSeries.map((item, si) => {
               const coordinates = rows.map((point, i) => ({
@@ -196,89 +291,129 @@ export function TimeSeriesChart({
               const path = smoothPath(coordinates);
               return (
                 <g key={item.key}>
+                  {/* Fill under the curve */}
                   {visibleSeries.length === 1 && rows.length > 1 && (
                     <path
                       d={`${path} L ${x(rows.length - 1)} ${y(0)} L ${x(0)} ${y(0)} Z`}
-                      fill={`url(#${id}-${item.key})`}
+                      fill={`url(#${id}-area-${item.key})`}
+                      clipPath={`url(#${id}-clip)`}
                     />
                   )}
+                  {/* Line stroke */}
                   <path
                     d={path}
                     fill="none"
                     stroke={item.color}
-                    strokeWidth="2.8"
-                    strokeDasharray={si % 2 ? "7 4" : undefined}
+                    strokeWidth="2.5"
+                    strokeDasharray={si % 2 ? "6 4" : undefined}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
-                  {coordinates.map((point, i) => (
-                    <circle
-                      key={rows[i].key}
-                      cx={point.x}
-                      cy={point.y}
-                      r={selected?.key === rows[i].key ? 5 : 3.3}
-                      fill="var(--card)"
-                      stroke={item.color}
-                      strokeWidth="2"
-                    />
-                  ))}
+                  {/* Data points */}
+                  {coordinates.map((point, i) => {
+                    const isSelected = selected?.key === rows[i].key;
+                    return (
+                      <g key={rows[i].key}>
+                        {isSelected && (
+                          <circle
+                            cx={point.x}
+                            cy={point.y}
+                            r={8}
+                            fill={item.color}
+                            opacity={0.2}
+                          />
+                        )}
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r={isSelected ? 5.5 : rows.length <= 5 ? 4.5 : 3.5}
+                          fill="var(--card)"
+                          stroke={item.color}
+                          strokeWidth={isSelected ? "2.5" : "2"}
+                        />
+                      </g>
+                    );
+                  })}
                 </g>
               );
             })}
+
+          {/* BAR MODE */}
           {mode === "bar" &&
-            rows.map((point, i) => (
-              <g
-                key={point.key}
-                role={pointLabel ? "img" : undefined}
-                aria-label={pointLabel?.(point)}
-              >
-                {visibleSeries.map((item, si) => (
-                  <rect
-                    key={item.key}
-                    x={x(i) - (visibleSeries.length * barWidth) / 2 + si * barWidth}
-                    y={Math.min(y(0), y(point.values[item.key] ?? 0))}
-                    width={Math.max(0.5, barWidth - 3)}
-                    height={Math.abs(y(0) - y(point.values[item.key] ?? 0))}
-                    rx="3"
-                    fill={item.color}
-                    opacity={selected?.key === point.key ? 1 : 0.8}
-                  />
-                ))}
-              </g>
-            ))}
+            rows.map((point, i) => {
+              const isSelected = selected?.key === point.key;
+              const groupStartX = x(i) - totalGroupWidth / 2;
+              return (
+                <g
+                  key={point.key}
+                  role={pointLabel ? "img" : undefined}
+                  aria-label={pointLabel?.(point)}
+                  className={`viz-bar-group ${isSelected ? "viz-bar-group-active" : ""}`}
+                >
+                  {visibleSeries.map((item, si) => {
+                    const barX = groupStartX + si * (barWidth + barGap);
+                    const val = point.values[item.key] ?? 0;
+                    const barTop = Math.min(y(0), y(val));
+                    const barH = Math.max(val === 0 ? 0 : 2, Math.abs(y(0) - y(val)));
+                    const cornerRadius = Math.min(4, barWidth / 2);
+                    return (
+                      <rect
+                        key={item.key}
+                        x={barX}
+                        y={barTop}
+                        width={barWidth}
+                        height={barH}
+                        rx={cornerRadius}
+                        fill={`url(#${id}-bar-${item.key})`}
+                        filter={isSelected ? `url(#${id}-glow)` : undefined}
+                        opacity={isSelected ? 1 : 0.72}
+                        className="viz-bar"
+                      />
+                    );
+                  })}
+                </g>
+              );
+            })}
+
+          {/* Crosshair indicator */}
           {selected && (
             <line
               x1={x(rows.indexOf(selected))}
               x2={x(rows.indexOf(selected))}
               y1={top}
-              y2={height - bottom}
+              y2={top + plotHeight}
               className="viz-crosshair"
             />
           )}
-          {rows.map((point, i) => (
-            <rect
-              key={point.key}
-              x={i === 0 ? left : (x(i - 1) + x(i)) / 2}
-              y={top}
-              width={
-                (i === rows.length - 1 ? width - right : (x(i) + x(i + 1)) / 2) -
-                (i === 0 ? left : (x(i - 1) + x(i)) / 2)
-              }
-              height={plotHeight}
-              fill="transparent"
-              onPointerEnter={() => setSelectedKey(point.key)}
-              onClick={() => setSelectedKey(point.key)}
-            >
-              <title>
-                {point.label || chartDate(point.key)}
-                {visibleSeries
-                  .map((item) => ` · ${item.label}: ${formatPKR(point.values[item.key] ?? 0)}`)
-                  .join("")}
-              </title>
-            </rect>
-          ))}
+
+          {/* Transparent hit areas for hover / tap selection */}
+          {rows.map((point, i) => {
+            const hitW = Math.max(totalGroupWidth + 20, Math.min(spacing, 96));
+            return (
+              <rect
+                key={point.key}
+                x={x(i) - hitW / 2}
+                y={top}
+                width={hitW}
+                height={plotHeight}
+                fill="transparent"
+                style={{ cursor: "pointer" }}
+                onPointerEnter={() => setSelectedKey(point.key)}
+                onClick={() => setSelectedKey(point.key)}
+              >
+                <title>
+                  {point.label || chartDate(point.key)}
+                  {visibleSeries
+                    .map((item) => ` · ${item.label}: ${formatPKR(point.values[item.key] ?? 0)}`)
+                    .join("")}
+                </title>
+              </rect>
+            );
+          })}
         </svg>
       </div>
+
+      {/* Modern interactive inspection readout */}
       {selected && (
         <div
           className="viz-readout"
@@ -286,47 +421,59 @@ export function TimeSeriesChart({
           aria-label="Selected chart values"
           aria-live="polite"
         >
-          <div>
+          <div className="viz-readout-nav">
             <button
               type="button"
               aria-label="Previous chart date"
               disabled={selected === rows[0]}
               onClick={() => move(-1)}
+              title="Previous date (Left arrow)"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={15} />
             </button>
-            <strong>{selected.label || chartDate(selected.key)}</strong>
+            <span className="viz-readout-date">
+              {selected.label || chartDate(selected.key)}
+            </span>
             <button
               type="button"
               aria-label="Next chart date"
               disabled={selected === rows[rows.length - 1]}
               onClick={() => move(1)}
+              title="Next date (Right arrow)"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={15} />
             </button>
           </div>
-          {visibleSeries.map((item) => (
-            <span key={item.key}>
-              <i style={{ background: item.color }} />
-              <span>
-                {item.label}
-                <strong>{formatPKR(selected.values[item.key] ?? 0)}</strong>
-              </span>
-            </span>
-          ))}
+          <div className="viz-readout-values">
+            {visibleSeries.map((item) => (
+              <div key={item.key} className="viz-readout-pill">
+                <span className="viz-pill-dot" style={{ backgroundColor: item.color }} />
+                <span className="viz-readout-pill-label">{item.label}</span>
+                <strong className="viz-readout-pill-val">
+                  {formatPKR(selected.values[item.key] ?? 0)}
+                </strong>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Footnote */}
       <div className="viz-footnote">
         <span>
-          {caption || "Hover, tap, or use arrow keys to see exact amounts."}
-          {rows.length === 1 ? " One recorded date; more dates are needed to show a trend." : ""}
+          {caption || "Hover or tap to inspect exact amounts."}
+          {rows.length === 1 ? " One recorded date; more dates are needed for a trend." : ""}
         </span>
-        <span>k = thousand · L = lakh · cr = crore</span>
+        <span className="viz-footnote-legend">k = thousand · L = lakh · cr = crore</span>
       </div>
+
+      {/* Accessible data table */}
       <details className="viz-data">
         <summary>
-          <Table2 size={14} />
-          View chart data ({rows.length} dates)
+          <Table2 size={13} />
+          <span>
+            View chart data ({rows.length} {rows.length === 1 ? "date" : "dates"})
+          </span>
         </summary>
         <div className="overflow-x-auto">
           <table>

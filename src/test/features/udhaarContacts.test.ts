@@ -29,7 +29,7 @@ const input = {
 beforeEach(() => {
   database = new DatabaseSync(":memory:");
   database.exec("PRAGMA foreign_keys = ON");
-  for (const file of ["001_init", "006_udhaars", "007_personal_expenses", "008_udhaar_contacts", "009_udhaar_delete", "010_udhaar_payment_guard", "011_bank_accounts"]) {
+  for (const file of ["001_init", "006_udhaars", "007_personal_expenses", "008_udhaar_contacts", "009_udhaar_delete", "010_udhaar_payment_guard", "011_bank_accounts", "013_expense_payment_details"]) {
     database.exec(readFileSync(`src-tauri/migrations/${file}.sql`, "utf8"));
   }
   vi.mocked(query).mockImplementation(
@@ -239,4 +239,15 @@ it("persists payment details on loans and every part of an overall repayment", a
   expect(payments).toHaveLength(2);
   for (const payment of payments) expect(JSON.parse(payment.payment_details!)).toEqual(details);
   expect((await listBankEntries()).find(entry => entry.source_id === first.id)?.method).toBe("digital");
+});
+it("keeps purchase payment details when editing and exposes the method in Bank", async () => {
+  const { listPersonalExpenses } = await import("@/data/repositories/personalExpenseRepository");
+  const details = { method: "digital" as const, received_by: "Shop owner", provider: "JazzCash", account: "03001234567", reference: "R-123" };
+  const input = { category: "watch" as const, item_name: "Watch", amount: 1000, purchase_date: "2026-09-30", notes: "", account_key: "personal" as const, payment_details: details };
+  await createPersonalExpense(input);
+  const purchase = (await listPersonalExpenses())[0];
+  expect(purchase.payment_details).toEqual(details);
+  await updatePersonalExpense(purchase.id, { ...input, payment_details: { ...details, reference: "R-456" } });
+  expect((await listPersonalExpenses())[0].payment_details?.reference).toBe("R-456");
+  expect((await listBankEntries())[0].method).toBe("digital");
 });
