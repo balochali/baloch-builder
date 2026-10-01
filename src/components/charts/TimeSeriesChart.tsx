@@ -20,6 +20,8 @@ export function TimeSeriesChart({
   defaultMode = "line",
   pointLabel,
   caption,
+  axisLabel,
+  fillWidth = false,
 }: {
   points: ChartPoint[];
   series: ChartSeries[];
@@ -27,6 +29,8 @@ export function TimeSeriesChart({
   defaultMode?: "line" | "bar";
   pointLabel?: (point: ChartPoint) => string;
   caption?: string;
+  axisLabel?: (point: ChartPoint) => string;
+  fillWidth?: boolean;
 }) {
   const [mode, setMode] = useState(defaultMode);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -71,7 +75,9 @@ export function TimeSeriesChart({
   const desiredSpan =
     rows.length <= 1
       ? 0
-      : Math.min(availableWidth, Math.max(64, (rows.length - 1) * targetSpacing));
+      : fillWidth
+        ? availableWidth
+        : Math.min(availableWidth, Math.max(64, (rows.length - 1) * targetSpacing));
   const startX = left + 24 + (availableWidth - desiredSpan) / 2;
 
   const timeRatio = (i: number) => {
@@ -89,17 +95,26 @@ export function TimeSeriesChart({
 
   const y = (value: number) => top + ((max - value) / (max - min || 1)) * plotHeight;
 
-  // Determine tick step for X axis labels to prevent overlap
-  const tickStep = Math.max(
-    1,
-    Math.ceil((rows.length - 1) / Math.max(1, Math.floor(plotWidth / 85))),
-  );
+  // Dates can cluster even when there are only a few points. Reserve the last
+  // label, then fit earlier labels using their actual positions and text width.
+  const tickLabels = rows.map((point) => axisLabel?.(point) ?? point.label ?? chartDate(point.key));
+  const labelHalfWidth = (i: number) => tickLabels[i].length * 3.5;
+  const visibleTicks = new Set<number>();
+  const last = rows.length - 1;
+  let previousRight = -Infinity;
+  for (let i = 0; i < last; i++) {
+    const labelLeft = x(i) - labelHalfWidth(i);
+    const labelRight = x(i) + labelHalfWidth(i);
+    if (labelLeft >= previousRight + 12 && labelRight + 12 <= x(last) - labelHalfWidth(last)) {
+      visibleTicks.add(i);
+      previousRight = labelRight;
+    }
+  }
+  if (last >= 0) visibleTicks.add(last);
 
   // Bar sizing calculation
   const spacing =
-    rows.length <= 1
-      ? 84
-      : Math.min(...rows.slice(1).map((_, i) => Math.max(16, x(i + 1) - x(i))));
+    rows.length <= 1 ? 84 : Math.min(...rows.slice(1).map((_, i) => Math.max(16, x(i + 1) - x(i))));
 
   const numSeries = Math.max(1, visibleSeries.length);
   const maxSingleBarWidth = numSeries === 1 ? 32 : 22;
@@ -117,9 +132,7 @@ export function TimeSeriesChart({
   }
 
   if (!rows.length)
-    return (
-      <div className="viz-empty">No records in this selection. Try another date range.</div>
-    );
+    return <div className="viz-empty">No records in this selection. Try another date range.</div>;
 
   return (
     <div className="time-series-chart" ref={container}>
@@ -262,11 +275,7 @@ export function TimeSeriesChart({
 
           {/* X-axis date labels */}
           {rows.map((point, i) => {
-            const showTick =
-              rows.length <= 6 ||
-              i % tickStep === 0 ||
-              i === rows.length - 1;
-            if (!showTick) return null;
+            if (!visibleTicks.has(i)) return null;
             const isSelected = selected?.key === point.key;
             return (
               <text
@@ -276,7 +285,7 @@ export function TimeSeriesChart({
                 textAnchor="middle"
                 className={`viz-tick ${isSelected ? "viz-tick-active" : ""}`}
               >
-                {point.label || chartDate(point.key)}
+                {tickLabels[i]}
               </text>
             );
           })}
@@ -315,13 +324,7 @@ export function TimeSeriesChart({
                     return (
                       <g key={rows[i].key}>
                         {isSelected && (
-                          <circle
-                            cx={point.x}
-                            cy={point.y}
-                            r={8}
-                            fill={item.color}
-                            opacity={0.2}
-                          />
+                          <circle cx={point.x} cy={point.y} r={8} fill={item.color} opacity={0.2} />
                         )}
                         <circle
                           cx={point.x}
@@ -431,9 +434,7 @@ export function TimeSeriesChart({
             >
               <ChevronLeft size={15} />
             </button>
-            <span className="viz-readout-date">
-              {selected.label || chartDate(selected.key)}
-            </span>
+            <span className="viz-readout-date">{selected.label || chartDate(selected.key)}</span>
             <button
               type="button"
               aria-label="Next chart date"

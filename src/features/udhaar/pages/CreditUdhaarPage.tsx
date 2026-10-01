@@ -1,3 +1,4 @@
+import "./credit-udhaar.css";
 import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
 import { emptyPaymentDetails, paymentSummary } from "@/domain/udhaarPaymentDetails";
 import { BankAccountSelect } from "@/components/BankAccountSelect";
@@ -6,7 +7,7 @@ import { listContacts } from "@/data/repositories/contactsRepository";
 import type { Contact } from "@/domain/types";
 import { RingChart } from "@/components/charts/RingChart";
 import { TimeSeriesChart, chartColors } from "@/components/charts/TimeSeriesChart";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import {
   format,
   startOfWeek,
@@ -17,6 +18,14 @@ import {
 } from "date-fns";
 import {
   ArrowRight,
+  ArrowUpRight,
+  ArrowDownLeft,
+  UsersRound,
+  Clock3,
+  CircleAlert,
+  SlidersHorizontal,
+  ChevronDown,
+  ReceiptText,
   CalendarDays,
   CircleCheck,
   HandCoins,
@@ -175,26 +184,52 @@ function UdhaarActivityCharts({
       : key.length === 7
         ? format(parseISO(`${key}-01`), "MMM yyyy")
         : formatDate(key);
+  const shortDate = (point: { key: string }) =>
+    point.key.length === 4
+      ? point.key
+      : point.key.length === 7
+        ? format(parseISO(point.key + "-01"), "MMM yy")
+        : format(parseISO(point.key), "d MMM");
   return (
     <div className="udhaar-activity-grid">
-      <section className="udhaar-activity-card" aria-label="Money given and paid back by date">
+      <section
+        className="udhaar-activity-card"
+        style={{ "--chart-color": "#2563eb" } as CSSProperties}
+        aria-label="Money given and paid back by date"
+      >
         <div className="udhaar-chart-head-wrap">
           <div className="udhaar-chart-head">
             <BarChart3 size={20} />
             <div>
-              <h3>Money moving</h3>
-              <p>Red is money given; green is money paid back.</p>
+              <h3>Lending & repayments</h3>
+              <p>Compare money given with money received.</p>
             </div>
           </div>
         </div>
+        <div className="udhaar-chart-metrics">
+          <div>
+            <span>Given in this range</span>
+            <strong>
+              {formatPKRInLakhCrore(loans.reduce((sum, loan) => sum + loan.amount, 0))}
+            </strong>
+          </div>
+          <div>
+            <span>Paid back in this range</span>
+            <strong>
+              {formatPKRInLakhCrore(payments.reduce((sum, payment) => sum + payment.amount, 0))}
+            </strong>
+          </div>
+        </div>
         <TimeSeriesChart
+          fillWidth
+          axisLabel={shortDate}
           points={rows.map((row) => ({
             key: row.key,
             label: formatBucket(row.key),
             values: { given: row.given, paid: row.paid },
           }))}
           series={[
-            { key: "given", label: "Money given", color: "#ef4444" },
+            { key: "given", label: "Money given", color: chartColors.blue },
             { key: "paid", label: "Paid back", color: chartColors.green },
           ]}
           defaultMode="bar"
@@ -210,29 +245,38 @@ function UdhaarActivityCharts({
           caption={groupingNote + "Hover or select a date for exact values."}
         />
       </section>
-      <section className="udhaar-activity-card" aria-label="Outstanding balance trend">
+      <section
+        className="udhaar-activity-card"
+        style={{ "--chart-color": "#7c3aed" } as CSSProperties}
+        aria-label="Outstanding balance trend"
+      >
         <div className="udhaar-chart-head-wrap">
           <div className="udhaar-chart-head">
             <TrendingUp size={20} />
             <div>
-              <h3>Still to receive over time</h3>
-              <p>The line rises when you lend and falls when someone pays back.</p>
+              <h3>Outstanding over time</h3>
+              <p>Your balance after lending and repayments.</p>
             </div>
           </div>
           <div className="udhaar-trend-badge">
-            <span className="udhaar-trend-badge-label"><Wallet size={14} aria-hidden="true" />Outstanding</span>
+            <span className="udhaar-trend-badge-label">
+              <Wallet size={14} aria-hidden="true" />
+              Outstanding
+            </span>
             <strong className="udhaar-trend-total">
               {formatPKRInLakhCrore(points[points.length - 1].amount)}
             </strong>
           </div>
         </div>
         <TimeSeriesChart
+          fillWidth
+          axisLabel={shortDate}
           points={rows.map((row, index) => ({
             key: row.key,
             label: formatBucket(row.key),
             values: { balance: points[index].amount },
           }))}
-          series={[{ key: "balance", label: "Still to receive", color: chartColors.coral }]}
+          series={[{ key: "balance", label: "Still to receive", color: chartColors.purple }]}
           ariaLabel={"Outstanding balance reached " + formatPKR(points[points.length - 1].amount)}
           caption={
             groupingNote +
@@ -295,7 +339,12 @@ export function CreditUdhaarPage() {
         })),
       ].sort((a, b) => b.date.localeCompare(a.date))
     : [];
-  const { visible, controls } = useRecordFilters(people, {
+  const {
+    visible,
+    controls,
+    active: filtersActive,
+    reset: resetFilters,
+  } = useRecordFilters(people, {
     label: "udhaar records",
     searchText: (record) =>
       [record.borrower_name, record.phone, record.notes].filter(Boolean).join(" "),
@@ -403,7 +452,9 @@ export function CreditUdhaarPage() {
     <main className="udhaar-page">
       <div className="udhaar-heading">
         <div>
-          <p className="projects-eyebrow">Money you gave</p>
+          <p className="projects-eyebrow">
+            <HandCoins size={16} aria-hidden="true" /> YOUR LENDING & REPAYMENTS
+          </p>
           <h1>Credit / Udhaar</h1>
           <p>See who owes you money, how much has come back, and what is still due.</p>
         </div>
@@ -442,6 +493,11 @@ export function CreditUdhaarPage() {
               }
             }}
           >
+            {tab === "overview" ? (
+              <BarChart3 size={19} aria-hidden="true" />
+            ) : (
+              <UsersRound size={19} aria-hidden="true" />
+            )}
             {tab === "overview" ? "Overview" : "People & balances"}
             {tab === "people" && records.length > 0 && <span>{people.length}</span>}
           </button>
@@ -464,7 +520,9 @@ export function CreditUdhaarPage() {
             >
               <div className="udhaar-filter-panel">
                 <div>
-                  <strong>Choose a time period</strong>
+                  <strong>
+                    <CalendarDays size={18} aria-hidden="true" /> Reporting period
+                  </strong>
                   <p>
                     Given and paid back show activity in this period. Still to receive shows the
                     balance at its end.
@@ -519,7 +577,7 @@ export function CreditUdhaarPage() {
                   <div className="udhaar-summary">
                     <div className="udhaar-summary-given">
                       <span className="udhaar-summary-icon">
-                        <HandCoins size={23} />
+                        <ArrowUpRight size={26} aria-hidden="true" />
                       </span>
                       <span>{period === "all" ? "Total given" : "Given in this period"}</span>
                       <strong>{formatPKRInLakhCrore(totalLent)}</strong>
@@ -531,7 +589,7 @@ export function CreditUdhaarPage() {
                     </div>
                     <div className="udhaar-summary-paid">
                       <span className="udhaar-summary-icon">
-                        <CircleCheck size={23} />
+                        <ArrowDownLeft size={26} aria-hidden="true" />
                       </span>
                       <span>{period === "all" ? "Paid back" : "Paid back in this period"}</span>
                       <strong>{formatPKRInLakhCrore(totalPaid)}</strong>
@@ -543,7 +601,7 @@ export function CreditUdhaarPage() {
                     </div>
                     <div className="udhaar-summary-remaining">
                       <span className="udhaar-summary-icon">
-                        <Wallet size={23} />
+                        <Wallet size={26} aria-hidden="true" />
                       </span>
                       <span>
                         {period === "all" ? "Still to receive" : "Still to receive at period end"}
@@ -560,7 +618,9 @@ export function CreditUdhaarPage() {
                     <section className="udhaar-insights" aria-label="Udhaar at a glance">
                       <div className="udhaar-insight-intro">
                         <p className="projects-eyebrow">At a glance</p>
-                        <h2>How much has come back?</h2>
+                        <h2>
+                          <CircleCheck size={22} aria-hidden="true" /> How much has come back?
+                        </h2>
                         <p>
                           Green shows money paid back. Coral shows money still to receive
                           {period === "all" ? "." : " at the end of the selected period."}
@@ -595,7 +655,9 @@ export function CreditUdhaarPage() {
                           <div className="udhaar-donut-legend">
                             <div>
                               <i className="is-paid" />
-                              <span>Paid back</span>
+                              <span>
+                                <ArrowDownLeft size={17} /> Paid back
+                              </span>
                               <strong>{formatPKRInLakhCrore(paidToEnd)}</strong>
                             </div>
                             <div>
@@ -607,7 +669,9 @@ export function CreditUdhaarPage() {
                           </div>
                         </div>
                         <div className="udhaar-balance-chart">
-                          <h3>Largest amounts still due</h3>
+                          <h3>
+                            <UsersRound size={21} aria-hidden="true" /> Largest amounts still due
+                          </h3>
                           <p>
                             People with the most money left to return at the end of this period.
                           </p>
@@ -618,7 +682,10 @@ export function CreditUdhaarPage() {
                               return (
                                 <div className="udhaar-balance-row" key={record.id}>
                                   <div>
-                                    <strong>{record.borrower_name}</strong>
+                                    <strong>
+                                      <UserRound size={16} aria-hidden="true" />
+                                      {record.borrower_name}
+                                    </strong>
                                     <span>{formatPKRInLakhCrore(balance)}</span>
                                   </div>
                                   <span className="udhaar-balance-track">
@@ -684,7 +751,66 @@ export function CreditUdhaarPage() {
                   {people.length} {people.length === 1 ? "person" : "people"}
                 </span>
               </div>
-              {controls}
+              <div className="udhaar-people-summary" aria-label="People in these results">
+                {[
+                  {
+                    label: "People shown",
+                    count: visible.length,
+                    icon: UsersRound,
+                    color: "#2563eb",
+                  },
+                  {
+                    label: "Not paid yet",
+                    count: visible.filter((person) => person.paid_amount === 0).length,
+                    icon: Clock3,
+                    color: "#d97706",
+                  },
+                  {
+                    label: "Partly paid",
+                    count: visible.filter(
+                      (person) => person.paid_amount > 0 && person.paid_amount < person.amount,
+                    ).length,
+                    icon: HandCoins,
+                    color: "#7c3aed",
+                  },
+                  {
+                    label: "Paid in full",
+                    count: visible.filter((person) => person.paid_amount >= person.amount).length,
+                    icon: CircleCheck,
+                    color: "#059669",
+                  },
+                ].map(({ label, count, icon: Icon, color }) => (
+                  <div key={label} style={{ "--status-color": color } as CSSProperties}>
+                    <span>
+                      <Icon size={23} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <strong>{count}</strong>
+                      <small>{label}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <details className="udhaar-search-panel">
+                <summary>
+                  <span>
+                    <SlidersHorizontal size={18} /> Search & filter people
+                  </span>
+                  <span>
+                    {filtersActive ? "Filters applied" : "All people"}
+                    <ChevronDown size={16} />
+                  </span>
+                </summary>
+                {controls}
+              </details>
+              {filtersActive && (
+                <div className="udhaar-active-filters">
+                  <span>{visible.length} people match your filters.</span>
+                  <Button variant="ghost" size="sm" onClick={resetFilters}>
+                    Clear filters
+                  </Button>
+                </div>
+              )}
               <p className="scope-note">
                 Amount filters use the remaining balance. Date filters use each person’s latest loan
                 date. Totals include all their loans.
@@ -707,10 +833,11 @@ export function CreditUdhaarPage() {
                 <div className="udhaar-cards">
                   {visible.map((record) => {
                     const remaining = Math.max(0, record.amount - record.paid_amount);
+                    const overdue = remaining > 0 && !!record.due_date && record.due_date < today();
                     const percent = Math.min(100, (record.paid_amount / record.amount) * 100);
                     return (
                       <button
-                        className={`udhaar-card ${remaining === 0 ? "is-settled" : record.paid_amount > 0 ? "is-partial" : "is-unpaid"}`}
+                        className={`udhaar-card ${remaining === 0 ? "is-settled" : overdue ? "is-overdue" : record.paid_amount > 0 ? "is-partial" : "is-unpaid"}`}
                         type="button"
                         key={record.id}
                         onClick={() => openDetails(record.id)}
@@ -732,10 +859,18 @@ export function CreditUdhaarPage() {
                               <CircleCheck size={15} />
                               Paid in full
                             </>
+                          ) : overdue ? (
+                            <>
+                              <CircleAlert size={15} /> Overdue
+                            </>
                           ) : record.paid_amount > 0 ? (
-                            "Partly paid"
+                            <>
+                              <HandCoins size={15} /> Partly paid
+                            </>
                           ) : (
-                            "Not paid yet"
+                            <>
+                              <Clock3 size={15} /> Not paid yet
+                            </>
                           )}
                         </span>
                         <span className="udhaar-card-amount">
@@ -789,10 +924,13 @@ export function CreditUdhaarPage() {
           if (!open) setSelectedId(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="udhaar-person-dialog max-h-[90vh] overflow-y-auto sm:max-w-xl">
           {selected && (
             <>
               <DialogHeader>
+                <span className="udhaar-dialog-icon">
+                  <UserRound size={25} aria-hidden="true" />
+                </span>
                 <DialogTitle>{selected.borrower_name}'s udhaar</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
@@ -802,7 +940,9 @@ export function CreditUdhaarPage() {
               </p>
               <div className="udhaar-detail-totals">
                 <div>
-                  <span>Given</span>
+                  <span>
+                    <ArrowUpRight size={17} /> Given
+                  </span>
                   <strong>{formatPKR(selected.amount)}</strong>
                 </div>
                 <div>
@@ -810,7 +950,9 @@ export function CreditUdhaarPage() {
                   <strong>{formatPKR(selected.paid_amount)}</strong>
                 </div>
                 <div>
-                  <span>Remaining</span>
+                  <span>
+                    <Wallet size={17} /> Remaining
+                  </span>
                   <strong>{formatPKR(Math.max(0, selected.amount - selected.paid_amount))}</strong>
                 </div>
               </div>
@@ -825,7 +967,14 @@ export function CreditUdhaarPage() {
               </div>
               <div className="udhaar-history">
                 {history.map((item) => (
-                  <div key={item.id}>
+                  <div key={item.id} data-kind={item.kind}>
+                    <span className="udhaar-history-icon">
+                      {item.kind === "Paid back" ? (
+                        <ArrowDownLeft size={18} />
+                      ) : (
+                        <ArrowUpRight size={18} />
+                      )}
+                    </span>
                     <span>
                       <strong>
                         {item.kind} · {formatDate(item.date)}
@@ -983,7 +1132,7 @@ function UdhaarForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="udhaar-entry-dialog">
+      <DialogContent className="udhaar-entry-dialog udhaar-colorful-entry">
         <DialogHeader className="udhaar-entry-header">
           <span className="udhaar-entry-icon">
             <HandCoins size={26} aria-hidden="true" />
@@ -991,17 +1140,34 @@ function UdhaarForm({
           <div>
             <p className="udhaar-entry-eyebrow">NEW MONEY LENT</p>
             <DialogTitle>Give Udhaar</DialogTitle>
-            <DialogDescription>Record who you lent to, the amount, and how it was paid.</DialogDescription>
+            <DialogDescription>
+              Record who you lent to, the amount, and how it was paid.
+            </DialogDescription>
           </div>
         </DialogHeader>
         <nav className="udhaar-entry-progress" aria-label="Udhaar steps">
-          <p role="status">Step {step + 1} of 4 · {steps[step]}</p>
+          <p role="status">
+            Step {step + 1} of 4 · {steps[step]}
+          </p>
           <ol>
             {steps.map((label, index) => (
-              <li key={label} aria-current={index === step ? "step" : undefined}
-                data-state={index < step ? "complete" : index === step ? "current" : "upcoming"}>
+              <li
+                key={label}
+                aria-current={index === step ? "step" : undefined}
+                data-state={index < step ? "complete" : index === step ? "current" : "upcoming"}
+              >
                 <span className="udhaar-step-number">
-                  {index < step ? <CircleCheck size={16} aria-hidden="true" /> : index + 1}
+                  {index < step ? (
+                    <CircleCheck size={17} aria-hidden="true" />
+                  ) : index === 0 ? (
+                    <UserRound size={17} aria-hidden="true" />
+                  ) : index === 1 ? (
+                    <HandCoins size={17} aria-hidden="true" />
+                  ) : index === 2 ? (
+                    <Wallet size={17} aria-hidden="true" />
+                  ) : (
+                    <ReceiptText size={17} aria-hidden="true" />
+                  )}
                 </span>
                 <span>{label}</span>
               </li>
@@ -1077,7 +1243,13 @@ function UdhaarForm({
                         className="udhaar-contact-option"
                       >
                         <span className="udhaar-contact-avatar" aria-hidden="true">
-                          {person.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toLocaleUpperCase()}
+                          {person.name
+                            .trim()
+                            .split(/\s+/)
+                            .slice(0, 2)
+                            .map((part) => part[0])
+                            .join("")
+                            .toLocaleUpperCase()}
                         </span>
                         <span className="udhaar-contact-copy">
                           <strong>{person.name}</strong>
@@ -1202,7 +1374,13 @@ function UdhaarForm({
           )}
         </form>
         <DialogFooter className="udhaar-entry-footer">
-          <Button className="udhaar-entry-cancel" type="button" variant="ghost" onClick={onClose} disabled={saving}>
+          <Button
+            className="udhaar-entry-cancel"
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={saving}
+          >
             Cancel
           </Button>
           {step > 0 && (
@@ -1281,11 +1459,14 @@ function RepaymentForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="udhaar-repayment-dialog max-h-[92vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
+          <span className="udhaar-dialog-icon">
+            <ArrowDownLeft size={26} aria-hidden="true" />
+          </span>
           <DialogTitle>Record repayment from {record.borrower_name}</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
+        <p className="udhaar-repayment-balance">
           Total still to receive: <strong>{formatPKR(remaining)}</strong>
         </p>
         <form id="udhaar-payment-form" onSubmit={submit} className="space-y-4">

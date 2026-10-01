@@ -1,3 +1,4 @@
+import "./personal-expense.css";
 import { accountName } from "@/domain/bankAccount";
 import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
 import { emptyPaymentDetails, paymentSummary } from "@/domain/udhaarPaymentDetails";
@@ -19,6 +20,8 @@ import {
   PieChart,
   ArrowRight,
   CalendarDays,
+  SlidersHorizontal,
+  ChevronDown,
   CarFront,
   ChartNoAxesColumn,
   House,
@@ -139,79 +142,103 @@ function ExpenseTrend({
     grouped.set(key, (grouped.get(key) ?? 0) + record.amount);
   });
   const rows = [...grouped].sort(([a], [b]) => a.localeCompare(b));
-  const points = rows.reduce<{ x: number; amount: number }[]>(
-    (result, [, amount], index) => [
+  const cumulative = rows.reduce<{ key: string; values: { spent: number } }[]>(
+    (result, [key, amount]) => [
       ...result,
-      {
-        x: rows.length === 1 ? 150 : 12 + (index / (rows.length - 1)) * 276,
-        amount: (result[result.length - 1]?.amount ?? 0) + amount,
-      },
+      { key, values: { spent: (result[result.length - 1]?.values.spent ?? 0) + amount } },
     ],
     [],
   );
-  const max = points[points.length - 1].amount || 1;
+  const total = cumulative[cumulative.length - 1].values.spent;
+  const peak = rows.reduce((highest, row) => (row[1] > highest[1] ? row : highest), rows[0]);
+  const unit = span > 730 ? "year" : span > 90 ? "month" : span > 31 ? "week" : "day";
   const display = (key: string) =>
     key.length === 4
       ? key
       : key.length === 7
-        ? format(parseISO(`${key}-01`), "MMM yyyy")
+        ? format(parseISO(key + "-01"), "MMM yyyy")
         : formatDate(key);
+  const shortDate = (point: { key: string }) =>
+    point.key.length === 4
+      ? point.key
+      : point.key.length === 7
+        ? format(parseISO(point.key + "-01"), "MMM yy")
+        : format(parseISO(point.key), "d MMM");
   return (
     <div className="expense-trends-row">
-      <section className="expense-trend" aria-label="Personal spending trend">
-        <div className="expense-chart-head-wrap">
-          <div className="expense-chart-title">
-            <TrendingUp size={21} />
-            <div>
-              <h2>Total spent so far</h2>
-              <p>Running total: each point adds earlier purchases in the selected range.</p>
-            </div>
+      <section
+        className="expense-trend expense-spending-card"
+        style={{ "--trend-color": "#7c3aed" } as CSSProperties}
+        aria-label="Personal spending trend"
+      >
+        <header className="expense-spending-header">
+          <span className="expense-spending-icon">
+            <TrendingUp size={25} aria-hidden="true" />
+          </span>
+          <div>
+            <h2>Total spending</h2>
+            <p>How your purchases add up over time</p>
           </div>
-          <div className="expense-trend-badge">
-            <span className="expense-trend-badge-label">Total Spent</span>
-            <strong className="expense-trend-total">{formatPKRInLakhCrore(max)} spent</strong>
-          </div>
+          <span className="expense-spending-tag">Running total</span>
+        </header>
+        <div className="expense-spending-metric">
+          <strong>{formatPKRInLakhCrore(total)}</strong>
+          <span>
+            {formatPKR(total)} across {records.length}{" "}
+            {records.length === 1 ? "purchase" : "purchases"}
+          </span>
         </div>
         <TimeSeriesChart
-          points={rows.map(([key], index) => ({
-            key,
-            label: display(key),
-            values: { spent: points[index].amount },
-          }))}
-          series={[{ key: "spent", label: "Cumulative spending", color: chartColors.purple }]}
-          ariaLabel={"Spending rose to " + formatPKR(max)}
-          caption={groupingNote + "Each point includes purchases through the end of that period."}
+          fillWidth
+          axisLabel={shortDate}
+          points={cumulative.map((point) => ({ ...point, label: display(point.key) }))}
+          series={[{ key: "spent", label: "Running total", color: chartColors.purple }]}
+          ariaLabel={"Spending rose to " + formatPKR(total)}
+          caption={groupingNote + "Includes earlier purchases in your selected range."}
         />
       </section>
-      <section className="expense-trend" aria-label="Spending in individual periods">
-        <div className="expense-chart-head-wrap">
-          <div className="expense-chart-title">
-            <ChartNoAxesColumn size={21} aria-hidden="true" />
-            <div>
-              <h2>Spending per period</h2>
-              <p>Separate totals: each bar shows only that period’s purchases.</p>
-            </div>
+      <section
+        className="expense-trend expense-spending-card"
+        style={{ "--trend-color": "#e11d48" } as CSSProperties}
+        aria-label="Spending in individual periods"
+      >
+        <header className="expense-spending-header">
+          <span className="expense-spending-icon">
+            <ChartNoAxesColumn size={25} aria-hidden="true" />
+          </span>
+          <div>
+            <h2>Spending by {unit}</h2>
+            <p>Compare what you spent each {unit}</p>
           </div>
-          <div className="expense-trend-badge">
-            <span className="expense-trend-badge-label">Peak Period</span>
-            <strong className="expense-trend-total">
-              {formatPKRInLakhCrore(Math.max(...rows.map(([, amount]) => amount)))} peak period
-            </strong>
-          </div>
+          <span className="expense-spending-tag">
+            {unit === "day"
+              ? "Daily"
+              : unit === "week"
+                ? "Weekly"
+                : unit === "month"
+                  ? "Monthly"
+                  : "Yearly"}
+          </span>
+        </header>
+        <div className="expense-spending-metric">
+          <strong>{formatPKRInLakhCrore(peak[1])}</strong>
+          <span>
+            Highest {unit} · {unit === "week" ? "Week of " : ""}
+            {display(peak[0])}
+          </span>
         </div>
         <TimeSeriesChart
+          fillWidth
+          axisLabel={shortDate}
           defaultMode="bar"
           points={rows.map(([key, amount]) => ({
             key,
             label: display(key),
             values: { spent: amount },
           }))}
-          series={[{ key: "spent", label: "Money spent", color: chartColors.coral }]}
+          series={[{ key: "spent", label: "Period spending", color: chartColors.coral }]}
           ariaLabel="Spending per period"
-          caption={
-            groupingNote +
-            "Earlier periods are not included. With just one period, both charts show the same amount."
-          }
+          caption={groupingNote + "Each period is separate; earlier purchases are not added."}
         />
       </section>
     </div>
@@ -259,7 +286,12 @@ export function PersonalExpensePage() {
           (!start || record.purchase_date >= start) && (!end || record.purchase_date <= end),
       )
     : [];
-  const { visible, controls } = useRecordFilters(periodRecords, {
+  const {
+    visible,
+    controls,
+    active: filtersActive,
+    reset: resetFilters,
+  } = useRecordFilters(periodRecords, {
     label: "purchases",
     searchText: (record) =>
       [record.item_name, record.notes, paymentSummary(JSON.stringify(record.payment_details ?? {}))]
@@ -322,9 +354,11 @@ export function PersonalExpensePage() {
     <main className="expense-page">
       <header className="expense-heading">
         <div className="expense-heading-content">
-          <p className="projects-eyebrow">PERSONAL PURCHASES</p>
+          <p className="projects-eyebrow">
+            <Wallet size={16} aria-hidden="true" /> PERSONAL PURCHASES
+          </p>
           <h1>Personal Expense</h1>
-          <p>Keep a clear record of the cars, watches, property and other things you buy.</p>
+          <p>Cars, watches, property & more. See what you bought and where your money went.</p>
         </div>
         <Button
           className="expense-add-btn"
@@ -373,8 +407,12 @@ export function PersonalExpensePage() {
             ) : (
               <List size={17} />
             )}
-            <span>{tab === "overview" ? "Overview" : tab === "payments" ? "Payments" : "Purchases"}</span>
-            {tab === "purchases" && records.length > 0 && <span className="expense-tab-count">{records.length}</span>}
+            <span>
+              {tab === "overview" ? "Overview" : tab === "payments" ? "Payments" : "Purchases"}
+            </span>
+            {tab === "purchases" && records.length > 0 && (
+              <span className="expense-tab-count">{records.length}</span>
+            )}
           </button>
         ))}
       </div>
@@ -385,8 +423,8 @@ export function PersonalExpensePage() {
             <CalendarDays size={18} />
           </div>
           <div>
-            <strong>Choose a time period</strong>
-            <p>All totals, charts and purchases below use the dates you select.</p>
+            <strong>Reporting period</strong>
+            <p>One date range for every view.</p>
           </div>
         </div>
         <div
@@ -451,7 +489,28 @@ export function PersonalExpensePage() {
         </p>
       ) : (
         <>
-          {controls}
+          <details className="expense-filter-drawer">
+            <summary>
+              <span>
+                <SlidersHorizontal size={18} /> Search & filter purchases
+              </span>
+              <span className="expense-filter-status">
+                {filtersActive ? "Filters applied" : "All purchases"}
+                <ChevronDown size={16} />
+              </span>
+            </summary>
+            {controls}
+          </details>
+          {filtersActive && (
+            <div className="expense-active-filter-note">
+              <span>
+                Showing {visible.length} matching purchases. Totals and charts use these filters.
+              </span>
+              <Button variant="ghost" size="sm" onClick={resetFilters}>
+                Clear filters
+              </Button>
+            </div>
+          )}
           {validRange && (
             <>
               {view === "overview" && (
@@ -467,80 +526,83 @@ export function PersonalExpensePage() {
                         <span className="expense-summary-icon">
                           <ShoppingBag size={22} />
                         </span>
-                        <span className="expense-total-badge">Overview</span>
+                        <span className="expense-total-badge">{periodLabels[period]}</span>
                       </div>
-                      <span className="expense-total-label">{period === "all" ? "Total spent" : "Spent in this period"}</span>
-                      <strong className="expense-total-amount">{formatPKRInLakhCrore(total)}</strong>
+                      <span className="expense-total-label">
+                        {period === "all" ? "Total spent" : "Spent in this period"}
+                      </span>
+                      <strong className="expense-total-amount">
+                        {formatPKRInLakhCrore(total)}
+                      </strong>
+                      <span className="expense-total-exact">{formatPKR(total)}</span>
                       <small className="expense-total-count">
                         {visible.length} {visible.length === 1 ? "purchase" : "purchases"} in this
                         period
                       </small>
                     </div>
-                    <div className="expense-category-strip">
-                      {byCategory
-                        .filter((category) => category.count > 0)
-                        .map((category) => {
-                          const Icon = category.icon;
-                          return (
-                            <div
-                              key={category.id}
-                              className="expense-category-item"
-                              style={{ "--expense-color": category.color } as CSSProperties}
-                            >
-                              <div className="expense-category-top">
-                                <span className="expense-category-icon">
-                                  <Icon size={19} />
-                                </span>
-                                <span className="expense-category-count">
-                                  {category.count} {category.count === 1 ? "item" : "items"}
-                                </span>
-                              </div>
-                              <span className="expense-category-name">{category.label}</span>
-                              <strong className="expense-category-amount">{formatPKRInLakhCrore(category.amount)}</strong>
-                            </div>
-                          );
-                        })}
+                    <div className="expense-kpis">
+                      <article className="expense-kpi-card">
+                        <div className="expense-kpi-icon expense-kpi-avg">
+                          <ReceiptText size={20} aria-hidden="true" />
+                        </div>
+                        <div className="expense-kpi-content">
+                          <span>Average purchase</span>
+                          <strong>
+                            {formatPKR(visible.length ? Math.round(total / visible.length) : 0)}
+                          </strong>
+                        </div>
+                      </article>
+                      <article className="expense-kpi-card">
+                        <div className="expense-kpi-icon expense-kpi-max">
+                          <TrendingUp size={20} aria-hidden="true" />
+                        </div>
+                        <div className="expense-kpi-content">
+                          <span>Largest purchase</span>
+                          <strong>
+                            {formatPKR(
+                              visible.length ? Math.max(...visible.map((r) => r.amount)) : 0,
+                            )}
+                          </strong>
+                        </div>
+                      </article>
+                      <article className="expense-kpi-card">
+                        <div className="expense-kpi-icon expense-kpi-wallet">
+                          <Wallet size={20} aria-hidden="true" />
+                        </div>
+                        <div className="expense-kpi-content">
+                          <span>Personal account spending</span>
+                          <strong>
+                            {formatPKR(
+                              visible
+                                .filter((r) => r.account_key === "personal")
+                                .reduce((sum, r) => sum + r.amount, 0),
+                            )}
+                          </strong>
+                        </div>
+                      </article>
                     </div>
                   </section>
-                  <div className="expense-kpis">
-                    <article className="expense-kpi-card">
-                      <div className="expense-kpi-icon expense-kpi-avg">
-                        <ReceiptText size={20} aria-hidden="true" />
-                      </div>
-                      <div className="expense-kpi-content">
-                        <span>Average purchase</span>
-                        <strong>
-                          {formatPKR(visible.length ? Math.round(total / visible.length) : 0)}
-                        </strong>
-                      </div>
-                    </article>
-                    <article className="expense-kpi-card">
-                      <div className="expense-kpi-icon expense-kpi-max">
-                        <TrendingUp size={20} aria-hidden="true" />
-                      </div>
-                      <div className="expense-kpi-content">
-                        <span>Largest purchase</span>
-                        <strong>
-                          {formatPKR(visible.length ? Math.max(...visible.map((r) => r.amount)) : 0)}
-                        </strong>
-                      </div>
-                    </article>
-                    <article className="expense-kpi-card">
-                      <div className="expense-kpi-icon expense-kpi-wallet">
-                        <Wallet size={20} aria-hidden="true" />
-                      </div>
-                      <div className="expense-kpi-content">
-                        <span>Personal account spending</span>
-                        <strong>
-                          {formatPKR(
-                            visible
-                              .filter((r) => r.account_key === "personal")
-                              .reduce((sum, r) => sum + r.amount, 0),
-                          )}
-                        </strong>
-                      </div>
-                    </article>
-                  </div>
+                  <section className="expense-category-cards" aria-label="Purchase categories">
+                    {byCategory.map((category) => {
+                      const Icon = category.icon;
+                      return (
+                        <article
+                          className="expense-category-card"
+                          key={category.id}
+                          style={{ "--expense-color": category.color } as CSSProperties}
+                        >
+                          <span className="expense-category-card-icon">
+                            <Icon size={29} strokeWidth={1.8} aria-hidden="true" />
+                          </span>
+                          <h2>{category.label}</h2>
+                          <strong>{formatPKRInLakhCrore(category.amount)}</strong>
+                          <span>
+                            {category.count} {category.count === 1 ? "purchase" : "purchases"}
+                          </span>
+                        </article>
+                      );
+                    })}
+                  </section>
                   {visible.length > 0 && (
                     <div className="expense-insight-grid">
                       <section className="expense-chart" aria-label="Spending by category">
@@ -608,7 +670,57 @@ export function PersonalExpensePage() {
                       </section>
                     </div>
                   )}
-                  {visible.length > 0 && <ExpenseTrend records={visible} start={start} end={end} />}
+                  {visible.length > 0 && (
+                    <>
+                      <section className="expense-recent" aria-labelledby="expense-recent-title">
+                        <div className="expense-records-heading">
+                          <div>
+                            <h2 id="expense-recent-title">Recent purchases</h2>
+                            <p>Your latest purchases in the selected results.</p>
+                          </div>
+                          <Button variant="ghost" onClick={() => setView("purchases")}>
+                            View all <ArrowRight size={16} />
+                          </Button>
+                        </div>
+                        {[...visible]
+                          .sort((a, b) => b.purchase_date.localeCompare(a.purchase_date))
+                          .slice(0, 4)
+                          .map((record) => {
+                            const category = categoryInfo(record.category);
+                            const Icon = category.icon;
+                            return (
+                              <button
+                                className="expense-recent-row"
+                                key={record.id}
+                                onClick={() => {
+                                  setEditing(record);
+                                  setFormOpen(true);
+                                }}
+                                aria-label={"Edit " + record.item_name}
+                              >
+                                <span
+                                  className="expense-recent-icon"
+                                  style={{ "--expense-color": category.color } as CSSProperties}
+                                >
+                                  <Icon size={20} />
+                                </span>
+                                <span className="expense-recent-name">
+                                  <strong>{record.item_name}</strong>
+                                  <small>
+                                    {category.singular} · {formatDate(record.purchase_date)}
+                                  </small>
+                                </span>
+                                <strong>{formatPKR(record.amount)}</strong>
+                                <ArrowRight size={16} aria-hidden="true" />
+                              </button>
+                            );
+                          })}
+                      </section>
+                      <div className="expense-trend-details">
+                        <ExpenseTrend records={visible} start={start} end={end} />
+                      </div>
+                    </>
+                  )}
                   {records.length === 0 ? (
                     <div className="expense-empty expense-overview-empty">
                       <ShoppingBag size={32} />
@@ -663,7 +775,10 @@ export function PersonalExpensePage() {
                           <div className="expense-account-info">
                             <h2>{accountName(account)}</h2>
                             <strong>{formatPKR(totalSpent)}</strong>
-                            <p>{rows.length} {rows.length === 1 ? "purchase" : "purchases"} · selected filters</p>
+                            <p>
+                              {rows.length} {rows.length === 1 ? "purchase" : "purchases"} ·
+                              selected filters
+                            </p>
                           </div>
                         </article>
                       );
@@ -675,7 +790,9 @@ export function PersonalExpensePage() {
                         <h2>
                           <ReceiptText size={19} aria-hidden="true" /> Payment history
                         </h2>
-                        <p>Receiver, payment service and receipt details saved with each purchase.</p>
+                        <p>
+                          Receiver, payment service and receipt details saved with each purchase.
+                        </p>
                       </div>
                       <span className="expense-records-count">{visible.length} shown</span>
                     </div>
@@ -728,7 +845,7 @@ export function PersonalExpensePage() {
                     <div className="expense-records-heading">
                       <div>
                         <h2 id="expense-records-title">Your purchases</h2>
-                        <p>Select a purchase to change its details.</p>
+                        <p>Review what you bought, how you paid, and edit any details.</p>
                       </div>
                       <span className="expense-records-count">{visible.length} shown</span>
                     </div>
@@ -769,7 +886,10 @@ export function PersonalExpensePage() {
                               <div className="expense-item-info">
                                 <div className="expense-item-title-row">
                                   <strong>{record.item_name}</strong>
-                                  <span className="expense-category-tag" style={{ color: category.color, borderColor: category.color }}>
+                                  <span
+                                    className="expense-category-tag"
+                                    style={{ color: category.color, borderColor: category.color }}
+                                  >
                                     {category.singular}
                                   </span>
                                 </div>
@@ -784,13 +904,17 @@ export function PersonalExpensePage() {
                                     {record.payment_details?.method ?? "Payment not recorded"}
                                   </span>
                                 </div>
-                                {record.notes && <p className="expense-item-notes">{record.notes}</p>}
+                                {record.notes && (
+                                  <p className="expense-item-notes">{record.notes}</p>
+                                )}
                               </div>
                               <div className="expense-item-amount-wrap">
                                 <strong className="expense-item-amount">
                                   {formatPKRInLakhCrore(record.amount)}
                                 </strong>
-                                <span className="expense-item-exact">{formatPKR(record.amount)}</span>
+                                <span className="expense-item-exact">
+                                  {formatPKR(record.amount)}
+                                </span>
                               </div>
                               <div className="expense-item-actions">
                                 <Button
@@ -1000,6 +1124,7 @@ function ExpenseForm({
                       <button
                         type="button"
                         key={item.id}
+                        aria-pressed={isSelected}
                         className={`expense-cat-option ${isSelected ? "is-selected" : ""}`}
                         style={{ "--cat-color": item.color } as CSSProperties}
                         onClick={() => {
@@ -1113,7 +1238,9 @@ function ExpenseForm({
                   <small>
                     {categoryInfo(category).singular} · {formatDate(purchaseDate)}
                   </small>
-                  <small>{accountKey === "personal" ? "Personal Account" : "Builder Account"}</small>
+                  <small>
+                    {accountKey === "personal" ? "Personal Account" : "Builder Account"}
+                  </small>
                   <small>{paymentSummary(JSON.stringify(paymentDetails))}</small>
                 </div>
               </div>

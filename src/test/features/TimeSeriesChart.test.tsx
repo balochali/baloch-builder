@@ -83,4 +83,31 @@ describe("shared charts", () => {
       }
     });
   });
+  it("keeps clustered axis dates apart without losing exact date inspection", () => {
+    const clustered = ["2026-09-01", "2026-09-02", "2026-09-30"].map((key, index) => ({
+      key,
+      label: key,
+      values: { received: index + 1 },
+    }));
+    render(
+      <TimeSeriesChart
+        points={clustered}
+        series={[series[0]]}
+        ariaLabel="Clustered dates"
+        fillWidth
+        axisLabel={(point) => point.key.slice(8) + " Sep"}
+      />,
+    );
+    const svg = screen.getByRole("img", { name: "Clustered dates" });
+    const dateTicks = [...svg.querySelectorAll("text")].filter((node) =>
+      node.textContent?.endsWith("Sep"),
+    );
+    expect(dateTicks.map((node) => node.textContent)).toEqual(["01 Sep", "30 Sep"]);
+    fireEvent.keyDown(screen.getByRole("group", { name: /Explore chart/ }), { key: "ArrowLeft" });
+    expect(
+      within(screen.getByRole("status", { name: "Selected chart values" })).getByText("2026-09-02"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/View chart data/));
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(4);
+  });
 });
