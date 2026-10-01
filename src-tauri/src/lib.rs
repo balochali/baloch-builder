@@ -48,6 +48,37 @@ pub fn run() {
             sql: include_str!("../migrations/007_personal_expenses.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "008_udhaar_contacts",
+            sql: include_str!("../migrations/008_udhaar_contacts.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 9,
+            description: "009_udhaar_delete",
+            sql: include_str!("../migrations/009_udhaar_delete.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 10,
+            description: "010_udhaar_payment_guard",
+            sql: include_str!("../migrations/010_udhaar_payment_guard.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 11,
+            description: "011_bank_accounts",
+            sql: include_str!("../migrations/011_bank_accounts.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 12,
+            description: "012_business_reset",
+            sql: include_str!("../migrations/012_business_reset.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration { version: 13, description: "013_expense_payment_details", sql: include_str!("../migrations/013_expense_payment_details.sql"), kind: MigrationKind::Up },
     ];
 
     tauri::Builder::default()

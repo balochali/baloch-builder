@@ -4,7 +4,7 @@ import { execute } from "@/data/client";
 
 vi.mock("@/data/client", () => ({ query: vi.fn(), execute: vi.fn() }));
 
-const purchase = { category: "other" as const, item_name: "Furniture", amount: 75_000,
+const purchase = { account_key: "personal" as const, category: "other" as const, item_name: "Furniture", amount: 75_000,
   purchase_date: "2026-09-24", notes: "Living room" };
 
 describe("personal purchases", () => {

@@ -4,7 +4,7 @@ import { getProjectLand, saveProjectStage } from "@/data/repositories/projectSta
 import type Database from "@tauri-apps/plugin-sql";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
-const land = { title: "Residency plot", location: "Karachi", purchase_date: "2026-09-27",
+const land = { account_key: "builder" as const, title: "Residency plot", location: "Karachi", purchase_date: "2026-09-27",
   area_value: 7000, area_unit: "sqyd" as const, seller_name: "Ali", price: 5_000_000, notes: "" };
 
 describe("project stage records", () => {

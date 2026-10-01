@@ -1,3 +1,4 @@
+import { BankAccountSchema } from "@/domain/bankAccount";
 import { z } from "zod";
 import { execute, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
@@ -5,24 +6,35 @@ import type { ProjectEstimate, Transaction } from "@/domain/types";
 
 const money = z.number().int().nonnegative().safe();
 
-export const EstimateInputSchema = z.object({
-  project_id: z.string().uuid(),
-  kind: z.enum(["cost", "revenue"]),
-  title: z.string().trim().min(1, "Item name is required").max(120),
-  details: z.string().trim().max(500),
-  recovery_space: z.enum(["flats", "shops", "offices", "houses"]).nullable().optional(),
-  recovery_quantity: z.number().int().positive().max(1_000_000).nullable().optional(),
-  flat_recovery_lines: z.array(z.object({
-    floor_index: z.number().int().min(0), rooms: z.number().int().positive(),
-    quantity: z.number().int().positive(), minimum_unit_price: money, maximum_unit_price: money,
-  })).optional(),
-  minimum_amount: money,
-  maximum_amount: money,
-}).refine((value) => value.maximum_amount >= value.minimum_amount, {
-  path: ["maximum_amount"], message: "Maximum must be at least the minimum",
-});
+export const EstimateInputSchema = z
+  .object({
+    project_id: z.string().uuid(),
+    kind: z.enum(["cost", "revenue"]),
+    title: z.string().trim().min(1, "Item name is required").max(120),
+    details: z.string().trim().max(500),
+    recovery_space: z.enum(["flats", "shops", "offices", "houses"]).nullable().optional(),
+    recovery_quantity: z.number().int().positive().max(1_000_000).nullable().optional(),
+    flat_recovery_lines: z
+      .array(
+        z.object({
+          floor_index: z.number().int().min(0),
+          rooms: z.number().int().positive(),
+          quantity: z.number().int().positive(),
+          minimum_unit_price: money,
+          maximum_unit_price: money,
+        }),
+      )
+      .optional(),
+    minimum_amount: money,
+    maximum_amount: money,
+  })
+  .refine((value) => value.maximum_amount >= value.minimum_amount, {
+    path: ["maximum_amount"],
+    message: "Maximum must be at least the minimum",
+  });
 
 export const ActualCostInputSchema = z.object({
+  account_key: BankAccountSchema.optional(),
   project_id: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date is required"),
   amount: z.number().int().positive().safe(),
@@ -49,23 +61,60 @@ export async function addProjectEstimate(input: EstimateInput): Promise<ProjectE
     `INSERT INTO project_estimates
       (id, project_id, kind, title, details, minimum_amount, maximum_amount, created_at, updated_at, archived, custom)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
-    [id, value.project_id, value.kind, value.title, value.details || null,
-      value.minimum_amount, value.maximum_amount, timestamp, timestamp,
-      JSON.stringify(value.recovery_space ? { recovery_space: value.recovery_space, recovery_quantity: value.recovery_quantity, flat_recovery_lines: value.flat_recovery_lines } : {})],
+    [
+      id,
+      value.project_id,
+      value.kind,
+      value.title,
+      value.details || null,
+      value.minimum_amount,
+      value.maximum_amount,
+      timestamp,
+      timestamp,
+      JSON.stringify(
+        value.recovery_space
+          ? {
+              recovery_space: value.recovery_space,
+              recovery_quantity: value.recovery_quantity,
+              flat_recovery_lines: value.flat_recovery_lines,
+            }
+          : {},
+      ),
+    ],
   );
   const rows = await query<ProjectEstimate>(`SELECT * FROM project_estimates WHERE id = ?`, [id]);
   if (!rows[0]) throw new Error("Estimate was saved but could not be loaded");
   return rows[0];
 }
 
-export async function updateProjectEstimate(estimateId: string, input: EstimateInput): Promise<ProjectEstimate> {
+export async function updateProjectEstimate(
+  estimateId: string,
+  input: EstimateInput,
+): Promise<ProjectEstimate> {
   const value = EstimateInputSchema.parse(input);
   const result = await execute(
     `UPDATE project_estimates
      SET kind = ?, title = ?, details = ?, minimum_amount = ?, maximum_amount = ?, custom = ?, updated_at = ?
      WHERE id = ? AND project_id = ? AND archived = 0`,
-    [value.kind, value.title, value.details || null, value.minimum_amount,
-      value.maximum_amount, JSON.stringify(value.recovery_space ? { recovery_space: value.recovery_space, recovery_quantity: value.recovery_quantity, flat_recovery_lines: value.flat_recovery_lines } : {}), now(), estimateId, value.project_id],
+    [
+      value.kind,
+      value.title,
+      value.details || null,
+      value.minimum_amount,
+      value.maximum_amount,
+      JSON.stringify(
+        value.recovery_space
+          ? {
+              recovery_space: value.recovery_space,
+              recovery_quantity: value.recovery_quantity,
+              flat_recovery_lines: value.flat_recovery_lines,
+            }
+          : {},
+      ),
+      now(),
+      estimateId,
+      value.project_id,
+    ],
   );
   if (result.rowsAffected !== 1) throw new Error("Estimate item was not found");
   const rows = await query<ProjectEstimate>(
@@ -97,7 +146,8 @@ export async function listActualProjectCosts(projectId: string): Promise<Transac
 export async function listConstructionCosts(projectId: string): Promise<Transaction[]> {
   return query<Transaction>(
     `SELECT * FROM transactions WHERE project_id = ? AND type = 'construction_cost'
-     AND direction = 'out' AND archived = 0 ORDER BY date DESC, created_at DESC`, [projectId],
+     AND direction = 'out' AND archived = 0 ORDER BY date DESC, created_at DESC`,
+    [projectId],
   );
 }
 
@@ -109,17 +159,31 @@ export async function addConstructionCost(input: ActualCostInput): Promise<Trans
   return addCost(input, "construction_cost");
 }
 
-async function addCost(input: ActualCostInput, type: "project_cost" | "construction_cost"): Promise<Transaction> {
+async function addCost(
+  input: ActualCostInput,
+  type: "project_cost" | "construction_cost",
+): Promise<Transaction> {
   const value = ActualCostInputSchema.parse(input);
   const id = newId();
   const timestamp = now();
   await execute(
     `INSERT INTO transactions
       (id, date, amount, direction, type, method, reference, description, project_id,
-       created_at, updated_at, archived, custom)
-     VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, 0, '{}')`,
-    [id, value.date, value.amount, type, value.method, value.reference || null,
-      value.description, value.project_id, timestamp, timestamp],
+       created_at, updated_at, archived, custom, account_key)
+     VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, 0, '{}', ?)`,
+    [
+      id,
+      value.date,
+      value.amount,
+      type,
+      value.method,
+      value.reference || null,
+      value.description,
+      value.project_id,
+      timestamp,
+      timestamp,
+      BankAccountSchema.parse(value.account_key),
+    ],
   );
   const rows = await query<Transaction>(`SELECT * FROM transactions WHERE id = ?`, [id]);
   if (!rows[0]) throw new Error("Cost was saved but could not be loaded");

@@ -20,6 +20,7 @@ describe("ProjectPartnerDialog payment methods", () => {
     fireEvent.change(screen.getByLabelText("Receiving bank *"), { target: { value: "Meezan" } });
     fireEvent.change(screen.getByLabelText("Receiving account name *"), { target: { value: "Project" } });
     fireEvent.change(screen.getByLabelText("Receipt number"), { target: { value: "R-9" } });
+    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) fireEvent.change(account, { target: { value: "builder" } });
     fireEvent.click(screen.getByRole("button", { name: "Add Partner" }));
     await waitFor(() => expect(onAddPartner).toHaveBeenCalledWith(expect.objectContaining({
       initial_method: "bank", initial_reference: "TRX-9",

@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "baloch-builder",
-        "width": 800,
-        "height": 600
+        "title": "Baloch Builders & Developers",
+        "width": 1360,
+        "height": 860,
+        "minWidth": 720,
+        "minHeight": 560
       }
     ],
     "security": {

@@ -31,7 +31,7 @@ describe("project finance persistence", () => {
     vi.spyOn(client, "query").mockResolvedValue([{ id: "transaction-1", project_id: projectId,
       date: "2026-09-22", amount: 50_000, direction: "out", type: "project_cost",
       method: "cash", description: "Cement payment" }] as Transaction[]);
-    const row = await addActualProjectCost({ project_id: projectId, date: "2026-09-22",
+    const row = await addActualProjectCost({ account_key: "builder", project_id: projectId, date: "2026-09-22",
       amount: 50_000, description: "Cement payment", method: "cash", reference: "" });
     expect(row.amount).toBe(50_000);
     expect(execute).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO transactions"),
@@ -50,7 +50,7 @@ describe("project finance persistence", () => {
     const query = vi.spyOn(client, "query").mockResolvedValue([{ id: "construction-1", project_id: projectId,
       date: "2026-09-27", amount: 75_000, direction: "out", type: "construction_cost",
       method: "cash", description: "Bricks" }] as Transaction[]);
-    await addConstructionCost({ project_id: projectId, date: "2026-09-27", amount: 75_000,
+    await addConstructionCost({ account_key: "builder", project_id: projectId, date: "2026-09-27", amount: 75_000,
       description: "Bricks", method: "cash", reference: "" });
     expect(execute).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO transactions"),
       expect.arrayContaining([projectId, 75_000, "Bricks", "construction_cost"]));

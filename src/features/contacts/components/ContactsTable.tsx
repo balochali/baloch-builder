@@ -26,9 +26,7 @@ export function ContactsTable({ contacts, search, onEdit, onArchive }: ContactsT
     {
       accessorKey: "name",
       header: "Name",
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
-      ),
+      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
     },
     {
       accessorKey: "phone",
@@ -38,16 +36,23 @@ export function ContactsTable({ contacts, search, onEdit, onArchive }: ContactsT
     {
       accessorKey: "address",
       header: "Address",
-      cell: ({ row }) =>
-        row.original.address ?? <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => row.original.address ?? <span className="text-muted-foreground">—</span>,
+    },
+    {
+      accessorKey: "phone2",
+      header: "Other phone",
+      cell: ({ row }) => row.original.phone2 || "—",
+    },
+    {
+      accessorKey: "notes",
+      header: "Notes",
+      cell: ({ row }) => row.original.notes || "—",
     },
     {
       accessorKey: "created_at",
       header: "Added",
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
-          {formatDate(row.original.created_at)}
-        </span>
+        <span className="text-muted-foreground text-sm">{formatDate(row.original.created_at)}</span>
       ),
     },
     {
@@ -68,10 +73,7 @@ export function ContactsTable({ contacts, search, onEdit, onArchive }: ContactsT
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                id={`contact-edit-${c.id}`}
-                onClick={() => onEdit(c)}
-              >
+              <DropdownMenuItem id={`contact-edit-${c.id}`} onClick={() => onEdit(c)}>
                 <Edit className="mr-2 size-4" />
                 Edit
               </DropdownMenuItem>
@@ -102,7 +104,9 @@ export function ContactsTable({ contacts, search, onEdit, onArchive }: ContactsT
     <div className="space-y-3">
       {confirmArchiveId && (
         <div className="flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm">
-          <span>Archive this contact? This is reversible from the database, but not from the UI yet.</span>
+          <span>
+            Archive this contact? This is reversible from the database, but not from the UI yet.
+          </span>
           <div className="flex gap-2 ml-4">
             <Button size="sm" variant="destructive" onClick={handleConfirmArchive}>
               Confirm
@@ -117,7 +121,7 @@ export function ContactsTable({ contacts, search, onEdit, onArchive }: ContactsT
         columns={columns}
         data={contacts}
         globalFilter={search}
-        emptyMessage="No contacts found. Add one above."
+        emptyMessage="No contacts match these filters. Try changing or resetting them."
       />
     </div>
   );

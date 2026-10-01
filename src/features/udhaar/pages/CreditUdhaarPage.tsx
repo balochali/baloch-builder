@@ -1,15 +1,67 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { format } from "date-fns";
-import { ArrowRight, CalendarDays, CircleCheck, HandCoins, Plus, Search, UserRound, Wallet } from "lucide-react";
+import "./credit-udhaar.css";
+import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
+import { emptyPaymentDetails, paymentSummary } from "@/domain/udhaarPaymentDetails";
+import { BankAccountSelect } from "@/components/BankAccountSelect";
+import { groupUdhaarPeople } from "@/domain/udhaarPeople";
+import { listContacts } from "@/data/repositories/contactsRepository";
+import type { Contact } from "@/domain/types";
+import { RingChart } from "@/components/charts/RingChart";
+import { TimeSeriesChart, chartColors } from "@/components/charts/TimeSeriesChart";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import {
+  format,
+  startOfWeek,
+  startOfMonth,
+  startOfYear,
+  differenceInCalendarDays,
+  parseISO,
+} from "date-fns";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownLeft,
+  UsersRound,
+  Clock3,
+  CircleAlert,
+  SlidersHorizontal,
+  ChevronDown,
+  ReceiptText,
+  CalendarDays,
+  CircleCheck,
+  HandCoins,
+  Plus,
+  UserRound,
+  Wallet,
+  TrendingUp,
+  BarChart3,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useRecordFilters } from "@/components/RecordFilters";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
-import { AddUdhaarPaymentSchema, CreateUdhaarSchema, addUdhaarPayment, createUdhaar, listUdhaarPayments, listUdhaars,
-  type AddUdhaarPaymentInput, type CreateUdhaarInput, type Udhaar, type UdhaarPayment } from "@/data/repositories/udhaarRepository";
+import {
+  AddUdhaarPaymentSchema,
+  CreateUdhaarSchema,
+  addPersonUdhaarPayment,
+  createUdhaar,
+  listAllUdhaarPayments,
+  listUdhaars,
+  type AddUdhaarPaymentInput,
+  type CreateUdhaarInput,
+  type Udhaar,
+  type UdhaarPayment,
+} from "@/data/repositories/udhaarRepository";
 
 function rupees(value: string): number | null {
   const trimmed = value.trim();
@@ -19,207 +71,1454 @@ function rupees(value: string): number | null {
 }
 
 const today = () => format(new Date(), "yyyy-MM-dd");
+type Period = "all" | "daily" | "weekly" | "monthly" | "yearly" | "custom";
+const periodNames: Record<Period, string> = {
+  all: "All time",
+  daily: "Today",
+  weekly: "This week",
+  monthly: "This month",
+  yearly: "This year",
+  custom: "Custom",
+};
+
+function dateRange(period: Period, customFrom: string, customTo: string) {
+  const now = new Date();
+  const end = period === "custom" ? customTo : period === "all" ? null : format(now, "yyyy-MM-dd");
+  const start =
+    period === "custom"
+      ? customFrom
+      : period === "daily"
+        ? format(now, "yyyy-MM-dd")
+        : period === "weekly"
+          ? format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd")
+          : period === "monthly"
+            ? format(startOfMonth(now), "yyyy-MM-dd")
+            : period === "yearly"
+              ? format(startOfYear(now), "yyyy-MM-dd")
+              : null;
+  return { start, end };
+}
+
+function inRange(date: string, start: string | null, end: string | null) {
+  return (!start || date >= start) && (!end || date <= end);
+}
+
+function UdhaarActivityCharts({
+  loans,
+  payments,
+  start,
+  end,
+  allLoans,
+  allPayments,
+}: {
+  loans: Udhaar[];
+  payments: UdhaarPayment[];
+  start: string | null;
+  end: string | null;
+  allLoans: Udhaar[];
+  allPayments: UdhaarPayment[];
+}) {
+  const events = [
+    ...loans.map((loan) => ({ date: loan.given_date, given: loan.amount, paid: 0 })),
+    ...payments.map((payment) => ({ date: payment.paid_date, given: 0, paid: payment.amount })),
+  ];
+  if (!events.length)
+    return (
+      <div className="udhaar-activity-empty">
+        <BarChart3 size={27} />
+        <strong>No money moved in this period</strong>
+        <p>Choose another date range to see lending and repayments.</p>
+      </div>
+    );
+  const dates = events.map((event) => event.date).sort();
+  const span = differenceInCalendarDays(
+    parseISO(end ?? dates[dates.length - 1]),
+    parseISO(start ?? dates[0]),
+  );
+  const groupingNote =
+    span > 730
+      ? "Yearly totals. "
+      : span > 90
+        ? "Monthly totals. "
+        : span > 31
+          ? "Weekly totals; dates mark the start of each week. "
+          : "Daily totals. ";
+  const bucket = (date: string) =>
+    span > 730
+      ? format(parseISO(date), "yyyy")
+      : span > 90
+        ? format(parseISO(date), "yyyy-MM")
+        : span > 31
+          ? format(startOfWeek(parseISO(date), { weekStartsOn: 1 }), "yyyy-MM-dd")
+          : date;
+  const grouped = new Map<string, { given: number; paid: number }>();
+  events.forEach((event) => {
+    const key = bucket(event.date);
+    const current = grouped.get(key) ?? { given: 0, paid: 0 };
+    grouped.set(key, { given: current.given + event.given, paid: current.paid + event.paid });
+  });
+  const rows = [...grouped]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => ({ key, ...value }));
+  const before = start
+    ? allLoans
+        .filter((loan) => loan.given_date < start)
+        .reduce((total, loan) => total + loan.amount, 0) -
+      allPayments
+        .filter((payment) => payment.paid_date < start)
+        .reduce((total, payment) => total + payment.amount, 0)
+    : 0;
+  const points = rows.reduce<{ x: number; amount: number }[]>((result, row, index) => {
+    const previous = result.length ? result[result.length - 1].amount : before;
+    return [
+      ...result,
+      {
+        x: rows.length === 1 ? 150 : 12 + (index / (rows.length - 1)) * 276,
+        amount: Math.max(0, previous + row.given - row.paid),
+      },
+    ];
+  }, []);
+  const formatBucket = (key: string) =>
+    key.length === 4
+      ? key
+      : key.length === 7
+        ? format(parseISO(`${key}-01`), "MMM yyyy")
+        : formatDate(key);
+  const shortDate = (point: { key: string }) =>
+    point.key.length === 4
+      ? point.key
+      : point.key.length === 7
+        ? format(parseISO(point.key + "-01"), "MMM yy")
+        : format(parseISO(point.key), "d MMM");
+  return (
+    <div className="udhaar-activity-grid">
+      <section
+        className="udhaar-activity-card"
+        style={{ "--chart-color": "#2563eb" } as CSSProperties}
+        aria-label="Money given and paid back by date"
+      >
+        <div className="udhaar-chart-head-wrap">
+          <div className="udhaar-chart-head">
+            <BarChart3 size={20} />
+            <div>
+              <h3>Lending & repayments</h3>
+              <p>Compare money given with money received.</p>
+            </div>
+          </div>
+        </div>
+        <div className="udhaar-chart-metrics">
+          <div>
+            <span>Given in this range</span>
+            <strong>
+              {formatPKRInLakhCrore(loans.reduce((sum, loan) => sum + loan.amount, 0))}
+            </strong>
+          </div>
+          <div>
+            <span>Paid back in this range</span>
+            <strong>
+              {formatPKRInLakhCrore(payments.reduce((sum, payment) => sum + payment.amount, 0))}
+            </strong>
+          </div>
+        </div>
+        <TimeSeriesChart
+          fillWidth
+          axisLabel={shortDate}
+          points={rows.map((row) => ({
+            key: row.key,
+            label: formatBucket(row.key),
+            values: { given: row.given, paid: row.paid },
+          }))}
+          series={[
+            { key: "given", label: "Money given", color: chartColors.blue },
+            { key: "paid", label: "Paid back", color: chartColors.green },
+          ]}
+          defaultMode="bar"
+          ariaLabel="Money given and paid back by date"
+          pointLabel={(point) =>
+            point.label +
+            ": " +
+            formatPKR(point.values.given) +
+            " given, " +
+            formatPKR(point.values.paid) +
+            " paid back"
+          }
+          caption={groupingNote + "Hover or select a date for exact values."}
+        />
+      </section>
+      <section
+        className="udhaar-activity-card"
+        style={{ "--chart-color": "#7c3aed" } as CSSProperties}
+        aria-label="Outstanding balance trend"
+      >
+        <div className="udhaar-chart-head-wrap">
+          <div className="udhaar-chart-head">
+            <TrendingUp size={20} />
+            <div>
+              <h3>Outstanding over time</h3>
+              <p>Your balance after lending and repayments.</p>
+            </div>
+          </div>
+          <div className="udhaar-trend-badge">
+            <span className="udhaar-trend-badge-label">
+              <Wallet size={14} aria-hidden="true" />
+              Outstanding
+            </span>
+            <strong className="udhaar-trend-total">
+              {formatPKRInLakhCrore(points[points.length - 1].amount)}
+            </strong>
+          </div>
+        </div>
+        <TimeSeriesChart
+          fillWidth
+          axisLabel={shortDate}
+          points={rows.map((row, index) => ({
+            key: row.key,
+            label: formatBucket(row.key),
+            values: { balance: points[index].amount },
+          }))}
+          series={[{ key: "balance", label: "Still to receive", color: chartColors.purple }]}
+          ariaLabel={"Outstanding balance reached " + formatPKR(points[points.length - 1].amount)}
+          caption={
+            groupingNote +
+            "Opening balance: " +
+            formatPKR(before) +
+            ". Each point is the balance at the end of that period."
+          }
+        />
+      </section>
+    </div>
+  );
+}
 
 export function CreditUdhaarPage() {
   const [records, setRecords] = useState<Udhaar[]>([]);
+  const [allPayments, setAllPayments] = useState<UdhaarPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
+
   const [view, setView] = useState<"overview" | "people">("overview");
+  const [period, setPeriod] = useState<Period>("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [payments, setPayments] = useState<UdhaarPayment[]>([]);
-  const [paymentsLoading, setPaymentsLoading] = useState(false);
-  const [paymentsError, setPaymentsError] = useState("");
-  const selected = records.find((record) => record.id === selectedId) ?? null;
-  const visible = useMemo(() => records.filter((record) =>
-    `${record.borrower_name} ${record.phone ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())), [records, search]);
-  const totalLent = records.reduce((total, record) => total + record.amount, 0);
-  const totalPaid = records.reduce((total, record) => total + record.paid_amount, 0);
-  const totalRemaining = Math.max(0, totalLent - totalPaid);
-  const paidPercent = totalLent > 0 ? Math.min(100, totalPaid / totalLent * 100) : 0;
-  const largestBalances = [...records].filter((record) => record.amount > record.paid_amount)
-    .sort((a, b) => (b.amount - b.paid_amount) - (a.amount - a.paid_amount)).slice(0, 4);
-  const largestBalance = largestBalances[0] ? largestBalances[0].amount - largestBalances[0].paid_amount : 0;
+  const people = groupUdhaarPeople(records);
+  const selected = people.find((person) => person.id === selectedId) ?? null;
+  const personPayments = new Map<string, UdhaarPayment>();
+  for (const payment of allPayments.filter((payment) =>
+    selected?.loans.some((loan) => loan.id === payment.udhaar_id),
+  )) {
+    const key = payment.payment_group_id ?? payment.id;
+    const existing = personPayments.get(key);
+    personPayments.set(key, {
+      ...payment,
+      id: key,
+      amount: payment.amount + (existing?.amount ?? 0),
+    });
+  }
+  const history = selected
+    ? [
+        ...selected.loans.map((loan) => ({
+          id: "given-" + loan.id,
+          date: loan.given_date,
+          amount: loan.amount,
+          kind: "Money given",
+          method: paymentSummary(loan.payment_details),
+          notes: loan.notes,
+          loanDate: loan.given_date,
+        })),
+        ...[...personPayments.values()].map((payment) => ({
+          id: payment.id,
+          date: payment.paid_date,
+          amount: payment.amount,
+          kind: "Paid back",
+          method: paymentSummary(payment.payment_details) || payment.method,
+          notes: payment.notes,
+          loanDate: selected.loans.find((loan) => loan.id === payment.udhaar_id)!.given_date,
+        })),
+      ].sort((a, b) => b.date.localeCompare(a.date))
+    : [];
+  const {
+    visible,
+    controls,
+    active: filtersActive,
+    reset: resetFilters,
+  } = useRecordFilters(people, {
+    label: "udhaar records",
+    searchText: (record) =>
+      [record.borrower_name, record.phone, record.notes].filter(Boolean).join(" "),
+    date: (record) => record.given_date,
+    dateLabel: "Latest loan",
+    amount: (record) => Math.max(0, record.amount - record.paid_amount),
+    facets: [
+      {
+        label: "Repayment status",
+        value: (record) =>
+          record.paid_amount >= record.amount
+            ? "Settled"
+            : record.due_date && record.due_date < format(new Date(), "yyyy-MM-dd")
+              ? "Overdue"
+              : record.paid_amount > 0
+                ? "Partly paid"
+                : "Unpaid",
+      },
+    ],
+  });
+  const validRange = period !== "custom" || (!!customFrom && !!customTo && customFrom <= customTo);
+  const { start, end } = dateRange(period, customFrom, customTo);
+  const periodLoans = validRange
+    ? records.filter((record) => inRange(record.given_date, start, end))
+    : [];
+  const periodPayments = validRange
+    ? allPayments.filter((payment) => inRange(payment.paid_date, start, end))
+    : [];
+  const totalLent = periodLoans.reduce((total, record) => total + record.amount, 0);
+  const totalPaid = periodPayments.reduce((total, payment) => total + payment.amount, 0);
+  const loansToEnd = validRange ? records.filter((record) => !end || record.given_date <= end) : [];
+  const paymentsToEnd = validRange
+    ? allPayments.filter((payment) => !end || payment.paid_date <= end)
+    : [];
+  const givenToEnd = loansToEnd.reduce((total, record) => total + record.amount, 0);
+  const paidToEnd = paymentsToEnd.reduce((total, payment) => total + payment.amount, 0);
+  const totalRemaining = Math.max(0, givenToEnd - paidToEnd);
+  const paidPercent = givenToEnd > 0 ? Math.min(100, (paidToEnd / givenToEnd) * 100) : 0;
+  const largestBalances = groupUdhaarPeople(
+    loansToEnd.map((loan) => ({
+      ...loan,
+      paid_amount: paymentsToEnd
+        .filter((payment) => payment.udhaar_id === loan.id)
+        .reduce((sum, payment) => sum + payment.amount, 0),
+    })),
+  )
+    .map((record) => ({ record, balance: Math.max(0, record.amount - record.paid_amount) }))
+    .filter((item) => item.balance > 0)
+    .sort((a, b) => b.balance - a.balance)
+    .slice(0, 4);
+  const largestBalance = largestBalances[0]?.balance ?? 0;
+  const periodLabel =
+    period === "custom" && validRange
+      ? `${formatDate(customFrom)} – ${formatDate(customTo)}`
+      : periodNames[period];
 
   useEffect(() => {
     let active = true;
-    listUdhaars().then((rows) => { if (active) setRecords(rows); })
-      .catch((cause) => { if (active) setError(String(cause)); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+    Promise.all([listUdhaars(), listAllUdhaarPayments()])
+      .then(([rows, paymentRows]) => {
+        if (active) {
+          setRecords(rows);
+          setAllPayments(paymentRows);
+        }
+      })
+      .catch((cause) => {
+        if (active) setError(String(cause));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  async function refresh() { setRecords(await listUdhaars()); }
+  async function refresh() {
+    const [rows, paymentRows] = await Promise.all([listUdhaars(), listAllUdhaarPayments()]);
+    setRecords(rows);
+    setAllPayments(paymentRows);
+  }
   async function addRecord(value: CreateUdhaarInput) {
     await createUdhaar(value);
     toast.success("Udhaar recorded");
-    try { await refresh(); }
-    catch { toast.error("Saved. Refresh the page to see the latest records."); }
+    try {
+      await refresh();
+    } catch {
+      toast.error("Saved. Refresh the page to see the latest records.");
+    }
   }
   async function addPayment(value: AddUdhaarPaymentInput) {
-    await addUdhaarPayment(value);
+    await addPersonUdhaarPayment(value);
     toast.success("Repayment recorded");
     try {
       await refresh();
-      setPayments(await listUdhaarPayments(value.udhaar_id));
-    } catch { toast.error("Saved. Refresh the page to see the latest balance."); }
+    } catch {
+      toast.error("Saved. Refresh the page to see the latest balance.");
+    }
   }
-  async function openDetails(id: string) {
+  function openDetails(id: string) {
     setSelectedId(id);
-    setPayments([]);
-    setPaymentsError("");
-    setPaymentsLoading(true);
-    try { setPayments(await listUdhaarPayments(id)); }
-    catch (cause) { setPaymentsError(`Could not load repayments: ${String(cause)}`); }
-    finally { setPaymentsLoading(false); }
   }
 
-  return <main className="udhaar-page">
-    <div className="udhaar-heading"><div><p className="projects-eyebrow">MONEY YOU GAVE</p><h1>Credit / Udhaar</h1><p>See who owes you money, how much has come back, and what is still due.</p></div>
-      <Button onClick={() => setAddOpen(true)}><Plus size={18} />Give Udhaar</Button></div>
-    <div className="udhaar-tabs" role="tablist" aria-label="Credit and Udhaar views">
-      {(["overview", "people"] as const).map((tab, index) => <button type="button" role="tab" key={tab} id={`udhaar-tab-${tab}`} aria-selected={view === tab} aria-controls={`udhaar-panel-${tab}`} tabIndex={view === tab ? 0 : -1}
-        onClick={() => setView(tab)} onKeyDown={(event) => {
-          const next = event.key === "ArrowRight" ? (index + 1) % 2 : event.key === "ArrowLeft" ? (index + 1) % 2 : event.key === "Home" ? 0 : event.key === "End" ? 1 : -1;
-          if (next >= 0) { event.preventDefault(); const target = next === 0 ? "overview" : "people"; setView(target); document.getElementById(`udhaar-tab-${target}`)?.focus(); }
-        }}>{tab === "overview" ? "Overview" : "People & balances"}{tab === "people" && records.length > 0 && <span>{records.length}</span>}</button>)}
-    </div>
-    {loading && <p className="py-8 text-muted-foreground">Loading udhaar records…</p>}
-    {!loading && error && <p role="alert" className="py-8 text-destructive">Could not load udhaar records: {error}</p>}
-    {!loading && !error && <>
-      {view === "overview" && <section id="udhaar-panel-overview" role="tabpanel" aria-labelledby="udhaar-tab-overview" className="udhaar-tab-panel">
-      <div className="udhaar-summary">
-        <div className="udhaar-summary-given"><span className="udhaar-summary-icon"><HandCoins size={23} /></span><span>Total given</span><strong>{formatPKRInLakhCrore(totalLent)}</strong><small>{totalLent >= 100_000 ? `${formatPKR(totalLent, { lakhCrore: true })} in full` : "Money you lent"}</small></div>
-        <div className="udhaar-summary-paid"><span className="udhaar-summary-icon"><CircleCheck size={23} /></span><span>Paid back</span><strong>{formatPKRInLakhCrore(totalPaid)}</strong><small>{totalPaid >= 100_000 ? `${formatPKR(totalPaid, { lakhCrore: true })} in full` : "Money received from people"}</small></div>
-        <div className="udhaar-summary-remaining"><span className="udhaar-summary-icon"><Wallet size={23} /></span><span>Still to receive</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong><small>{totalRemaining >= 100_000 ? `${formatPKR(totalRemaining, { lakhCrore: true })} in full` : "Money people still owe you"}</small></div>
+  return (
+    <main className="udhaar-page">
+      <div className="udhaar-heading">
+        <div>
+          <p className="projects-eyebrow">
+            <HandCoins size={16} aria-hidden="true" /> YOUR LENDING & REPAYMENTS
+          </p>
+          <h1>Credit / Udhaar</h1>
+          <p>See who owes you money, how much has come back, and what is still due.</p>
+        </div>
+        <Button onClick={() => setAddOpen(true)}>
+          <Plus size={18} />
+          Give Udhaar
+        </Button>
       </div>
-      {records.length > 0 && <section className="udhaar-insights" aria-label="Udhaar at a glance">
-        <div className="udhaar-insight-intro"><p className="projects-eyebrow">AT A GLANCE</p><h2>How much has come back?</h2><p>Blue shows money paid back. Gold shows money still to receive.</p></div>
-        <div className="udhaar-insight-body"><div className="udhaar-donut-layout">
-          <div className="udhaar-donut" role="img" aria-label={`${formatPKR(totalPaid)} paid back and ${formatPKR(totalRemaining)} still to receive`} style={{ background: `conic-gradient(#49b9a2 0 ${paidPercent}%, #e8b941 ${paidPercent}% 100%)` }}><span><strong>{Math.round(paidPercent)}%</strong><small>paid back</small></span></div>
-          <div className="udhaar-donut-legend"><div><i className="is-paid" /><span>Paid back</span><strong>{formatPKRInLakhCrore(totalPaid)}</strong></div><div><i className="is-remaining" /><span>Still to receive</span><strong>{formatPKRInLakhCrore(totalRemaining)}</strong></div><p>Out of {formatPKRInLakhCrore(totalLent)} given in total.</p></div>
-        </div><div className="udhaar-balance-chart"><h3>Largest amounts still due</h3><p>People with the most money left to return.</p>{largestBalances.length === 0 ? <span className="udhaar-all-paid">Everyone has paid back in full.</span> : largestBalances.map((record) => {
-          const balance = record.amount - record.paid_amount;
-          return <div className="udhaar-balance-row" key={record.id}><div><strong>{record.borrower_name}</strong><span>{formatPKRInLakhCrore(balance)}</span></div><span className="udhaar-balance-track"><span style={{ width: `${balance / largestBalance * 100}%` }} /></span></div>;
-        })}</div></div>
-      </section>}
-      {records.length === 0 && <div className="udhaar-empty"><HandCoins size={34} /><h2>Your overview starts here</h2><p>Add the first udhaar to see how much has been given and paid back.</p><Button onClick={() => setAddOpen(true)}><Plus size={17} />Give Udhaar</Button></div>}
-      {records.length > 0 && <Button variant="outline" className="udhaar-view-people" onClick={() => setView("people")}>See people and remaining balances <ArrowRight size={17} /></Button>}
-      </section>}
-      {view === "people" && <section id="udhaar-panel-people" role="tabpanel" aria-labelledby="udhaar-tab-people" className="udhaar-tab-panel">
-      <div className="udhaar-list-heading"><div><h2>People who owe you</h2><p>Select a person to see payments and record money received.</p></div><span>{records.length} {records.length === 1 ? "record" : "records"}</span></div>
-      {records.length > 0 && <div className="relative udhaar-search"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="Search udhaar records" placeholder="Search by name or phone…" className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} /></div>}
-      {records.length === 0 ? <div className="udhaar-empty"><HandCoins size={34} /><h2>No udhaar recorded yet</h2><p>Start by adding the name, amount and date for money you have given.</p><Button onClick={() => setAddOpen(true)}><Plus size={17} />Give Udhaar</Button></div> :
-        visible.length === 0 ? <p className="rounded-xl border p-8 text-center text-muted-foreground">No udhaar records match your search.</p> :
-          <div className="udhaar-cards">{visible.map((record) => {
-            const remaining = Math.max(0, record.amount - record.paid_amount);
-            const percent = Math.min(100, record.paid_amount / record.amount * 100);
-            return <button className={`udhaar-card ${remaining === 0 ? "is-settled" : record.paid_amount > 0 ? "is-partial" : "is-unpaid"}`} type="button" key={record.id} onClick={() => openDetails(record.id)} aria-label={`View ${record.borrower_name}'s udhaar`}>
-              <span className="udhaar-card-top"><span className="udhaar-avatar"><UserRound size={25} /></span><span className="udhaar-card-person"><strong>{record.borrower_name}</strong><small>{record.phone || "Phone not added"}</small></span><ArrowRight size={19} /></span>
-              <span className="udhaar-card-status">{remaining === 0 ? <><CircleCheck size={15} />Paid in full</> : record.paid_amount > 0 ? "Partly paid" : "Not paid yet"}</span>
-              <span className="udhaar-card-amount"><small>Still to receive</small><strong>{formatPKRInLakhCrore(remaining)}</strong>{remaining >= 100_000 && <em>{formatPKR(remaining, { lakhCrore: true })} exactly</em>}</span>
-              <span className="udhaar-progress-caption"><span>Repayment progress</span><strong>{Math.round(percent)}% paid</strong></span>
-              <span className="udhaar-progress" role="img" aria-label={`${formatPKR(record.paid_amount)} repaid out of ${formatPKR(record.amount)}`}><span style={{ width: `${percent}%` }} /></span>
-              <span className="udhaar-card-split"><span>Given <strong>{formatPKRInLakhCrore(record.amount)}</strong></span><span>Paid back <strong>{formatPKRInLakhCrore(record.paid_amount)}</strong></span></span>
-              <span className="udhaar-card-date"><CalendarDays size={14} />Given {formatDate(record.given_date)}{record.due_date ? ` · Due ${formatDate(record.due_date)}` : ""}</span>
-              <span className="udhaar-card-action">View details <ArrowRight size={16} /></span>
-            </button>;
-          })}</div>}
-      </section>}
-    </>}
-    {addOpen && <UdhaarForm onClose={() => setAddOpen(false)} onSave={addRecord} />}
-    <Dialog open={!!selected && !paymentOpen} onOpenChange={(open) => { if (!open) setSelectedId(null); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-        {selected && <><DialogHeader><DialogTitle>{selected.borrower_name}'s udhaar</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">{selected.phone || "No phone number saved"} · Given {formatDate(selected.given_date)}{selected.due_date ? ` · Due ${formatDate(selected.due_date)}` : ""}</p>
-          <div className="udhaar-detail-totals"><div><span>Given</span><strong>{formatPKR(selected.amount)}</strong></div><div><span>Paid back</span><strong>{formatPKR(selected.paid_amount)}</strong></div><div><span>Remaining</span><strong>{formatPKR(Math.max(0, selected.amount - selected.paid_amount))}</strong></div></div>
-          {selected.notes && <p className="rounded-lg bg-muted p-3 text-sm">{selected.notes}</p>}
-          <div className="udhaar-history-heading"><h3>Repayment history</h3><span>{selected.payment_count} {selected.payment_count === 1 ? "payment" : "payments"}</span></div>
-          {paymentsError && <p role="alert" className="text-sm text-destructive">{paymentsError}</p>}
-          {paymentsLoading ? <p className="rounded-lg border p-4 text-sm text-muted-foreground">Loading repayments…</p> : payments.length === 0 && !paymentsError ? <p className="rounded-lg border p-4 text-sm text-muted-foreground">No repayments recorded yet.</p> : <div className="udhaar-history">{payments.map((payment) => <div key={payment.id}><span><strong>{formatDate(payment.paid_date)}</strong><small>{payment.method || "Other"}{payment.notes ? ` · ${payment.notes}` : ""}</small></span><strong>{formatPKR(payment.amount)}</strong></div>)}</div>}
-          <DialogFooter><Button variant="outline" onClick={() => setSelectedId(null)}>Close</Button>{selected.amount > selected.paid_amount && <Button onClick={() => setPaymentOpen(true)}><Plus size={17} />Record repayment</Button>}</DialogFooter>
-        </>}
-      </DialogContent>
-    </Dialog>
-    {selected && paymentOpen && <RepaymentForm record={selected} onClose={() => setPaymentOpen(false)} onSave={addPayment} />}
-  </main>;
+      <div className="udhaar-tabs" role="tablist" aria-label="Credit and Udhaar views">
+        {(["overview", "people"] as const).map((tab, index) => (
+          <button
+            type="button"
+            role="tab"
+            key={tab}
+            id={`udhaar-tab-${tab}`}
+            aria-selected={view === tab}
+            aria-controls={`udhaar-panel-${tab}`}
+            tabIndex={view === tab ? 0 : -1}
+            onClick={() => setView(tab)}
+            onKeyDown={(event) => {
+              const next =
+                event.key === "ArrowRight"
+                  ? (index + 1) % 2
+                  : event.key === "ArrowLeft"
+                    ? (index + 1) % 2
+                    : event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                        ? 1
+                        : -1;
+              if (next >= 0) {
+                event.preventDefault();
+                const target = next === 0 ? "overview" : "people";
+                setView(target);
+                document.getElementById(`udhaar-tab-${target}`)?.focus();
+              }
+            }}
+          >
+            {tab === "overview" ? (
+              <BarChart3 size={19} aria-hidden="true" />
+            ) : (
+              <UsersRound size={19} aria-hidden="true" />
+            )}
+            {tab === "overview" ? "Overview" : "People & balances"}
+            {tab === "people" && records.length > 0 && <span>{people.length}</span>}
+          </button>
+        ))}
+      </div>
+      {loading && <p className="py-8 text-muted-foreground">Loading udhaar records…</p>}
+      {!loading && error && (
+        <p role="alert" className="py-8 text-destructive">
+          Could not load udhaar records: {error}
+        </p>
+      )}
+      {!loading && !error && (
+        <>
+          {view === "overview" && (
+            <section
+              id="udhaar-panel-overview"
+              role="tabpanel"
+              aria-labelledby="udhaar-tab-overview"
+              className="udhaar-tab-panel"
+            >
+              <div className="udhaar-filter-panel">
+                <div>
+                  <strong>
+                    <CalendarDays size={18} aria-hidden="true" /> Reporting period
+                  </strong>
+                  <p>
+                    Given and paid back show activity in this period. Still to receive shows the
+                    balance at its end.
+                  </p>
+                </div>
+                <div className="udhaar-filter-options" role="group" aria-label="Udhaar time period">
+                  {(Object.keys(periodNames) as Period[]).map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      aria-pressed={period === option}
+                      onClick={() => setPeriod(option)}
+                    >
+                      {periodNames[option]}
+                    </button>
+                  ))}
+                </div>
+                {period === "custom" && (
+                  <div className="udhaar-custom-range">
+                    <div>
+                      <Label htmlFor="udhaar-from">From date</Label>
+                      <Input
+                        id="udhaar-from"
+                        type="date"
+                        value={customFrom}
+                        onChange={(event) => setCustomFrom(event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="udhaar-to">To date</Label>
+                      <Input
+                        id="udhaar-to"
+                        type="date"
+                        min={customFrom || undefined}
+                        value={customTo}
+                        onChange={(event) => setCustomTo(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+                {!validRange && (
+                  <p className="udhaar-filter-error" role="status">
+                    Choose a start and end date, with the end on or after the start.
+                  </p>
+                )}
+                {validRange && (
+                  <span className="udhaar-filter-caption">Showing: {periodLabel}</span>
+                )}
+              </div>
+              {validRange && (
+                <>
+                  <div className="udhaar-summary">
+                    <div className="udhaar-summary-given">
+                      <span className="udhaar-summary-icon">
+                        <ArrowUpRight size={26} aria-hidden="true" />
+                      </span>
+                      <span>{period === "all" ? "Total given" : "Given in this period"}</span>
+                      <strong>{formatPKRInLakhCrore(totalLent)}</strong>
+                      <small>
+                        {totalLent >= 100_000
+                          ? `${formatPKR(totalLent, { lakhCrore: true })} in full`
+                          : "Money you lent"}
+                      </small>
+                    </div>
+                    <div className="udhaar-summary-paid">
+                      <span className="udhaar-summary-icon">
+                        <ArrowDownLeft size={26} aria-hidden="true" />
+                      </span>
+                      <span>{period === "all" ? "Paid back" : "Paid back in this period"}</span>
+                      <strong>{formatPKRInLakhCrore(totalPaid)}</strong>
+                      <small>
+                        {totalPaid >= 100_000
+                          ? `${formatPKR(totalPaid, { lakhCrore: true })} in full`
+                          : "Money received from people"}
+                      </small>
+                    </div>
+                    <div className="udhaar-summary-remaining">
+                      <span className="udhaar-summary-icon">
+                        <Wallet size={26} aria-hidden="true" />
+                      </span>
+                      <span>
+                        {period === "all" ? "Still to receive" : "Still to receive at period end"}
+                      </span>
+                      <strong>{formatPKRInLakhCrore(totalRemaining)}</strong>
+                      <small>
+                        {totalRemaining >= 100_000
+                          ? `${formatPKR(totalRemaining, { lakhCrore: true })} in full`
+                          : "Money people still owe you"}
+                      </small>
+                    </div>
+                  </div>
+                  {records.length > 0 && (
+                    <section className="udhaar-insights" aria-label="Udhaar at a glance">
+                      <div className="udhaar-insight-intro">
+                        <p className="projects-eyebrow">At a glance</p>
+                        <h2>
+                          <CircleCheck size={22} aria-hidden="true" /> How much has come back?
+                        </h2>
+                        <p>
+                          Green shows money paid back. Coral shows money still to receive
+                          {period === "all" ? "." : " at the end of the selected period."}
+                        </p>
+                      </div>
+                      <div className="udhaar-insight-body">
+                        <div className="udhaar-donut-layout">
+                          <RingChart
+                            value={Math.round(paidPercent) + "%"}
+                            label="paid back"
+                            ariaLabel={
+                              formatPKR(paidToEnd) +
+                              " paid back and " +
+                              formatPKR(totalRemaining) +
+                              " still to receive"
+                            }
+                            segments={[
+                              {
+                                label: "Paid back",
+                                value: paidToEnd,
+                                color: chartColors.green,
+                                display: formatPKR(paidToEnd),
+                              },
+                              {
+                                label: "Still to receive",
+                                value: totalRemaining,
+                                color: chartColors.coral,
+                                display: formatPKR(totalRemaining),
+                              },
+                            ]}
+                          />
+                          <div className="udhaar-donut-legend">
+                            <div>
+                              <i className="is-paid" />
+                              <span>
+                                <ArrowDownLeft size={17} /> Paid back
+                              </span>
+                              <strong>{formatPKRInLakhCrore(paidToEnd)}</strong>
+                            </div>
+                            <div>
+                              <i className="is-remaining" />
+                              <span>Still to receive</span>
+                              <strong>{formatPKRInLakhCrore(totalRemaining)}</strong>
+                            </div>
+                            <p>Out of {formatPKRInLakhCrore(givenToEnd)} given up to this date.</p>
+                          </div>
+                        </div>
+                        <div className="udhaar-balance-chart">
+                          <h3>
+                            <UsersRound size={21} aria-hidden="true" /> Largest amounts still due
+                          </h3>
+                          <p>
+                            People with the most money left to return at the end of this period.
+                          </p>
+                          {largestBalances.length === 0 ? (
+                            <span className="udhaar-all-paid">Everyone has paid back in full.</span>
+                          ) : (
+                            largestBalances.map(({ record, balance }) => {
+                              return (
+                                <div className="udhaar-balance-row" key={record.id}>
+                                  <div>
+                                    <strong>
+                                      <UserRound size={16} aria-hidden="true" />
+                                      {record.borrower_name}
+                                    </strong>
+                                    <span>{formatPKRInLakhCrore(balance)}</span>
+                                  </div>
+                                  <span className="udhaar-balance-track">
+                                    <span
+                                      style={{ width: `${(balance / largestBalance) * 100}%` }}
+                                    />
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                  {records.length > 0 && (
+                    <UdhaarActivityCharts
+                      loans={periodLoans}
+                      payments={periodPayments}
+                      start={start}
+                      end={end}
+                      allLoans={records}
+                      allPayments={allPayments}
+                    />
+                  )}
+                  {records.length === 0 && (
+                    <div className="udhaar-empty">
+                      <HandCoins size={34} />
+                      <h2>Your overview starts here</h2>
+                      <p>Add the first udhaar to see how much has been given and paid back.</p>
+                      <Button onClick={() => setAddOpen(true)}>
+                        <Plus size={17} />
+                        Give Udhaar
+                      </Button>
+                    </div>
+                  )}
+                  {records.length > 0 && (
+                    <Button
+                      variant="outline"
+                      className="udhaar-view-people"
+                      onClick={() => setView("people")}
+                    >
+                      See people and remaining balances <ArrowRight size={17} />
+                    </Button>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+          {view === "people" && (
+            <section
+              id="udhaar-panel-people"
+              role="tabpanel"
+              aria-labelledby="udhaar-tab-people"
+              className="udhaar-tab-panel"
+            >
+              <div className="udhaar-list-heading">
+                <div>
+                  <h2>People who owe you</h2>
+                  <p>Select a person to see payments and record money received.</p>
+                </div>
+                <span>
+                  {people.length} {people.length === 1 ? "person" : "people"}
+                </span>
+              </div>
+              <div className="udhaar-people-summary" aria-label="People in these results">
+                {[
+                  {
+                    label: "People shown",
+                    count: visible.length,
+                    icon: UsersRound,
+                    color: "#2563eb",
+                  },
+                  {
+                    label: "Not paid yet",
+                    count: visible.filter((person) => person.paid_amount === 0).length,
+                    icon: Clock3,
+                    color: "#d97706",
+                  },
+                  {
+                    label: "Partly paid",
+                    count: visible.filter(
+                      (person) => person.paid_amount > 0 && person.paid_amount < person.amount,
+                    ).length,
+                    icon: HandCoins,
+                    color: "#7c3aed",
+                  },
+                  {
+                    label: "Paid in full",
+                    count: visible.filter((person) => person.paid_amount >= person.amount).length,
+                    icon: CircleCheck,
+                    color: "#059669",
+                  },
+                ].map(({ label, count, icon: Icon, color }) => (
+                  <div key={label} style={{ "--status-color": color } as CSSProperties}>
+                    <span>
+                      <Icon size={23} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <strong>{count}</strong>
+                      <small>{label}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <details className="udhaar-search-panel">
+                <summary>
+                  <span>
+                    <SlidersHorizontal size={18} /> Search & filter people
+                  </span>
+                  <span>
+                    {filtersActive ? "Filters applied" : "All people"}
+                    <ChevronDown size={16} />
+                  </span>
+                </summary>
+                {controls}
+              </details>
+              {filtersActive && (
+                <div className="udhaar-active-filters">
+                  <span>{visible.length} people match your filters.</span>
+                  <Button variant="ghost" size="sm" onClick={resetFilters}>
+                    Clear filters
+                  </Button>
+                </div>
+              )}
+              <p className="scope-note">
+                Amount filters use the remaining balance. Date filters use each person’s latest loan
+                date. Totals include all their loans.
+              </p>
+              {records.length === 0 ? (
+                <div className="udhaar-empty">
+                  <HandCoins size={34} />
+                  <h2>No udhaar recorded yet</h2>
+                  <p>Start by adding the name, amount and date for money you have given.</p>
+                  <Button onClick={() => setAddOpen(true)}>
+                    <Plus size={17} />
+                    Give Udhaar
+                  </Button>
+                </div>
+              ) : visible.length === 0 ? (
+                <p className="rounded-xl border p-8 text-center text-muted-foreground">
+                  No udhaar records match your search.
+                </p>
+              ) : (
+                <div className="udhaar-cards">
+                  {visible.map((record) => {
+                    const remaining = Math.max(0, record.amount - record.paid_amount);
+                    const overdue = remaining > 0 && !!record.due_date && record.due_date < today();
+                    const percent = Math.min(100, (record.paid_amount / record.amount) * 100);
+                    return (
+                      <button
+                        className={`udhaar-card ${remaining === 0 ? "is-settled" : overdue ? "is-overdue" : record.paid_amount > 0 ? "is-partial" : "is-unpaid"}`}
+                        type="button"
+                        key={record.id}
+                        onClick={() => openDetails(record.id)}
+                        aria-label={`View ${record.borrower_name}'s udhaar`}
+                      >
+                        <span className="udhaar-card-top">
+                          <span className="udhaar-avatar">
+                            <UserRound size={25} />
+                          </span>
+                          <span className="udhaar-card-person">
+                            <strong>{record.borrower_name}</strong>
+                            <small>{record.phone || "Phone not added"}</small>
+                          </span>
+                          <ArrowRight size={19} />
+                        </span>
+                        <span className="udhaar-card-status">
+                          {remaining === 0 ? (
+                            <>
+                              <CircleCheck size={15} />
+                              Paid in full
+                            </>
+                          ) : overdue ? (
+                            <>
+                              <CircleAlert size={15} /> Overdue
+                            </>
+                          ) : record.paid_amount > 0 ? (
+                            <>
+                              <HandCoins size={15} /> Partly paid
+                            </>
+                          ) : (
+                            <>
+                              <Clock3 size={15} /> Not paid yet
+                            </>
+                          )}
+                        </span>
+                        <span className="udhaar-card-amount">
+                          <small>Still to receive</small>
+                          <strong>{formatPKRInLakhCrore(remaining)}</strong>
+                          {remaining >= 100_000 && (
+                            <em>{formatPKR(remaining, { lakhCrore: true })} exactly</em>
+                          )}
+                        </span>
+                        <span className="udhaar-progress-caption">
+                          <span>Repayment progress</span>
+                          <strong>{Math.round(percent)}% paid</strong>
+                        </span>
+                        <span
+                          className="udhaar-progress"
+                          role="img"
+                          aria-label={`${formatPKR(record.paid_amount)} repaid out of ${formatPKR(record.amount)}`}
+                        >
+                          <span style={{ width: `${percent}%` }} />
+                        </span>
+                        <span className="udhaar-card-split">
+                          <span>
+                            Given <strong>{formatPKRInLakhCrore(record.amount)}</strong>
+                          </span>
+                          <span>
+                            Paid back <strong>{formatPKRInLakhCrore(record.paid_amount)}</strong>
+                          </span>
+                        </span>
+                        <span className="udhaar-card-date">
+                          <CalendarDays size={14} />
+                          {record.loans.length} {record.loans.length === 1 ? "loan" : "loans"} ·
+                          Latest {formatDate(record.given_date)}
+                          {record.due_date ? ` · Due ${formatDate(record.due_date)}` : ""}
+                        </span>
+                        <span className="udhaar-card-action">
+                          View details <ArrowRight size={16} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+        </>
+      )}
+      {addOpen && <UdhaarForm onClose={() => setAddOpen(false)} onSave={addRecord} />}
+      <Dialog
+        open={!!selected && !paymentOpen}
+        onOpenChange={(open) => {
+          if (!open) setSelectedId(null);
+        }}
+      >
+        <DialogContent className="udhaar-person-dialog max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          {selected && (
+            <>
+              <DialogHeader>
+                <span className="udhaar-dialog-icon">
+                  <UserRound size={25} aria-hidden="true" />
+                </span>
+                <DialogTitle>{selected.borrower_name}'s udhaar</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                {selected.phone || "No phone number saved"} · Latest loan{" "}
+                {formatDate(selected.given_date)}
+                {selected.due_date ? ` · Due ${formatDate(selected.due_date)}` : ""}
+              </p>
+              <div className="udhaar-detail-totals">
+                <div>
+                  <span>
+                    <ArrowUpRight size={17} /> Given
+                  </span>
+                  <strong>{formatPKR(selected.amount)}</strong>
+                </div>
+                <div>
+                  <span>Paid back</span>
+                  <strong>{formatPKR(selected.paid_amount)}</strong>
+                </div>
+                <div>
+                  <span>
+                    <Wallet size={17} /> Remaining
+                  </span>
+                  <strong>{formatPKR(Math.max(0, selected.amount - selected.paid_amount))}</strong>
+                </div>
+              </div>
+              {selected.notes && (
+                <p className="rounded-lg bg-muted p-3 text-sm">{selected.notes}</p>
+              )}
+              <div className="udhaar-history-heading">
+                <h3>Money given &amp; received</h3>
+                <span>
+                  {selected.loans.length} loans · {personPayments.size} repayments
+                </span>
+              </div>
+              <div className="udhaar-history">
+                {history.map((item) => (
+                  <div key={item.id} data-kind={item.kind}>
+                    <span className="udhaar-history-icon">
+                      {item.kind === "Paid back" ? (
+                        <ArrowDownLeft size={18} />
+                      ) : (
+                        <ArrowUpRight size={18} />
+                      )}
+                    </span>
+                    <span>
+                      <strong>
+                        {item.kind} · {formatDate(item.date)}
+                      </strong>
+                      <small>
+                        {item.method}
+                        {item.notes ? " · " + item.notes : ""}
+                      </small>
+                    </span>
+                    <strong className={item.kind === "Paid back" ? "text-emerald-600" : ""}>
+                      {formatPKR(item.amount)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSelectedId(null)}>
+                  Close
+                </Button>
+                {selected.amount > selected.paid_amount && (
+                  <Button onClick={() => setPaymentOpen(true)}>
+                    <Plus size={17} />
+                    Record repayment
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      {selected && paymentOpen && (
+        <RepaymentForm
+          record={selected}
+          onClose={() => setPaymentOpen(false)}
+          onSave={addPayment}
+        />
+      )}
+    </main>
+  );
 }
 
-function UdhaarForm({ onClose, onSave }: { onClose: () => void; onSave: (value: CreateUdhaarInput) => Promise<void> }) {
+function UdhaarForm({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (value: CreateUdhaarInput) => Promise<void>;
+}) {
+  const [step, setStep] = useState(0);
+  const steps = ["Person", "Amount & date", "Payment", "Review"];
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [peopleLoading, setPeopleLoading] = useState(true);
+  const [peopleError, setPeopleError] = useState("");
+  useEffect(() => {
+    let active = true;
+    listContacts()
+      .then((rows) => {
+        if (active) setContacts(rows);
+      })
+      .catch(() => {
+        if (active)
+          setPeopleError("Could not load saved people. Close and reopen this form to retry.");
+      })
+      .finally(() => {
+        if (active) setPeopleLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [accountKey, setAccountKey] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState(emptyPaymentDetails);
   const [amount, setAmount] = useState("");
   const [givenDate, setGivenDate] = useState(today());
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
-    const result = CreateUdhaarSchema.safeParse({ borrower_name: name, phone, amount: rupees(amount), given_date: givenDate, due_date: dueDate || null, notes });
-    if (!result.success) { setError(result.error.issues[0]?.message ?? "Check the details."); return; }
-    setSaving(true);
-    try { await onSave(result.data); onClose(); }
-    catch (cause) { setError(`Could not save udhaar: ${String(cause)}`); }
-    finally { setSaving(false); }
+  const search = name.trim().toLocaleLowerCase();
+  const matches =
+    !contactId && search
+      ? contacts
+          .filter((person) =>
+            [person.name, person.phone, person.phone2].some((value) =>
+              value?.toLocaleLowerCase().includes(search),
+            ),
+          )
+          .slice(0, 8)
+      : [];
+  function selectPerson(person: Contact) {
+    setContactId(person.id);
+    setName(person.name);
+    setPhone(person.phone ?? "");
   }
-  return <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
-    <DialogContent className="udhaar-entry-dialog max-h-[92vh] overflow-y-auto sm:max-w-2xl">
-      <DialogHeader className="udhaar-entry-header">
-        <span className="udhaar-entry-icon"><HandCoins size={26} aria-hidden="true" /></span>
-        <div><p className="udhaar-entry-eyebrow">NEW MONEY LENT</p><DialogTitle>Give Udhaar</DialogTitle>
-          <p>Write down who received the money and when. You can record repayments later.</p></div>
-      </DialogHeader>
-      <form id="udhaar-form" onSubmit={submit} className="udhaar-entry-form">
-        <section className="udhaar-entry-section" aria-labelledby="udhaar-person-heading">
-          <div className="udhaar-entry-section-title"><span>1</span><div><h3 id="udhaar-person-heading">Who received the money?</h3><p>Use the name you will recognize later.</p></div></div>
-          <div className="udhaar-entry-grid"><div className="udhaar-entry-field"><Label htmlFor="udhaar-name">Person's name *</Label><Input id="udhaar-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Ali Baloch" autoFocus required /></div>
-            <div className="udhaar-entry-field"><Label htmlFor="udhaar-phone">Phone (optional)</Label><Input id="udhaar-phone" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="e.g. 0300 1234567" /></div></div>
-        </section>
-        <section className="udhaar-entry-section" aria-labelledby="udhaar-money-heading">
-          <div className="udhaar-entry-section-title"><span>2</span><div><h3 id="udhaar-money-heading">How much did you give?</h3><p>Enter the amount and the day you handed it over.</p></div></div>
-          <div className="udhaar-entry-field udhaar-entry-amount"><Label htmlFor="udhaar-amount">Amount given (Rs) *</Label><Input id="udhaar-amount" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="e.g. 50,000" aria-describedby="udhaar-amount-help" required /><small id="udhaar-amount-help">Whole rupees only. Repayments will reduce this balance.</small></div>
-          <div className="udhaar-entry-grid"><div className="udhaar-entry-field"><Label htmlFor="udhaar-date">Date given *</Label><Input id="udhaar-date" type="date" value={givenDate} onChange={(event) => setGivenDate(event.target.value)} required /></div><div className="udhaar-entry-field"><Label htmlFor="udhaar-due">Expected return date (optional)</Label><Input id="udhaar-due" type="date" min={givenDate} value={dueDate} onChange={(event) => setDueDate(event.target.value)} /><small>Leave blank if no return date was agreed.</small></div></div>
-        </section>
-        <section className="udhaar-entry-section" aria-labelledby="udhaar-notes-heading">
-          <div className="udhaar-entry-section-title"><span>3</span><div><h3 id="udhaar-notes-heading">Anything else to remember?</h3><p>Add a short note if it will help identify this udhaar.</p></div></div>
-          <div className="udhaar-entry-field"><Label htmlFor="udhaar-notes">Notes (optional)</Label><Input id="udhaar-notes" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="e.g. Given for shop supplies" /></div>
-        </section>
-        <div className="udhaar-entry-preview" aria-live="polite"><span>Amount to be recorded</span><strong>{rupees(amount) ? formatPKR(rupees(amount)!) : "Enter an amount"}</strong><small>{name.trim() ? `For ${name.trim()}` : "Add the person's name above"}</small></div>
-        {error && <p role="alert" className="udhaar-entry-error">{error}</p>}
-      </form>
-      <DialogFooter className="udhaar-entry-footer"><Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button><Button type="submit" form="udhaar-form" disabled={saving}>{saving ? "Saving…" : "Save udhaar"}</Button></DialogFooter>
-    </DialogContent>
-  </Dialog>;
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (step === 0) {
+      if (!name.trim() || name.trim().length > 120 || phone.length > 40) {
+        setError("Enter a valid name and phone number.");
+        return;
+      }
+      setStep(1);
+      return;
+    }
+    if (step === 1) {
+      const value = rupees(amount);
+      if (!value || !Number.isSafeInteger(value) || value <= 0) {
+        setError("Enter a positive amount in whole rupees.");
+        return;
+      }
+      if (!givenDate || (dueDate && dueDate < givenDate)) {
+        setError("Check the given and expected return dates.");
+        return;
+      }
+      setStep(2);
+      return;
+    }
+    const result = CreateUdhaarSchema.safeParse({
+      contact_id: contactId,
+      account_key: accountKey,
+      payment_details: accountKey ? paymentDetails : undefined,
+      borrower_name: name,
+      phone,
+      amount: rupees(amount),
+      given_date: givenDate,
+      due_date: dueDate || null,
+      notes,
+    });
+    if (!result.success) {
+      setError(result.error.issues[0]?.message ?? "Check the details.");
+      return;
+    }
+    if (step === 2) {
+      setStep(3);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(result.data);
+      onClose();
+    } catch (cause) {
+      setError(`Could not save udhaar: ${String(cause)}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !saving) onClose();
+      }}
+    >
+      <DialogContent className="udhaar-entry-dialog udhaar-colorful-entry">
+        <DialogHeader className="udhaar-entry-header">
+          <span className="udhaar-entry-icon">
+            <HandCoins size={26} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="udhaar-entry-eyebrow">NEW MONEY LENT</p>
+            <DialogTitle>Give Udhaar</DialogTitle>
+            <DialogDescription>
+              Record who you lent to, the amount, and how it was paid.
+            </DialogDescription>
+          </div>
+        </DialogHeader>
+        <nav className="udhaar-entry-progress" aria-label="Udhaar steps">
+          <p role="status">
+            Step {step + 1} of 4 · {steps[step]}
+          </p>
+          <ol>
+            {steps.map((label, index) => (
+              <li
+                key={label}
+                aria-current={index === step ? "step" : undefined}
+                data-state={index < step ? "complete" : index === step ? "current" : "upcoming"}
+              >
+                <span className="udhaar-step-number">
+                  {index < step ? (
+                    <CircleCheck size={17} aria-hidden="true" />
+                  ) : index === 0 ? (
+                    <UserRound size={17} aria-hidden="true" />
+                  ) : index === 1 ? (
+                    <HandCoins size={17} aria-hidden="true" />
+                  ) : index === 2 ? (
+                    <Wallet size={17} aria-hidden="true" />
+                  ) : (
+                    <ReceiptText size={17} aria-hidden="true" />
+                  )}
+                </span>
+                <span>{label}</span>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <form id="udhaar-form" onSubmit={submit} className="udhaar-entry-form">
+          {step === 0 && (
+            <section className="udhaar-entry-section" aria-labelledby="udhaar-person-heading">
+              <div className="udhaar-entry-section-title">
+                <span>1</span>
+                <div>
+                  <h3 id="udhaar-person-heading">Who received the money?</h3>
+                  <p>Search saved people by name or phone, or enter a new person.</p>
+                </div>
+              </div>
+              <div className="udhaar-entry-grid">
+                <div className="udhaar-entry-field">
+                  <Label htmlFor="udhaar-name">Person's name *</Label>
+                  <Input
+                    id="udhaar-name"
+                    value={name}
+                    onChange={(event) => {
+                      setName(event.target.value);
+                      if (contactId) {
+                        setContactId(null);
+                        setPhone("");
+                      }
+                    }}
+                    autoComplete="off"
+                    aria-describedby="udhaar-person-help"
+                    placeholder="e.g. Ali Baloch"
+                    autoFocus
+                    required
+                  />
+                  <div
+                    id="udhaar-person-help"
+                    className="mt-2 text-sm text-muted-foreground"
+                    aria-live="polite"
+                  >
+                    {peopleLoading
+                      ? "Loading saved people…"
+                      : peopleError ||
+                        (contactId
+                          ? "Linked to Contacts. Name and phone stay in sync. Edit the name above to choose a different person."
+                          : "Choose a saved person below, or save this name as a new contact.")}
+                  </div>
+                </div>
+                <div className="udhaar-entry-field">
+                  <Label htmlFor="udhaar-phone">Phone (optional)</Label>
+                  <Input
+                    id="udhaar-phone"
+                    readOnly={!!contactId}
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="e.g. 0300 1234567"
+                  />
+                </div>
+              </div>
+              {matches.length > 0 && (
+                <div className="udhaar-contact-picker" role="group" aria-label="Suggested people">
+                  <div className="udhaar-contact-picker-heading">
+                    <span>Matching contacts</span>
+                    <small>{matches.length} shown · Select a person</small>
+                  </div>
+                  <div className="udhaar-contact-results">
+                    {matches.map((person) => (
+                      <button
+                        type="button"
+                        key={person.id}
+                        onClick={() => selectPerson(person)}
+                        className="udhaar-contact-option"
+                      >
+                        <span className="udhaar-contact-avatar" aria-hidden="true">
+                          {person.name
+                            .trim()
+                            .split(/\s+/)
+                            .slice(0, 2)
+                            .map((part) => part[0])
+                            .join("")
+                            .toLocaleUpperCase()}
+                        </span>
+                        <span className="udhaar-contact-copy">
+                          <strong>{person.name}</strong>
+                          <span>{person.phone || person.phone2 || "No phone number"}</span>
+                          {person.address && <small>{person.address}</small>}
+                        </span>
+                        <span className="udhaar-contact-action" aria-hidden="true">
+                          Select <ArrowRight size={16} />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+          {step === 1 && (
+            <section className="udhaar-entry-section" aria-labelledby="udhaar-money-heading">
+              <div className="udhaar-entry-section-title">
+                <span>2</span>
+                <div>
+                  <h3 id="udhaar-money-heading">How much did you give?</h3>
+                  <p>Enter the amount and the day you handed it over.</p>
+                </div>
+              </div>
+              <div className="udhaar-entry-field udhaar-entry-amount">
+                <Label htmlFor="udhaar-amount">Amount given (Rs) *</Label>
+                <Input
+                  id="udhaar-amount"
+                  inputMode="numeric"
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  placeholder="e.g. 50,000"
+                  aria-describedby="udhaar-amount-help"
+                  required
+                />
+                <small id="udhaar-amount-help">
+                  Whole rupees only. Repayments will reduce this balance.
+                </small>
+              </div>
+              <div className="udhaar-entry-grid">
+                <div className="udhaar-entry-field">
+                  <Label htmlFor="udhaar-date">Date given *</Label>
+                  <Input
+                    id="udhaar-date"
+                    type="date"
+                    value={givenDate}
+                    onChange={(event) => setGivenDate(event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="udhaar-entry-field">
+                  <Label htmlFor="udhaar-due">Expected return date (optional)</Label>
+                  <Input
+                    id="udhaar-due"
+                    type="date"
+                    min={givenDate}
+                    value={dueDate}
+                    onChange={(event) => setDueDate(event.target.value)}
+                  />
+                  <small>Leave blank if no return date was agreed.</small>
+                </div>
+              </div>
+            </section>
+          )}
+          {step === 2 && (
+            <section className="udhaar-entry-section" aria-labelledby="udhaar-payment-heading">
+              <div className="udhaar-entry-section-title">
+                <span>3</span>
+                <div>
+                  <h3 id="udhaar-payment-heading">How did you pay?</h3>
+                  <p>Choose the account used and add the payment details.</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <BankAccountSelect value={accountKey} onChange={setAccountKey} />
+                {accountKey && (
+                  <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />
+                )}
+              </div>
+            </section>
+          )}
+          {step === 3 && (
+            <section className="udhaar-entry-section" aria-labelledby="udhaar-notes-heading">
+              <div className="udhaar-entry-section-title">
+                <span>4</span>
+                <div>
+                  <h3 id="udhaar-notes-heading">Review your udhaar</h3>
+                  <p>Check the details below and add a note before saving.</p>
+                </div>
+              </div>
+              <div className="udhaar-entry-field">
+                <Label htmlFor="udhaar-notes">Notes (optional)</Label>
+                <Input
+                  id="udhaar-notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="e.g. Given for shop supplies"
+                />
+              </div>
+            </section>
+          )}
+          {step === 3 && (
+            <div className="udhaar-entry-preview" aria-live="polite">
+              <span>Amount to be recorded</span>
+              <strong>{rupees(amount) ? formatPKR(rupees(amount)!) : "Enter an amount"}</strong>
+              <small>{name.trim() ? `For ${name.trim()}` : "Add the person's name above"}</small>
+              <small>
+                Given {formatDate(givenDate)}
+                {dueDate ? ` · Return by ${formatDate(dueDate)}` : ""}
+              </small>
+              <small>{accountKey === "personal" ? "Personal Account" : "Builder Account"}</small>
+              {accountKey === "personal" && (
+                <small>{paymentSummary(JSON.stringify(paymentDetails))}</small>
+              )}
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="udhaar-entry-error">
+              {error}
+            </p>
+          )}
+        </form>
+        <DialogFooter className="udhaar-entry-footer">
+          <Button
+            className="udhaar-entry-cancel"
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          {step > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => {
+                setError("");
+                setStep(step - 1);
+              }}
+            >
+              Back
+            </Button>
+          )}
+          <Button type="submit" form="udhaar-form" disabled={saving}>
+            {saving ? "Saving…" : step === 3 ? "Save udhaar" : "Next"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
-function RepaymentForm({ record, onClose, onSave }: { record: Udhaar; onClose: () => void; onSave: (value: AddUdhaarPaymentInput) => Promise<void> }) {
+function RepaymentForm({
+  record,
+  onClose,
+  onSave,
+}: {
+  record: Udhaar;
+  onClose: () => void;
+  onSave: (value: AddUdhaarPaymentInput) => Promise<void>;
+}) {
   const remaining = record.amount - record.paid_amount;
+  const [accountKey, setAccountKey] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState(emptyPaymentDetails);
   const [amount, setAmount] = useState("");
   const [paidDate, setPaidDate] = useState(today());
-  const [method, setMethod] = useState<"cash" | "bank" | "cheque" | "other">("cash");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
-    const result = AddUdhaarPaymentSchema.safeParse({ udhaar_id: record.id, amount: rupees(amount), paid_date: paidDate, method, notes });
-    if (!result.success) { setError(result.error.issues[0]?.message ?? "Check the repayment."); return; }
-    if (result.data.amount > remaining) { setError(`Payment cannot exceed ${formatPKR(remaining)} remaining.`); return; }
+    event.preventDefault();
+    setError("");
+    const result = AddUdhaarPaymentSchema.safeParse({
+      account_key: accountKey,
+      payment_details: accountKey ? paymentDetails : undefined,
+      udhaar_id: record.id,
+      amount: rupees(amount),
+      paid_date: paidDate,
+      method: paymentDetails.method,
+      notes,
+    });
+    if (!result.success) {
+      setError(result.error.issues[0]?.message ?? "Check the repayment.");
+      return;
+    }
+    if (result.data.amount > remaining) {
+      setError(`Payment cannot exceed ${formatPKR(remaining)} remaining.`);
+      return;
+    }
     setSaving(true);
-    try { await onSave(result.data); onClose(); }
-    catch (cause) { setError(`Could not save repayment: ${String(cause)}`); }
-    finally { setSaving(false); }
+    try {
+      await onSave(result.data);
+      onClose();
+    } catch (cause) {
+      setError(`Could not save repayment: ${String(cause)}`);
+    } finally {
+      setSaving(false);
+    }
   }
-  return <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Record repayment from {record.borrower_name}</DialogTitle></DialogHeader>
-    <p className="text-sm text-muted-foreground">Still to receive: <strong>{formatPKR(remaining)}</strong></p>
-    <form id="udhaar-payment-form" onSubmit={submit} className="space-y-4">
-      <div><Label htmlFor="repayment-amount">Amount received (Rs) *</Label><Input id="repayment-amount" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="e.g. 10,000" required /></div>
-      <div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="repayment-date">Date received *</Label><Input id="repayment-date" type="date" value={paidDate} onChange={(event) => setPaidDate(event.target.value)} required /></div><div><Label htmlFor="repayment-method">Payment method</Label><select id="repayment-method" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={method} onChange={(event) => setMethod(event.target.value as typeof method)}><option value="cash">Cash</option><option value="bank">Bank</option><option value="cheque">Cheque</option><option value="other">Other</option></select></div></div>
-      <div><Label htmlFor="repayment-notes">Notes (optional)</Label><Input id="repayment-notes" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Receipt or transfer reference" /></div>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    </form><DialogFooter><Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button><Button type="submit" form="udhaar-payment-form" disabled={saving}>{saving ? "Saving…" : "Save repayment"}</Button></DialogFooter>
-  </DialogContent></Dialog>;
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !saving) onClose();
+      }}
+    >
+      <DialogContent className="udhaar-repayment-dialog max-h-[92vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <span className="udhaar-dialog-icon">
+            <ArrowDownLeft size={26} aria-hidden="true" />
+          </span>
+          <DialogTitle>Record repayment from {record.borrower_name}</DialogTitle>
+        </DialogHeader>
+        <p className="udhaar-repayment-balance">
+          Total still to receive: <strong>{formatPKR(remaining)}</strong>
+        </p>
+        <form id="udhaar-payment-form" onSubmit={submit} className="space-y-4">
+          <BankAccountSelect value={accountKey} onChange={setAccountKey} direction="in" />
+          {accountKey && (
+            <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />
+          )}
+          <div>
+            <Label htmlFor="repayment-amount">Amount received (Rs) *</Label>
+            <Input
+              id="repayment-amount"
+              inputMode="numeric"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="e.g. 10,000"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="repayment-date">Date received *</Label>
+            <Input
+              id="repayment-date"
+              type="date"
+              value={paidDate}
+              onChange={(event) => setPaidDate(event.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="repayment-notes">Notes (optional)</Label>
+            <Input
+              id="repayment-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Receipt or transfer reference"
+            />
+          </div>
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+        </form>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" form="udhaar-payment-form" disabled={saving}>
+            {saving ? "Saving…" : "Save repayment"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
