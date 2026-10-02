@@ -79,6 +79,7 @@ pub fn run() {
             kind: MigrationKind::Up,
         },
         Migration { version: 13, description: "013_expense_payment_details", sql: include_str!("../migrations/013_expense_payment_details.sql"), kind: MigrationKind::Up },
+        Migration { version: 14, description: "014_covered_area_unit", sql: include_str!("../migrations/014_covered_area_unit.sql"), kind: MigrationKind::Up },
     ];
 
     tauri::Builder::default()

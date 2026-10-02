@@ -473,4 +473,10 @@
     transform: none;
   }
 }
-.projects-page.projects-page .projects-overview-heading [data-slot="button"] { display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; }
+.projects-page.projects-page .projects-overview-heading [data-slot="button"] {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

@@ -56,6 +56,7 @@ export interface ProjectBuildingDetails extends BaseRecord {
   plot_area_value: number | null;
   plot_area_unit: AreaUnit | null;
   covered_area_sqft: number | null;
+  covered_area_unit?: "sqft" | "sqyd" | null;
   notes: string | null;
 }
 

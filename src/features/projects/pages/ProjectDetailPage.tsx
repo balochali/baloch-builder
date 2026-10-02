@@ -1,22 +1,25 @@
 import { BankAccountSelect } from "@/components/BankAccountSelect";
+import "./project-detail.css";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
-  BriefcaseBusiness,
   Building2,
   ChevronDown,
   ChevronRight,
-  House,
   Landmark,
   Layers,
-  ParkingSquare,
   Pencil,
   Ruler,
-  Store,
   Trash2,
   UserRound,
   Plus,
+  LayoutDashboard,
+  Users,
+  Calculator,
+  Wallet,
+  HardHat,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -67,6 +70,9 @@ import { formatDate } from "@/lib/dates";
 import { ProjectEntryDialog } from "@/features/projects/components/ProjectEntryDialog";
 import { flatRecoveryLines, recoveryLink } from "@/features/projects/components/recoverySpaces";
 import { BuildingDetailsDialog } from "@/features/projects/components/BuildingDetailsDialog";
+import { BuildingOverview } from "@/features/projects/components/BuildingOverview";
+import { BuildingFloorsOverview } from "@/features/projects/components/BuildingFloorsOverview";
+import { BuildingAreasOverview } from "@/features/projects/components/BuildingAreasOverview";
 import { ProjectDashboard } from "@/features/projects/components/ProjectDashboard";
 import { ConstructionCostInsights } from "@/features/projects/components/ConstructionCostInsights";
 import { ProjectStatusProgress } from "@/features/projects/components/ProjectStatusProgress";
@@ -74,10 +80,7 @@ import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPart
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
 import {
   BuildingAreaChart,
-  BuildingLevelsChart,
-  BuildingMixChart,
   EstimateChart,
-  FlatLayoutChart,
   OwnershipChart,
   PartnerFundingChart,
   SpendingChart,
@@ -95,25 +98,32 @@ import {
 type Tab = "dashboard" | "building" | "partners" | "estimate" | "actual" | "construction";
 type BuildingTab = "overview" | "floors" | "areas";
 type EntryMode = "estimate" | "actual" | "construction";
-const projectTabs: { id: Tab; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "building", label: "Building" },
-  { id: "partners", label: "Partners" },
-  { id: "estimate", label: "Estimate" },
-  { id: "actual", label: "Actual Cost" },
-  { id: "construction", label: "Construction Cost" },
+const projectTabs: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "building", label: "Building", icon: Building2 },
+  { id: "partners", label: "Partners", icon: Users },
+  { id: "estimate", label: "Estimate", icon: Calculator },
+  { id: "actual", label: "Actual Cost", icon: Wallet },
+  { id: "construction", label: "Construction Cost", icon: HardHat },
 ];
-const buildingTabs: { id: BuildingTab; label: string; description: string }[] = [
-  { id: "overview", label: "At a glance", description: "See what is planned for this building." },
+const buildingTabs: { id: BuildingTab; label: string; description: string; icon: LucideIcon }[] = [
+  {
+    id: "overview",
+    label: "At a glance",
+    description: "See what is planned for this building.",
+    icon: LayoutDashboard,
+  },
   {
     id: "floors",
     label: "Floors & flats",
     description: "See the floors and which flats are planned on each one.",
+    icon: Layers,
   },
   {
     id: "areas",
     label: "Areas & details",
     description: "See measurements and the rest of the saved plan.",
+    icon: Ruler,
   },
 ];
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
@@ -416,11 +426,9 @@ export function ProjectDetailPage() {
   const selectedSpaces = buildingDetails
     ? decodeBuildingSpaces(buildingDetails.selected_spaces_json ?? "[]")
     : [];
-  const showPlannedSpace = (space: (typeof selectedSpaces)[number]) =>
-    selectedSpaces.length === 0 || selectedSpaces.includes(space);
 
   return (
-    <div>
+    <div className="project-detail-page">
       {loading && <p className="py-8 text-sm text-muted-foreground">Loading project…</p>}
       {!loading && error && (
         <p role="alert" className="py-8 text-sm text-destructive">
@@ -439,8 +447,19 @@ export function ProjectDetailPage() {
                   <ArrowLeft className="size-4" />
                   Back to Projects
                 </Link>
-                <h1>{project.name}</h1>
-                <p>{project.location || "No address"}</p>
+                <div className="project-detail-title">
+                  <span>
+                    <Building2 size={30} />
+                  </span>
+                  <div>
+                    <small>PROJECT WORKSPACE</small>
+                    <h1>{project.name}</h1>
+                  </div>
+                </div>
+                <p className="project-detail-location">
+                  <MapPin size={16} />
+                  {project.location || "No address"}
+                </p>
               </div>
               <Button
                 variant="outline"
@@ -497,7 +516,7 @@ export function ProjectDetailPage() {
           </section>
 
           <div role="tablist" aria-label="Project details" className="project-detail-tabs">
-            {visibleProjectTabs.map(({ id, label }, index) => (
+            {visibleProjectTabs.map(({ id, label, icon: Icon }, index) => (
               <button
                 key={id}
                 id={`project-tab-${id}`}
@@ -525,6 +544,7 @@ export function ProjectDetailPage() {
                   }
                 }}
               >
+                <Icon size={19} aria-hidden="true" />
                 {label}
               </button>
             ))}
@@ -547,14 +567,19 @@ export function ProjectDetailPage() {
               id="project-panel-building"
               role="tabpanel"
               aria-labelledby="project-tab-building"
-              className="project-detail-section mb-8 rounded-xl border bg-card p-5"
+              className="project-detail-section project-building-section mb-8 rounded-xl border bg-card p-5"
             >
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">Building Details</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Planned floors, units and areas for this project.
-                  </p>
+              <div className="project-building-heading mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="project-building-heading-copy">
+                  <span className="project-building-heading-icon">
+                    <Building2 size={25} />
+                  </span>
+                  <div>
+                    <h2 className="text-lg font-semibold">Building Details</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Planned floors, units and areas for this project.
+                    </p>
+                  </div>
                 </div>
                 <Button variant="outline" onClick={() => setBuildingDialogOpen(true)}>
                   <Pencil className="size-4" />
@@ -568,7 +593,7 @@ export function ProjectDetailPage() {
                     aria-label="Building details"
                     className="building-detail-tabs"
                   >
-                    {buildingTabs.map(({ id, label }, index) => (
+                    {buildingTabs.map(({ id, label, icon: Icon }, index) => (
                       <button
                         key={id}
                         id={`building-tab-${id}`}
@@ -597,6 +622,7 @@ export function ProjectDetailPage() {
                           }
                         }}
                       >
+                        <Icon size={19} aria-hidden="true" />
                         {label}
                       </button>
                     ))}
@@ -611,47 +637,7 @@ export function ProjectDetailPage() {
                       aria-labelledby="building-tab-overview"
                       className="building-tab-panel"
                     >
-                      {selectedSpaces.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedSpaces.map((space) => (
-                            <span
-                              key={space}
-                              className="rounded-full bg-muted px-2.5 py-1 text-xs capitalize"
-                            >
-                              {space.replace(/_/g, " ")}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="building-overview-chart">
-                        <BuildingMixChart details={buildingDetails} />
-                      </div>
-                      <div className="building-overview-facts">
-                        <Detail
-                          label="Building use"
-                          value={buildingDetails.building_use?.replace("-", " ")}
-                          icon={Building2}
-                        />
-                        <Detail
-                          label="Floors above ground"
-                          value={buildingDetails.floors_above_ground}
-                          icon={Layers}
-                        />
-                        {showPlannedSpace("flats") && (
-                          <Detail
-                            label="Planned flats"
-                            value={buildingDetails.planned_flats}
-                            icon={House}
-                          />
-                        )}
-                        {showPlannedSpace("shops") && (
-                          <Detail
-                            label="Planned shops"
-                            value={buildingDetails.planned_shops}
-                            icon={Store}
-                          />
-                        )}
-                      </div>
+                      <BuildingOverview details={buildingDetails} selectedSpaces={selectedSpaces} />
                     </div>
                   )}
                   {buildingTab === "floors" && (
@@ -661,10 +647,7 @@ export function ProjectDetailPage() {
                       aria-labelledby="building-tab-floors"
                       className="building-tab-panel"
                     >
-                      <div className="building-floors-chart">
-                        <BuildingLevelsChart details={buildingDetails} />
-                      </div>
-                      <FlatLayoutChart details={buildingDetails} />
+                      <BuildingFloorsOverview details={buildingDetails} />
                     </div>
                   )}
                   {buildingTab === "areas" && (
@@ -674,94 +657,7 @@ export function ProjectDetailPage() {
                       aria-labelledby="building-tab-areas"
                       className="building-tab-panel"
                     >
-                      <div className="building-area-insight">
-                        <BuildingAreaChart details={buildingDetails} land={landDetails} />
-                      </div>
-                      <div className="building-facts-heading">
-                        <h3>Plan highlights</h3>
-                        <p>Only details saved for this building appear here.</p>
-                      </div>
-                      <div className="project-details-grid">
-                        <Detail
-                          label="Building use"
-                          value={buildingDetails.building_use?.replace("-", " ")}
-                          icon={Building2}
-                        />
-                        <Detail
-                          label="Floors above ground"
-                          value={buildingDetails.floors_above_ground}
-                          icon={Layers}
-                        />
-                        <Detail
-                          label="Basements"
-                          value={buildingDetails.basement_count}
-                          icon={Layers}
-                        />
-                        {showPlannedSpace("flats") && (
-                          <Detail
-                            label="Planned flats"
-                            value={buildingDetails.planned_flats}
-                            icon={House}
-                          />
-                        )}
-                        {showPlannedSpace("shops") && (
-                          <Detail
-                            label="Planned shops"
-                            value={buildingDetails.planned_shops}
-                            icon={Store}
-                          />
-                        )}
-                        {showPlannedSpace("offices") && (
-                          <Detail
-                            label="Planned offices"
-                            value={buildingDetails.planned_offices}
-                            icon={BriefcaseBusiness}
-                          />
-                        )}
-                        {showPlannedSpace("houses") && (
-                          <Detail
-                            label="Planned houses"
-                            value={buildingDetails.planned_houses}
-                            icon={House}
-                          />
-                        )}
-                        {showPlannedSpace("parking") && (
-                          <Detail
-                            label="Parking area"
-                            value={
-                              buildingDetails.parking_area_value === null
-                                ? null
-                                : `${buildingDetails.parking_area_value.toLocaleString()} ${buildingDetails.parking_area_unit === "sqyd" ? "sq yd" : "sq ft"}`
-                            }
-                            icon={ParkingSquare}
-                          />
-                        )}
-                        {buildingDetails.planned_parking_spaces !== null &&
-                          buildingDetails.parking_area_value === null && (
-                            <Detail
-                              label="Parking spaces"
-                              value={buildingDetails.planned_parking_spaces}
-                              icon={ParkingSquare}
-                            />
-                          )}
-                        {buildingDetails.has_masjid === 1 && (
-                          <Detail label="Masjid" value="Included" icon={Landmark} />
-                        )}
-                        <Detail
-                          label="Covered area"
-                          value={
-                            buildingDetails.covered_area_sqft === null
-                              ? null
-                              : `${buildingDetails.covered_area_sqft.toLocaleString()} sq ft`
-                          }
-                          icon={Ruler}
-                        />
-                      </div>
-                      {buildingDetails.notes && (
-                        <p className="mt-5 border-t pt-4 text-sm text-muted-foreground">
-                          {buildingDetails.notes}
-                        </p>
-                      )}
+                      <BuildingAreasOverview details={buildingDetails} land={landDetails} />
                     </div>
                   )}
                 </>
@@ -773,7 +669,17 @@ export function ProjectDetailPage() {
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No building details added yet.</p>
+                <div className="project-building-empty">
+                  <span>
+                    <Building2 size={28} />
+                  </span>
+                  <h3>No building plan yet</h3>
+                  <p>Add the building use, spaces and floors to see the project plan here.</p>
+                  <Button type="button" onClick={() => setBuildingDialogOpen(true)}>
+                    <Plus size={17} />
+                    Add building details
+                  </Button>
+                </div>
               )}
             </section>
           )}
@@ -1156,13 +1062,19 @@ export function ProjectDetailPage() {
               if (!savingStatus) setStatusDialogOpen(open);
             }}
           >
-            <DialogContent className="project-stage-dialog max-h-[90vh] overflow-y-auto sm:max-w-xl">
+            <DialogContent className="project-stage-dialog project-stage-redesign max-h-[90vh] overflow-y-auto sm:max-w-xl">
               <DialogHeader>
+                <span className="project-modal-icon">
+                  <Building2 size={26} />
+                </span>
                 <DialogTitle>Change project status</DialogTitle>
                 <p className="text-sm text-muted-foreground">
                   Choose the stage that best describes this project now.
                 </p>
               </DialogHeader>
+              <div className="project-stage-preview">
+                <ProjectStatusProgress status={statusDraft} />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="project-update-status">Project status</Label>
                 <select
@@ -1515,29 +1427,6 @@ function Summary({ title, value }: { title: string; value: string }) {
     <div className="rounded-lg border bg-card p-4">
       <p className="text-sm text-muted-foreground">{title}</p>
       <p className="mt-2 text-lg font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function Detail({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-  icon: LucideIcon;
-}) {
-  if (value === null || value === undefined || value === "") return null;
-  return (
-    <div className="building-fact-card">
-      <span className="building-fact-icon">
-        <Icon size={21} aria-hidden="true" />
-      </span>
-      <span className="building-fact-copy">
-        <span>{label}</span>
-        <strong>{typeof value === "number" ? value.toLocaleString() : value}</strong>
-      </span>
     </div>
   );
 }
