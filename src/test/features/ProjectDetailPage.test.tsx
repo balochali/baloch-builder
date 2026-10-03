@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { getProjectById, updateProjectStatus } from "@/data/repositories/projectsRepository";
 import { getProjectLand, saveProjectStage } from "@/data/repositories/projectStageRepository";
+import { saveLandImage } from "@/data/repositories/documentsRepository";
 import {
   addProjectEstimate,
   archiveProjectEstimate,
@@ -22,6 +23,7 @@ import {
   listPartnerContributions,
   addProjectPartner,
   addPartnerContribution,
+  updateProjectPartner,
 } from "@/data/repositories/projectPartnersRepository";
 import type { Transaction } from "@/domain/types";
 import type { ProjectBuildingDetails } from "@/domain/types";
@@ -36,6 +38,7 @@ vi.mock("@/data/repositories/projectStageRepository", async (importOriginal) => 
   getProjectLand: vi.fn(),
   saveProjectStage: vi.fn(),
 }));
+vi.mock("@/data/repositories/documentsRepository", () => ({ saveLandImage: vi.fn() }));
 vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/data/repositories/projectFinanceRepository")>()),
   listProjectEstimates: vi.fn(),
@@ -57,6 +60,7 @@ vi.mock("@/data/repositories/projectPartnersRepository", async (importOriginal) 
   listPartnerContributions: vi.fn(),
   addProjectPartner: vi.fn(),
   addPartnerContribution: vi.fn(),
+  updateProjectPartner: vi.fn(),
 }));
 
 describe("ProjectDetailPage", () => {
@@ -84,6 +88,7 @@ describe("ProjectDetailPage", () => {
     vi.mocked(listPartnerContributions).mockResolvedValue([]);
     vi.mocked(addProjectPartner).mockResolvedValue(undefined);
     vi.mocked(addPartnerContribution).mockResolvedValue(undefined);
+    vi.mocked(updateProjectPartner).mockReset();
   });
 
   it("opens on the project dashboard and explains charts without saved data", async () => {
@@ -224,6 +229,22 @@ describe("ProjectDetailPage", () => {
   });
 
   it("requires land details and saves them with the acquired status", async () => {
+    vi.mocked(getProjectLand)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "land-1",
+        title: "Baloch Residency",
+        location: "Gul Muhammad Lane",
+        purchase_date: "2026-10-03",
+        area_value: 7000,
+        area_unit: "sqyd",
+        seller_name: "Muhammad Murad",
+        price: 32_000_000,
+        account_key: "builder",
+        payment_details: null,
+        notes: "",
+      });
+    vi.mocked(saveLandImage).mockResolvedValue();
     vi.mocked(saveProjectStage).mockImplementation(async (_id, status) => ({
       ...(await getProjectById("11111111-1111-4111-8111-111111111111"))!,
       status,
@@ -244,15 +265,32 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Land location *"), { target: { value: "" } });
     for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/))
       fireEvent.change(account, { target: { value: "builder" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Enter the land location");
     expect(saveProjectStage).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Land location *"), {
       target: { value: "Gul Muhammad Lane" },
     });
     fireEvent.change(screen.getByLabelText("Area (optional)"), { target: { value: "7000" } });
+    fireEvent.change(screen.getByLabelText("Purchase price in Rs (optional)"), {
+      target: { value: "32000000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/))
       fireEvent.change(account, { target: { value: "builder" } });
+    expect(screen.getByText("How was this land paid for?")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Payment method *"), { target: { value: "bank" } });
+    fireEvent.change(screen.getByLabelText("Paid to *"), { target: { value: "Muhammad Murad" } });
+    fireEvent.change(screen.getByLabelText("Bank name *"), { target: { value: "Meezan Bank" } });
+    fireEvent.change(screen.getByLabelText("Transaction reference *"), {
+      target: { value: "TRX-42" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByLabelText("Land photos, receipts or maps")).toBeInTheDocument();
+    const photo = new File(["image"], "plot.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Land photos, receipts or maps"), {
+      target: { files: [photo] },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
     await waitFor(() =>
       expect(saveProjectStage).toHaveBeenCalledWith(
@@ -262,8 +300,18 @@ describe("ProjectDetailPage", () => {
           location: "Gul Muhammad Lane",
           area_value: 7000,
           area_unit: "sqyd",
+          account_key: "builder",
+          payment_details: expect.objectContaining({
+            method: "bank",
+            paid_to: "Muhammad Murad",
+            provider: "Meezan Bank",
+            reference: "TRX-42",
+          }),
         }),
       ),
+    );
+    await waitFor(() =>
+      expect(saveLandImage).toHaveBeenCalledWith("land-1", photo, expect.any(String)),
     );
     expect(screen.getByText(/Land acquired: Baloch Residency/)).toBeInTheDocument();
   });
@@ -324,6 +372,8 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Area (optional)"), { target: { value: "10000" } });
     for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/))
       fireEvent.change(account, { target: { value: "builder" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
     await waitFor(() =>
       expect(saveProjectStage).toHaveBeenCalledWith(
@@ -629,7 +679,9 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Mobile number *"), {
       target: { value: "03001234567" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Project share (%) *"), { target: { value: "25.5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs)"), {
       target: { value: "200000" },
     });
@@ -842,7 +894,12 @@ describe("ProjectDetailPage", () => {
     expect(
       screen.getByRole("heading", { name: "Money promised and received" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/of the project share has not been assigned yet/)).toBeInTheDocument();
+    expect(screen.getByText("75.00% still available")).toBeInTheDocument();
+    const partnerFilters = screen.getByText("Search & filter partners").closest("details");
+    expect(partnerFilters).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByText("Search & filter partners"));
+    expect(partnerFilters).toHaveAttribute("open");
+    expect(screen.getByText("Partly received")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View Ali's details" })).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "Ali owns 25.00 percent of this project" }),
@@ -855,5 +912,35 @@ describe("ProjectDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Record Payment" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Project estimate" })).not.toBeInTheDocument();
+    vi.mocked(updateProjectPartner).mockResolvedValue({
+      partnership_id: "share-1",
+      partner_id: "partner-1",
+      contact_id: "contact-1",
+      name: "Ali",
+      phone: "03001234567",
+      phone2: null,
+      address: null,
+      notes: null,
+      share_bp: 3000,
+      agreed_contribution: 600_000,
+      contributed: 200_000,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Partner" }));
+    expect(screen.getByLabelText("Partner name *")).toHaveValue("Ali");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Project share (%) *"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("Agreed contribution (Rs)"), {
+      target: { value: "600000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() =>
+      expect(updateProjectPartner).toHaveBeenCalledWith(
+        expect.objectContaining({
+          partnership_id: "share-1",
+          share_bp: 3000,
+          agreed_contribution: 600_000,
+        }),
+      ),
+    );
   });
 });

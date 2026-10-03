@@ -8,6 +8,58 @@ import type { Project } from "@/domain/types";
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date");
 const amount = z.number().int().positive().safe();
 
+export const LandPaymentDetailsSchema = z.object({
+  method: z.enum(["cash", "bank", "digital", "cheque", "other"]),
+  paid_to: z.string().trim().max(120),
+  provider: z.string().trim().max(120),
+  account_name: z.string().trim().max(120),
+  account_no: z.string().trim().max(120),
+  reference: z.string().trim().max(120),
+  cheque_date: z.union([date, z.literal("")]),
+});
+export type LandPaymentDetails = z.infer<typeof LandPaymentDetailsSchema>;
+export const emptyLandPaymentDetails: LandPaymentDetails = {
+  method: "cash",
+  paid_to: "",
+  provider: "",
+  account_name: "",
+  account_no: "",
+  reference: "",
+  cheque_date: "",
+};
+
+function validateLandPayment(value: LandPaymentDetails | null | undefined, ctx: z.RefinementCtx) {
+  if (!value) return;
+  if (!value.paid_to)
+    ctx.addIssue({
+      code: "custom",
+      path: ["payment_details", "paid_to"],
+      message: "Enter who received the payment",
+    });
+  if (value.method !== "cash" && !value.provider)
+    ctx.addIssue({
+      code: "custom",
+      path: ["payment_details", "provider"],
+      message: "Enter the bank, wallet or payment service",
+    });
+  if (
+    (value.method === "bank" || value.method === "digital" || value.method === "cheque") &&
+    !value.reference
+  )
+    ctx.addIssue({
+      code: "custom",
+      path: ["payment_details", "reference"],
+      message:
+        value.method === "cheque" ? "Enter the cheque number" : "Enter the transaction reference",
+    });
+  if (value.method === "cheque" && !value.cheque_date)
+    ctx.addIssue({
+      code: "custom",
+      path: ["payment_details", "cheque_date"],
+      message: "Enter the cheque date",
+    });
+}
+
 export const LandAcquisitionSchema = z
   .object({
     account_key: BankAccountSchema.optional(),
@@ -18,11 +70,29 @@ export const LandAcquisitionSchema = z
     area_unit: z.enum(["marla", "kanal", "sqft", "sqyd", "acre"]).nullable(),
     seller_name: z.string().trim().max(120),
     price: amount.nullable(),
+    payment_details: LandPaymentDetailsSchema.nullable().optional(),
     notes: z.string().trim().max(1000),
   })
   .refine((value) => (value.area_value === null) === (value.area_unit === null), {
     path: ["area_value"],
     message: "Enter both the land area and its unit",
+  })
+  .superRefine((value, ctx) => {
+    if (value.price !== null) {
+      if (!value.account_key)
+        ctx.addIssue({
+          code: "custom",
+          path: ["account_key"],
+          message: "Choose the paying account",
+        });
+      if (!value.payment_details)
+        ctx.addIssue({
+          code: "custom",
+          path: ["payment_details"],
+          message: "Enter how the land was paid for",
+        });
+      validateLandPayment(value.payment_details, ctx);
+    }
   });
 
 export type LandAcquisitionInput = z.infer<typeof LandAcquisitionSchema>;
@@ -45,7 +115,14 @@ export async function getProjectLand(projectId: string): Promise<ProjectLand | n
   } catch {
     /* Older records may not have valid custom data. */
   }
-  return { ...row, seller_name: sellerName };
+  let paymentDetails: LandPaymentDetails | null = null;
+  try {
+    const parsed = LandPaymentDetailsSchema.safeParse(JSON.parse(row.custom)?.payment_details);
+    if (parsed.success) paymentDetails = parsed.data;
+  } catch {
+    /* Older records may not have payment details. */
+  }
+  return { ...row, seller_name: sellerName, payment_details: paymentDetails };
 }
 
 /** Save stage details and the new status in one SQLite transaction. */
@@ -86,7 +163,10 @@ export async function saveProjectStage(
             validLand.area_unit,
             validLand.price,
             validLand.notes || null,
-            JSON.stringify({ seller_name: validLand.seller_name }),
+            JSON.stringify({
+              seller_name: validLand.seller_name,
+              payment_details: validLand.payment_details ?? null,
+            }),
             timestamp,
             validLand.account_key ?? null,
             existing[0].id,
@@ -109,7 +189,10 @@ export async function saveProjectStage(
             validLand.notes || null,
             timestamp,
             timestamp,
-            JSON.stringify({ seller_name: validLand.seller_name }),
+            JSON.stringify({
+              seller_name: validLand.seller_name,
+              payment_details: validLand.payment_details ?? null,
+            }),
             validLand.account_key ?? null,
           ],
         );

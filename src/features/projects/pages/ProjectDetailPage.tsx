@@ -1,15 +1,19 @@
 import { BankAccountSelect } from "@/components/BankAccountSelect";
+import { saveLandImage } from "@/data/repositories/documentsRepository";
 import "./project-detail.css";
+import "./project-partners.css";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
+  ArrowRight,
   Building2,
+  CircleCheck,
   ChevronDown,
-  ChevronRight,
   Landmark,
   Layers,
   Pencil,
+  PieChart,
   Ruler,
   Trash2,
   UserRound,
@@ -20,6 +24,10 @@ import {
   Wallet,
   HardHat,
   MapPin,
+  SlidersHorizontal,
+  Clock3,
+  HandCoins,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -44,6 +52,8 @@ import {
   getProjectLand,
   saveProjectStage,
   LandAcquisitionSchema,
+  emptyLandPaymentDetails,
+  type LandPaymentDetails,
   type ProjectLand,
 } from "@/data/repositories/projectStageRepository";
 import {
@@ -65,7 +75,7 @@ import {
   type EstimateInput,
 } from "@/data/repositories/projectFinanceRepository";
 import type { Project, ProjectBuildingDetails, ProjectEstimate, Transaction } from "@/domain/types";
-import { formatPKR } from "@/domain/money";
+import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 import { ProjectEntryDialog } from "@/features/projects/components/ProjectEntryDialog";
 import { flatRecoveryLines, recoveryLink } from "@/features/projects/components/recoverySpaces";
@@ -73,6 +83,7 @@ import { BuildingDetailsDialog } from "@/features/projects/components/BuildingDe
 import { BuildingOverview } from "@/features/projects/components/BuildingOverview";
 import { BuildingFloorsOverview } from "@/features/projects/components/BuildingFloorsOverview";
 import { BuildingAreasOverview } from "@/features/projects/components/BuildingAreasOverview";
+import { ProjectPartnerOverview } from "@/features/projects/components/ProjectPartnerOverview";
 import { ProjectDashboard } from "@/features/projects/components/ProjectDashboard";
 import { ConstructionCostInsights } from "@/features/projects/components/ConstructionCostInsights";
 import { ProjectStatusProgress } from "@/features/projects/components/ProjectStatusProgress";
@@ -81,8 +92,6 @@ import { PaymentDetailsView } from "@/features/partners/components/PaymentDetail
 import {
   BuildingAreaChart,
   EstimateChart,
-  OwnershipChart,
-  PartnerFundingChart,
   SpendingChart,
 } from "@/features/projects/components/ProjectInsights";
 import {
@@ -93,6 +102,8 @@ import {
   type AddProjectPartnerInput,
   type PartnerContributionInput,
   type ProjectPartnerRow,
+  type UpdateProjectPartnerInput,
+  updateProjectPartner,
 } from "@/data/repositories/projectPartnersRepository";
 
 type Tab = "dashboard" | "building" | "partners" | "estimate" | "actual" | "construction";
@@ -136,8 +147,8 @@ function landPurchaseCost(projectId: string, land: ProjectLand | null): Transact
     amount: land.price,
     direction: "out",
     type: "land_purchase",
-    method: null,
-    reference: null,
+    method: land.payment_details?.method ?? null,
+    reference: land.payment_details?.reference || null,
     description: `Land purchase: ${land.title}`,
     project_id: projectId,
     land_id: land.id || null,
@@ -147,7 +158,7 @@ function landPurchaseCost(projectId: string, land: ProjectLand | null): Transact
     created_at: land.purchase_date,
     updated_at: land.purchase_date,
     archived: 0,
-    custom: "{}",
+    custom: JSON.stringify({ payment_details: land.payment_details ?? null }),
   };
 }
 
@@ -170,11 +181,17 @@ export function ProjectDetailPage() {
   );
   const [landSeller, setLandSeller] = useState("");
   const [landAccount, setLandAccount] = useState("");
+  const [landPaymentDetails, setLandPaymentDetails] = useState<LandPaymentDetails>({
+    ...emptyLandPaymentDetails,
+  });
+  const [landStep, setLandStep] = useState(0);
+  const [landImages, setLandImages] = useState<File[]>([]);
   const [landPrice, setLandPrice] = useState("");
   const [landNotes, setLandNotes] = useState("");
   const [partners, setPartners] = useState<ProjectPartnerRow[]>([]);
   const [contributions, setContributions] = useState<Transaction[]>([]);
   const [partnerDialog, setPartnerDialog] = useState<ProjectPartnerRow | "new" | null>(null);
+  const [editingPartner, setEditingPartner] = useState<ProjectPartnerRow | null>(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
@@ -267,22 +284,46 @@ export function ProjectDetailPage() {
     toast.success("Building details saved");
   }
 
+  function landDraft() {
+    return {
+      account_key: landPrice.trim() ? landAccount : undefined,
+      title: landTitle,
+      location: landLocation,
+      purchase_date: landDate,
+      area_value: landArea.trim() ? Number(landArea) : null,
+      area_unit: landArea.trim() ? landAreaUnit : null,
+      seller_name: landSeller,
+      price: landPrice.trim() ? Number(landPrice.replace(/,/g, "")) : null,
+      payment_details: landPrice.trim() ? landPaymentDetails : null,
+      notes: landNotes,
+    };
+  }
+
+  function nextLandStep() {
+    setStatusError("");
+    const result = LandAcquisitionSchema.safeParse(landDraft());
+    if (landStep === 0) {
+      const issue =
+        !result.success &&
+        result.error.issues.find(
+          (item) => !["account_key", "payment_details"].includes(String(item.path[0])),
+        );
+      if (issue) {
+        setStatusError(issue.message);
+        return;
+      }
+    }
+    if (landStep === 1 && !result.success) {
+      setStatusError(result.error.issues[0]?.message ?? "Check the payment details.");
+      return;
+    }
+    setLandStep((step) => Math.min(2, step + 1));
+  }
+
   async function saveStatus() {
     if (!project) return;
     const land =
-      statusDraft === "land acquired"
-        ? LandAcquisitionSchema.safeParse({
-            account_key: landPrice.trim() ? landAccount : undefined,
-            title: landTitle,
-            location: landLocation,
-            purchase_date: landDate,
-            area_value: landArea.trim() ? Number(landArea) : null,
-            area_unit: landArea.trim() ? landAreaUnit : null,
-            seller_name: landSeller,
-            price: landPrice.trim() ? Number(landPrice.replace(/,/g, "")) : null,
-            notes: landNotes,
-          })
-        : null;
+      statusDraft === "land acquired" ? LandAcquisitionSchema.safeParse(landDraft()) : null;
     if (land && !land.success) {
       setStatusError(land.error.issues[0]?.message ?? "Check the land details.");
       return;
@@ -294,8 +335,14 @@ export function ProjectDetailPage() {
         ? await saveProjectStage(project.id, statusDraft, land.data)
         : await updateProjectStatus(project.id, statusDraft);
       setProject(updated);
+      let savedLand: ProjectLand | null = null;
       if (land?.success) {
-        setLandDetails({ ...land.data, id: landDetails?.id ?? "" });
+        try {
+          savedLand = await getProjectLand(project.id);
+        } catch {
+          /* Status is already saved. */
+        }
+        setLandDetails({ ...land.data, id: savedLand?.id ?? landDetails?.id ?? "" });
         setBuildingDetails(
           (current) =>
             current && {
@@ -307,6 +354,24 @@ export function ProjectDetailPage() {
       }
       setStatusDialogOpen(false);
       toast.success("Project status updated");
+      if (land?.success && landImages.length) {
+        if (!savedLand?.id)
+          toast.error("Land saved, but its images could not be linked to Documents.");
+        else {
+          const results = await Promise.allSettled(
+            landImages.map((file) => saveLandImage(savedLand.id, file, land.data.purchase_date)),
+          );
+          const failures = results.filter((result) => result.status === "rejected").length;
+          if (failures)
+            toast.error(
+              `Land saved, but ${failures} image${failures === 1 ? "" : "s"} could not be attached.`,
+            );
+          else
+            toast.success(
+              `${landImages.length} image${landImages.length === 1 ? "" : "s"} saved to Documents`,
+            );
+        }
+      }
     } catch (cause) {
       setStatusError(`Could not update status: ${String(cause)}`);
     } finally {
@@ -341,6 +406,14 @@ export function ProjectDetailPage() {
     } catch {
       toast.error("Contribution saved. Refresh the page to see the latest details.");
     }
+  }
+
+  async function savePartnerUpdate(value: UpdateProjectPartnerInput) {
+    const updated = await updateProjectPartner(value);
+    setPartners((current) =>
+      current.map((item) => (item.partnership_id === updated.partnership_id ? updated : item)),
+    );
+    toast.success("Partner updated");
   }
 
   async function deleteEstimate() {
@@ -420,7 +493,6 @@ export function ProjectDetailPage() {
       constructionCosts.length > 0,
   );
   const allocatedShareBp = sum(partners.map((item) => item.share_bp));
-  const contributedTotal = sum(contributions.map((item) => item.amount));
   const selectedPartner =
     partners.find((item) => item.partnership_id === selectedPartnerId) ?? null;
   const selectedSpaces = buildingDetails
@@ -479,6 +551,14 @@ export function ProjectDetailPage() {
                   setLandPrice(landDetails?.price?.toString() ?? "");
                   setLandNotes(landDetails?.notes ?? "");
                   setLandAccount(landDetails?.account_key ?? "");
+                  setLandPaymentDetails(
+                    landDetails?.payment_details ?? {
+                      ...emptyLandPaymentDetails,
+                      paid_to: landDetails?.seller_name ?? "",
+                    },
+                  );
+                  setLandStep(0);
+                  setLandImages([]);
                   setStatusDialogOpen(true);
                 }}
               >
@@ -691,12 +771,17 @@ export function ProjectDetailPage() {
               aria-labelledby="project-tab-partners"
               className="project-partners-panel project-detail-section mb-8 rounded-xl border bg-card p-5"
             >
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">Project Partners</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Ownership shares and money received for this project.
-                  </p>
+              <div className="project-partners-header">
+                <div className="project-partners-heading-copy">
+                  <span>
+                    <Users size={25} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h2 className="text-lg font-semibold">Project Partners</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Ownership shares and money received for this project.
+                    </p>
+                  </div>
                 </div>
                 <Button
                   onClick={() => setPartnerDialog("new")}
@@ -706,6 +791,7 @@ export function ProjectDetailPage() {
                   Add Partner
                 </Button>
               </div>
+              <ProjectPartnerOverview partners={partners} />
               <div className="partner-section-heading">
                 <div>
                   <h3>Partner profiles</h3>
@@ -715,103 +801,155 @@ export function ProjectDetailPage() {
                   {partners.length} {partners.length === 1 ? "partner" : "partners"}
                 </span>
               </div>
-              {partnerFilter.controls}
+              <details className="project-partner-filter-drawer">
+                <summary>
+                  <span>
+                    <SlidersHorizontal size={18} /> Search & filter partners
+                  </span>
+                  <span>
+                    {partnerFilter.active ? "Filters applied" : "All partners"}
+                    <ChevronDown size={16} />
+                  </span>
+                </summary>
+                {partnerFilter.controls}
+              </details>
+              {partnerFilter.active && (
+                <div className="project-partner-active-filters">
+                  <span>{partnerFilter.visible.length} partners match your filters.</span>
+                  <Button variant="ghost" size="sm" onClick={partnerFilter.reset}>
+                    Clear filters
+                  </Button>
+                </div>
+              )}
               {partners.length > 0 && partnerFilter.visible.length === 0 && (
                 <p className="filter-empty">No partners match these filters.</p>
               )}
               {partners.length === 0 ? (
-                <p className="rounded-lg border p-6 text-sm text-muted-foreground">
-                  No partners added yet. Use Add Partner to create the first profile.
-                </p>
+                <div className="project-partners-empty">
+                  <span>
+                    <Users size={27} aria-hidden="true" />
+                  </span>
+                  <h3>No partners added yet</h3>
+                  <p>
+                    Add the first partner to track ownership shares and money received for this
+                    project.
+                  </p>
+                </div>
               ) : (
                 <div className="partner-cards">
-                  {partnerFilter.visible.map((partner) => (
-                    <article
-                      key={partner.partnership_id}
-                      className="partner-card rounded-lg border p-4"
-                    >
-                      <button
-                        type="button"
-                        className="partner-profile-toggle"
-                        aria-label={`View ${partner.name}'s details`}
-                        onClick={() => setSelectedPartnerId(partner.partnership_id)}
-                      >
-                        <span className="partner-profile-top">
-                          <span className="partner-profile-avatar">
-                            <UserRound size={24} />
-                          </span>
-                          <span className="partner-profile-main">
-                            <strong>{partner.name}</strong>
-                            <span>{partner.phone || "Phone not added"}</span>
-                          </span>
-                          <ChevronRight size={18} className="partner-chevron" />
-                        </span>
-                        <span
-                          className="partner-card-chart"
-                          role="img"
-                          aria-label={`${partner.name} owns ${(partner.share_bp / 100).toFixed(2)} percent of this project`}
-                          style={{
-                            background: `conic-gradient(#d8a72f ${partner.share_bp / 100}%, var(--muted) 0)`,
-                          }}
+                  {partnerFilter.visible.map((partner) => {
+                    const agreed = partner.agreed_contribution;
+                    const remaining =
+                      agreed === null ? null : Math.max(0, agreed - partner.contributed);
+                    const percent =
+                      agreed && agreed > 0
+                        ? Math.min(100, (partner.contributed / agreed) * 100)
+                        : agreed === 0
+                          ? 100
+                          : 0;
+                    const status =
+                      agreed === null
+                        ? "no-target"
+                        : remaining === 0
+                          ? "settled"
+                          : partner.contributed > 0
+                            ? "partial"
+                            : "unpaid";
+                    return (
+                      <article key={partner.partnership_id} className={`partner-card is-${status}`}>
+                        <button
+                          type="button"
+                          className="partner-profile-toggle"
+                          aria-label={`View ${partner.name}'s details`}
+                          onClick={() => setSelectedPartnerId(partner.partnership_id)}
                         >
-                          <span>
+                          <span className="partner-profile-top">
+                            <span className="partner-profile-avatar">
+                              <UserRound size={24} />
+                            </span>
+                            <span className="partner-profile-main">
+                              <strong>{partner.name}</strong>
+                              <span>{partner.phone || "Phone not added"}</span>
+                            </span>
+                            <ArrowRight size={19} className="partner-chevron" />
+                          </span>
+                          <span className="project-partner-card-status">
+                            {status === "settled" ? (
+                              <CircleCheck size={15} />
+                            ) : status === "partial" ? (
+                              <HandCoins size={15} />
+                            ) : (
+                              <Clock3 size={15} />
+                            )}
+                            {status === "settled"
+                              ? "Contribution received"
+                              : status === "partial"
+                                ? "Partly received"
+                                : status === "no-target"
+                                  ? "No amount agreed"
+                                  : "Awaiting payment"}
+                          </span>
+                          <span
+                            className="project-partner-card-share"
+                            role="img"
+                            aria-label={`${partner.name} owns ${(partner.share_bp / 100).toFixed(2)} percent of this project`}
+                          >
+                            <span>
+                              <PieChart size={18} aria-hidden="true" />
+                              Project share
+                            </span>
                             <strong>{(partner.share_bp / 100).toFixed(2)}%</strong>
-                            <small>project share</small>
                           </span>
-                        </span>
-                        <span className="partner-profile-quick">
-                          <span>
-                            Received <strong>{formatPKR(partner.contributed)}</strong>
+                          <span className="project-partner-card-balance">
+                            <small>
+                              {remaining === null ? "Received so far" : "Still to receive"}
+                            </small>
+                            <strong>
+                              {formatPKRInLakhCrore(remaining ?? partner.contributed)}
+                            </strong>
+                            {(remaining ?? partner.contributed) >= 100_000 && (
+                              <em>
+                                {formatPKR(remaining ?? partner.contributed, { lakhCrore: true })}{" "}
+                                exactly
+                              </em>
+                            )}
                           </span>
-                          <span>
-                            {partner.agreed_contribution === null
-                              ? "No payment target set"
-                              : `Remaining ${formatPKR(Math.max(0, partner.agreed_contribution - partner.contributed))}`}
-                          </span>
-                        </span>
-                        {partner.agreed_contribution !== null && (
-                          <span className="partner-card-payment-chart">
-                            <span className="partner-card-payment-label">Payment progress</span>
+                          {agreed !== null && (
+                            <span className="project-partner-card-progress-caption">
+                              <span>Contribution progress</span>
+                              <strong>{Math.round(percent)}% received</strong>
+                            </span>
+                          )}
+                          {agreed !== null && (
                             <span
                               className="partner-funding-track"
                               role="img"
-                              aria-label={`${partner.name}: ${formatPKR(partner.contributed)} received, ${formatPKR(Math.max(0, partner.agreed_contribution - partner.contributed))} remaining`}
+                              aria-label={`${partner.name}: ${formatPKR(partner.contributed)} received, ${formatPKR(remaining ?? 0)} remaining`}
                             >
-                              <span
-                                style={{
-                                  width: `${partner.agreed_contribution > 0 ? Math.min(100, (partner.contributed / partner.agreed_contribution) * 100) : 100}%`,
-                                }}
-                              />
+                              <span style={{ width: `${percent}%` }} />
+                            </span>
+                          )}
+                          <span className="project-partner-card-money">
+                            <span>
+                              <small>Agreed</small>
+                              <strong>
+                                {partner.agreed_contribution === null
+                                  ? "Not set"
+                                  : formatPKR(partner.agreed_contribution)}
+                              </strong>
+                            </span>
+                            <span>
+                              <small>Received</small>
+                              <strong>{formatPKR(partner.contributed)}</strong>
                             </span>
                           </span>
-                        )}
-                        <span className="partner-card-more">
-                          View details <ChevronRight size={15} />
-                        </span>
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              )}
-              <div className="partner-overview-heading">
-                <h3>Project picture</h3>
-                <p>These charts combine the information from all partner profiles.</p>
-              </div>
-              <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                <Summary
-                  title="Share assigned to partners"
-                  value={`${(allocatedShareBp / 100).toFixed(2)}%`}
-                />
-                <Summary
-                  title="Share still available"
-                  value={`${((10_000 - allocatedShareBp) / 100).toFixed(2)}%`}
-                />
-                <Summary title="Money received so far" value={formatPKR(contributedTotal)} />
-              </div>
-              {partners.length > 0 && (
-                <div className="partner-insight-grid">
-                  <OwnershipChart partners={partners} />
-                  <PartnerFundingChart partners={partners} />
+                          <span className="partner-card-more">
+                            View details <ArrowRight size={15} />
+                          </span>
+                        </button>
+                      </article>
+                    );
+                  })}
                 </div>
               )}
               {contributions.length > 0 && (
@@ -836,6 +974,9 @@ export function ProjectDetailPage() {
                           <p>{item.description || "Partner payment"}</p>
                           <small>
                             {formatDate(item.date)} · {item.method || "Method not set"}
+                            {item.account_key
+                              ? ` · ${item.account_key === "builder" ? "Builder Account" : "Personal Account"}`
+                              : ""}
                             {item.reference ? ` · ${item.reference}` : ""}
                           </small>
                           <PaymentDetailsView transaction={item} />
@@ -847,6 +988,18 @@ export function ProjectDetailPage() {
                     ))}
                   </div>
                 </details>
+              )}
+              {contributions.length === 0 && partners.length > 0 && (
+                <div className="project-partner-payments-empty">
+                  <Wallet size={22} aria-hidden="true" />
+                  <div>
+                    <h3>Payment history</h3>
+                    <p>
+                      No payments recorded yet. Open a partner profile to record their first
+                      payment.
+                    </p>
+                  </div>
+                </div>
               )}
             </section>
           )}
@@ -1095,108 +1248,358 @@ export function ProjectDetailPage() {
               </div>
               {statusDraft === "land acquired" && (
                 <div className="project-stage-fields">
-                  <div className="project-stage-intro">
-                    <Landmark size={20} />
-                    <div>
-                      <strong>Tell us about the land</strong>
-                      <p>
-                        These details will stay with this project so you can see what was acquired.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="project-stage-grid">
-                    <div>
-                      <Label htmlFor="stage-land-title">Land name *</Label>
-                      <input
-                        id="stage-land-title"
-                        value={landTitle}
-                        onChange={(event) => setLandTitle(event.target.value)}
-                        placeholder="e.g. Baloch Residency plot"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="stage-land-date">Date acquired *</Label>
-                      <input
-                        id="stage-land-date"
-                        type="date"
-                        value={landDate}
-                        onChange={(event) => setLandDate(event.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="stage-land-location">Land location *</Label>
-                    <input
-                      id="stage-land-location"
-                      value={landLocation}
-                      onChange={(event) => setLandLocation(event.target.value)}
-                      placeholder="Address or area"
-                    />
-                  </div>
-                  <div className="project-stage-grid">
-                    <div>
-                      <Label htmlFor="stage-land-area">Area (optional)</Label>
-                      <input
-                        id="stage-land-area"
-                        type="number"
-                        min="0"
-                        step="any"
-                        value={landArea}
-                        onChange={(event) => setLandArea(event.target.value)}
-                        placeholder="e.g. 7000"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="stage-land-unit">Area unit</Label>
-                      <select
-                        id="stage-land-unit"
-                        value={landAreaUnit}
-                        onChange={(event) =>
-                          setLandAreaUnit(event.target.value as typeof landAreaUnit)
+                  <div className="project-land-steps" aria-label="Land acquisition steps">
+                    {["Land details", "Payment", "Images"].map((label, index) => (
+                      <span
+                        key={label}
+                        className={
+                          index === landStep ? "is-active" : index < landStep ? "is-complete" : ""
                         }
                       >
-                        <option value="sqyd">Square yards</option>
-                        <option value="sqft">Square feet</option>
-                        <option value="marla">Marla</option>
-                        <option value="kanal">Kanal</option>
-                        <option value="acre">Acre</option>
-                      </select>
-                    </div>
+                        <b>{index + 1}</b>
+                        {label}
+                      </span>
+                    ))}
                   </div>
-                  <div className="project-stage-grid">
-                    <div>
-                      <Label htmlFor="stage-land-seller">Seller (optional)</Label>
+                  {landStep === 0 && (
+                    <>
+                      <div className="project-stage-intro">
+                        <Landmark size={20} />
+                        <div>
+                          <strong>Tell us about the land</strong>
+                          <p>
+                            These details will stay with this project so you can see what was
+                            acquired.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="project-stage-grid">
+                        <div>
+                          <Label htmlFor="stage-land-title">Land name *</Label>
+                          <input
+                            id="stage-land-title"
+                            value={landTitle}
+                            onChange={(event) => setLandTitle(event.target.value)}
+                            placeholder="e.g. Baloch Residency plot"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="stage-land-date">Date acquired *</Label>
+                          <input
+                            id="stage-land-date"
+                            type="date"
+                            value={landDate}
+                            onChange={(event) => setLandDate(event.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="stage-land-location">Land location *</Label>
+                        <input
+                          id="stage-land-location"
+                          value={landLocation}
+                          onChange={(event) => setLandLocation(event.target.value)}
+                          placeholder="Address or area"
+                        />
+                      </div>
+                      <div className="project-stage-grid">
+                        <div>
+                          <Label htmlFor="stage-land-area">Area (optional)</Label>
+                          <input
+                            id="stage-land-area"
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={landArea}
+                            onChange={(event) => setLandArea(event.target.value)}
+                            placeholder="e.g. 7000"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="stage-land-unit">Area unit</Label>
+                          <select
+                            id="stage-land-unit"
+                            value={landAreaUnit}
+                            onChange={(event) =>
+                              setLandAreaUnit(event.target.value as typeof landAreaUnit)
+                            }
+                          >
+                            <option value="sqyd">Square yards</option>
+                            <option value="sqft">Square feet</option>
+                            <option value="marla">Marla</option>
+                            <option value="kanal">Kanal</option>
+                            <option value="acre">Acre</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="project-stage-grid">
+                        <div>
+                          <Label htmlFor="stage-land-seller">Seller (optional)</Label>
+                          <input
+                            id="stage-land-seller"
+                            value={landSeller}
+                            onChange={(event) => setLandSeller(event.target.value)}
+                            placeholder="Person or company"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="stage-land-price">Purchase price in Rs (optional)</Label>
+                          <input
+                            id="stage-land-price"
+                            inputMode="numeric"
+                            value={landPrice}
+                            onChange={(event) => setLandPrice(event.target.value)}
+                            placeholder="e.g. 5,000,000"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="stage-land-notes">Notes (optional)</Label>
+                        <textarea
+                          id="stage-land-notes"
+                          value={landNotes}
+                          onChange={(event) => setLandNotes(event.target.value)}
+                          rows={2}
+                          placeholder="Any useful detail about this land"
+                        />
+                      </div>
+                    </>
+                  )}
+                  {landStep === 1 && (
+                    <>
+                      <div className="project-stage-intro">
+                        <Wallet size={20} />
+                        <div>
+                          <strong>Purchase payment</strong>
+                          <p>Choose the paying account and how money reached the seller.</p>
+                        </div>
+                      </div>
+                      <div>
+                        {landPrice.trim() && (
+                          <>
+                            <BankAccountSelect
+                              value={landAccount}
+                              onChange={(value) => {
+                                setLandAccount(value);
+                                setLandPaymentDetails((current) => ({
+                                  ...current,
+                                  paid_to: current.paid_to || landSeller,
+                                }));
+                              }}
+                            />
+                            {landAccount && (
+                              <div className="project-stage-payment">
+                                <div className="project-stage-intro">
+                                  <Wallet size={20} />
+                                  <div>
+                                    <strong>How was this land paid for?</strong>
+                                    <p>
+                                      Save the payment details with this land purchase and show them
+                                      in Bank.
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="project-stage-grid">
+                                  <div>
+                                    <Label htmlFor="stage-land-method">Payment method *</Label>
+                                    <select
+                                      id="stage-land-method"
+                                      value={landPaymentDetails.method}
+                                      onChange={(event) =>
+                                        setLandPaymentDetails({
+                                          ...emptyLandPaymentDetails,
+                                          paid_to: landPaymentDetails.paid_to || landSeller,
+                                          method: event.target
+                                            .value as LandPaymentDetails["method"],
+                                        })
+                                      }
+                                    >
+                                      <option value="cash">Cash</option>
+                                      <option value="bank">Bank transfer</option>
+                                      <option value="digital">Digital / mobile wallet</option>
+                                      <option value="cheque">Cheque</option>
+                                      <option value="other">Other</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="stage-land-paid-to">Paid to *</Label>
+                                    <input
+                                      id="stage-land-paid-to"
+                                      value={landPaymentDetails.paid_to}
+                                      onChange={(event) =>
+                                        setLandPaymentDetails((current) => ({
+                                          ...current,
+                                          paid_to: event.target.value,
+                                        }))
+                                      }
+                                      placeholder="Seller or recipient"
+                                    />
+                                  </div>
+                                </div>
+                                {landPaymentDetails.method !== "cash" && (
+                                  <div className="project-stage-grid">
+                                    <div>
+                                      <Label htmlFor="stage-land-provider">
+                                        {landPaymentDetails.method === "digital"
+                                          ? "Wallet / app name *"
+                                          : landPaymentDetails.method === "other"
+                                            ? "Payment service *"
+                                            : "Bank name *"}
+                                      </Label>
+                                      <input
+                                        id="stage-land-provider"
+                                        value={landPaymentDetails.provider}
+                                        onChange={(event) =>
+                                          setLandPaymentDetails((current) => ({
+                                            ...current,
+                                            provider: event.target.value,
+                                          }))
+                                        }
+                                        placeholder={
+                                          landPaymentDetails.method === "digital"
+                                            ? "e.g. Easypaisa"
+                                            : "e.g. Meezan Bank"
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="stage-land-reference">
+                                        {landPaymentDetails.method === "cheque"
+                                          ? "Cheque number *"
+                                          : landPaymentDetails.method === "bank" ||
+                                              landPaymentDetails.method === "digital"
+                                            ? "Transaction reference *"
+                                            : "Reference (optional)"}
+                                      </Label>
+                                      <input
+                                        id="stage-land-reference"
+                                        value={landPaymentDetails.reference}
+                                        onChange={(event) =>
+                                          setLandPaymentDetails((current) => ({
+                                            ...current,
+                                            reference: event.target.value,
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                                {(landPaymentDetails.method === "bank" ||
+                                  landPaymentDetails.method === "digital" ||
+                                  landPaymentDetails.method === "cheque") && (
+                                  <div className="project-stage-grid">
+                                    <div>
+                                      <Label htmlFor="stage-land-account-name">
+                                        {landPaymentDetails.method === "cheque"
+                                          ? "Account holder / payer"
+                                          : "Account holder"}
+                                      </Label>
+                                      <input
+                                        id="stage-land-account-name"
+                                        value={landPaymentDetails.account_name}
+                                        onChange={(event) =>
+                                          setLandPaymentDetails((current) => ({
+                                            ...current,
+                                            account_name: event.target.value,
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="stage-land-account-no">
+                                        {landPaymentDetails.method === "digital"
+                                          ? "Wallet / mobile number"
+                                          : "Account number (optional)"}
+                                      </Label>
+                                      <input
+                                        id="stage-land-account-no"
+                                        value={landPaymentDetails.account_no}
+                                        onChange={(event) =>
+                                          setLandPaymentDetails((current) => ({
+                                            ...current,
+                                            account_no: event.target.value,
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                                {landPaymentDetails.method === "cheque" && (
+                                  <div>
+                                    <Label htmlFor="stage-land-cheque-date">Cheque date *</Label>
+                                    <input
+                                      id="stage-land-cheque-date"
+                                      type="date"
+                                      value={landPaymentDetails.cheque_date}
+                                      onChange={(event) =>
+                                        setLandPaymentDetails((current) => ({
+                                          ...current,
+                                          cheque_date: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {!landPrice.trim() && (
+                          <p className="project-stage-hint">
+                            No purchase price was entered. You can continue without payment details.
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                  {landStep === 2 && (
+                    <div className="project-land-images">
+                      <div className="project-stage-intro">
+                        <FolderOpen size={20} />
+                        <div>
+                          <strong>Add land images</strong>
+                          <p>Optional images are saved in Documents and linked to this land.</p>
+                        </div>
+                      </div>
+                      <Label htmlFor="stage-land-images">Land photos, receipts or maps</Label>
                       <input
-                        id="stage-land-seller"
-                        value={landSeller}
-                        onChange={(event) => setLandSeller(event.target.value)}
-                        placeholder="Person or company"
+                        id="stage-land-images"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        multiple
+                        onChange={(event) => {
+                          const files = Array.from(event.target.files ?? []);
+                          const invalid = files.find(
+                            (file) =>
+                              !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
+                                file.type,
+                              ) ||
+                              !file.size ||
+                              file.size > 10 * 1024 * 1024,
+                          );
+                          if (invalid) {
+                            setStatusError(
+                              "Choose JPEG, PNG, WebP or GIF images smaller than 10 MB each.",
+                            );
+                            event.target.value = "";
+                            return;
+                          }
+                          setStatusError("");
+                          setLandImages(files);
+                        }}
                       />
+                      <p>Up to 10 MB per image. You can select more than one.</p>
+                      {landImages.length > 0 && (
+                        <ul>
+                          {landImages.map((file) => (
+                            <li key={`${file.name}-${file.size}`}>
+                              {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                    <div>
-                      <Label htmlFor="stage-land-price">Purchase price in Rs (optional)</Label>
-                      <input
-                        id="stage-land-price"
-                        inputMode="numeric"
-                        value={landPrice}
-                        onChange={(event) => setLandPrice(event.target.value)}
-                        placeholder="e.g. 5,000,000"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    {landPrice.trim() && (
-                      <BankAccountSelect value={landAccount} onChange={setLandAccount} />
-                    )}
-                    <Label htmlFor="stage-land-notes">Notes (optional)</Label>
-                    <textarea
-                      id="stage-land-notes"
-                      value={landNotes}
-                      onChange={(event) => setLandNotes(event.target.value)}
-                      rows={2}
-                      placeholder="Any useful detail about this land"
-                    />
-                  </div>
+                  )}
                 </div>
               )}
               {statusDraft === "under construction" && (
@@ -1211,6 +1614,19 @@ export function ProjectDetailPage() {
                 </p>
               )}
               <DialogFooter>
+                {statusDraft === "land acquired" && landStep > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={savingStatus}
+                    onClick={() => {
+                      setStatusError("");
+                      setLandStep((step) => step - 1);
+                    }}
+                  >
+                    Back
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1225,12 +1641,16 @@ export function ProjectDetailPage() {
                     savingStatus ||
                     (statusDraft === project.status && statusDraft !== "land acquired")
                   }
-                  onClick={saveStatus}
+                  onClick={
+                    statusDraft === "land acquired" && landStep < 2 ? nextLandStep : saveStatus
+                  }
                 >
                   {savingStatus
                     ? "Saving…"
                     : statusDraft === "land acquired"
-                      ? "Save land and status"
+                      ? landStep < 2
+                        ? "Next"
+                        : "Save land and status"
                       : "Save status"}
                 </Button>
               </DialogFooter>
@@ -1253,7 +1673,7 @@ export function ProjectDetailPage() {
                       <span>{selectedPartner.name}</span>
                     </DialogTitle>
                   </DialogHeader>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="partner-profile-share-summary">
                     {(selectedPartner.share_bp / 100).toFixed(2)}% share in this project
                   </p>
                   <div className="partner-modal-facts">
@@ -1353,6 +1773,17 @@ export function ProjectDetailPage() {
                   <DialogFooter>
                     <Button
                       type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingPartner(selectedPartner);
+                        setSelectedPartnerId(null);
+                      }}
+                    >
+                      <Pencil className="size-4" />
+                      Edit Partner
+                    </Button>
+                    <Button
+                      type="button"
                       onClick={() => {
                         setPartnerDialog(selectedPartner);
                         setSelectedPartnerId(null);
@@ -1366,16 +1797,21 @@ export function ProjectDetailPage() {
               )}
             </DialogContent>
           </Dialog>
-          {partnerDialog && (
+          {(partnerDialog || editingPartner) && (
             <ProjectPartnerDialog
               projectId={project.id}
-              partner={partnerDialog === "new" ? undefined : partnerDialog}
-              remainingShareBp={10_000 - allocatedShareBp}
+              partner={partnerDialog && partnerDialog !== "new" ? partnerDialog : undefined}
+              editingPartner={editingPartner ?? undefined}
+              remainingShareBp={10_000 - allocatedShareBp + (editingPartner?.share_bp ?? 0)}
               onOpenChange={(open) => {
-                if (!open) setPartnerDialog(null);
+                if (!open) {
+                  setPartnerDialog(null);
+                  setEditingPartner(null);
+                }
               }}
               onAddPartner={savePartner}
               onContribution={saveContribution}
+              onUpdatePartner={savePartnerUpdate}
             />
           )}
           <Dialog

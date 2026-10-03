@@ -51,7 +51,7 @@ export function readPaymentDetails(custom: string): PaymentDetails | null {
 }
 
 function validateMethod(
-  method: "cash" | "bank" | "cheque" | "other",
+  method: "cash" | "bank" | "digital" | "cheque" | "other",
   reference: string,
   details: PaymentDetails,
   ctx: z.RefinementCtx,
@@ -76,11 +76,11 @@ function validateMethod(
   for (const [key, message] of required) {
     if (!details[key]) ctx.addIssue({ code: "custom", path: ["payment_details", key], message });
   }
-  if (method === "bank" && !reference) {
+  if ((method === "bank" || method === "digital") && !reference) {
     ctx.addIssue({
       code: "custom",
       path: ["reference"],
-      message: "Transfer reference or transaction ID is required",
+      message: "Transaction reference or ID is required",
     });
   }
 }
@@ -102,7 +102,7 @@ export const AddProjectPartnerSchema = z
     agreed_contribution: z.number().int().nonnegative().safe().nullable(),
     initial_amount: rupees.nullable(),
     initial_date: date.nullable(),
-    initial_method: z.enum(["cash", "bank", "cheque", "other"]),
+    initial_method: z.enum(["cash", "bank", "digital", "cheque", "other"]),
     initial_reference: z.string().trim().max(120),
     initial_payment_details: PaymentDetailsSchema,
   })
@@ -130,7 +130,7 @@ export const PartnerContributionSchema = z
     partner_id: z.string().uuid(),
     amount: rupees,
     date,
-    method: z.enum(["cash", "bank", "cheque", "other"]),
+    method: z.enum(["cash", "bank", "digital", "cheque", "other"]),
     reference: z.string().trim().max(120),
     description: z.string().trim().max(500),
     payment_details: PaymentDetailsSchema,
@@ -141,6 +141,18 @@ export const PartnerContributionSchema = z
 
 export type AddProjectPartnerInput = z.infer<typeof AddProjectPartnerSchema>;
 export type PartnerContributionInput = z.infer<typeof PartnerContributionSchema>;
+export const UpdateProjectPartnerSchema = z.object({
+  project_id: z.string().uuid(),
+  partnership_id: z.string().min(1),
+  name: z.string().trim().min(1, "Partner name is required").max(120),
+  phone: z.string().trim().min(1, "Mobile number is required").max(30),
+  phone2: z.string().trim().max(30),
+  address: z.string().trim().max(500),
+  notes: z.string().trim().max(2000),
+  share_bp: z.number().int().min(1, "Share must be greater than zero").max(10_000),
+  agreed_contribution: z.number().int().nonnegative().safe().nullable(),
+});
+export type UpdateProjectPartnerInput = z.infer<typeof UpdateProjectPartnerSchema>;
 
 export interface ProjectPartnerRow {
   partnership_id: string;
@@ -354,4 +366,68 @@ export async function addPartnerContribution(input: PartnerContributionInput): P
   );
   if (!rows[0]) throw new Error("Partner is not part of this project");
   await insertContribution(value, rows[0].contact_id);
+}
+
+export async function updateProjectPartner(
+  input: UpdateProjectPartnerInput,
+): Promise<ProjectPartnerRow> {
+  const value = UpdateProjectPartnerSchema.parse(input);
+  const rows = await query<{ partner_id: string; contact_id: string }>(
+    `SELECT pp.partner_id, p.contact_id FROM partnerships pp
+       JOIN partners p ON p.id = pp.partner_id AND p.archived = 0
+       JOIN contacts c ON c.id = p.contact_id AND c.archived = 0
+       WHERE pp.id = ? AND pp.project_id = ? AND pp.archived = 0`,
+    [value.partnership_id, value.project_id],
+  );
+  const current = rows[0];
+  if (!current) throw new Error("Partner is not part of this project");
+  const totals = await query<{ assigned: number }>(
+    `SELECT COALESCE(SUM(share_bp), 0) AS assigned FROM partnerships
+       WHERE project_id = ? AND id <> ? AND archived = 0`,
+    [value.project_id, value.partnership_id],
+  );
+  if ((totals[0]?.assigned ?? 0) + value.share_bp > 10_000)
+    throw new Error("Combined partner shares cannot exceed 100%");
+  const timestamp = now();
+  await execute(
+    `UPDATE contacts SET name = ?, phone = ?, phone2 = ?, address = ?, notes = ?, updated_at = ?
+       WHERE id = ? AND archived = 0`,
+    [
+      value.name,
+      value.phone,
+      value.phone2 || null,
+      value.address || null,
+      value.notes || null,
+      timestamp,
+      current.contact_id,
+    ],
+  );
+  await execute(`UPDATE partners SET notes = ?, updated_at = ? WHERE id = ? AND archived = 0`, [
+    value.notes || null,
+    timestamp,
+    current.partner_id,
+  ]);
+  const result = await execute(
+    `UPDATE partnerships SET share_bp = ?, agreed_contribution = ?, updated_at = ?
+       WHERE id = ? AND project_id = ? AND archived = 0
+       AND ? + (SELECT COALESCE(SUM(other.share_bp), 0) FROM partnerships AS other
+                WHERE other.project_id = ? AND other.id <> ? AND other.archived = 0) <= 10000`,
+    [
+      value.share_bp,
+      value.agreed_contribution,
+      timestamp,
+      value.partnership_id,
+      value.project_id,
+      value.share_bp,
+      value.project_id,
+      value.partnership_id,
+    ],
+  );
+  if (result.rowsAffected !== 1)
+    throw new Error("Partner share could not be updated; check the available project share.");
+  const updated = (await listProjectPartners(value.project_id)).find(
+    (item) => item.partnership_id === value.partnership_id,
+  );
+  if (!updated) throw new Error("Updated partner could not be loaded");
+  return updated;
 }

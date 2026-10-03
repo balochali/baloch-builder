@@ -13,6 +13,7 @@ import {
   Settings,
   Building2,
   HardDrive,
+  FolderOpen,
   ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ const groups = [
       { to: "/", label: "Dashboard", icon: LayoutDashboard, color: "#3b82f6" },
       { to: "/projects", label: "Projects", icon: FolderKanban, color: "#a855f7" },
       { to: "/land", label: "Land", icon: MapPin, color: "#f59e0b" },
+      { to: "/documents", label: "Documents", icon: FolderOpen, color: "#6366f1" },
     ],
   },
   {

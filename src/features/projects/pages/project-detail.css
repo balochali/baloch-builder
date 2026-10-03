@@ -196,6 +196,92 @@
 .project-stage-redesign .project-stage-intro svg {
   color: #2563eb;
 }
+.project-stage-redesign .project-stage-payment {
+  display: grid;
+  gap: 14px;
+  margin: 15px 0 18px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, #059669 28%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, #059669 5%, var(--card));
+}
+.project-stage-redesign .project-stage-payment .project-stage-intro {
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.project-stage-redesign .project-stage-payment .project-stage-intro svg {
+  color: #059669;
+}
+.project-land-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 20px;
+}
+.project-land-steps > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 700;
+}
+.project-land-steps b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--muted);
+  font-size: 11px;
+}
+.project-land-steps .is-active {
+  border-color: #7c3aed;
+  background: color-mix(in srgb, #7c3aed 10%, var(--card));
+  color: #6d28d9;
+}
+.project-land-steps .is-active b {
+  background: #7c3aed;
+  color: white;
+}
+.project-land-steps .is-complete {
+  border-color: #059669;
+  color: #059669;
+}
+.project-land-steps .is-complete b {
+  background: #059669;
+  color: white;
+}
+.project-land-images {
+  display: grid;
+  gap: 11px;
+}
+.project-land-images input[type="file"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed #7c3aed;
+  border-radius: 10px;
+  background: color-mix(in srgb, #7c3aed 5%, var(--card));
+}
+.project-land-images > p,
+.project-land-images li {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.project-land-images ul {
+  display: grid;
+  gap: 5px;
+  padding-left: 17px;
+  list-style: disc;
+}
 .project-stage-redesign [data-slot="dialog-footer"] button:last-child {
   color: white;
   background: #6d28d9;

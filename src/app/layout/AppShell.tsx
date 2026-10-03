@@ -13,6 +13,7 @@ export function AppShell() {
           "/": "Dashboard",
           "/contacts": "Contacts",
           "/land": "Land",
+          "/documents": "Documents",
           "/projects": "Projects",
           "/partners": "Partners",
           "/personal-expense": "Personal Expense",

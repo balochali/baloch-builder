@@ -14,6 +14,7 @@ export interface BankEntry {
   method: string;
   project: string;
   project_id: string | null;
+  payment_details?: string | null;
 }
 /** Read the original records directly so edits, archives and Udhaar deletion stay in sync. */
 export async function listBankEntries(): Promise<BankEntry[]> {
@@ -22,26 +23,28 @@ export async function listBankEntries(): Promise<BankEntry[]> {
       t.date, t.amount, t.direction,
       CASE t.type WHEN 'partner_contribution' THEN 'Partner contribution' WHEN 'construction_cost' THEN 'Construction payment' ELSE 'Project payment' END AS category,
       COALESCE(c.name, '') AS person, COALESCE(t.description, '') AS description, COALESCE(t.method, 'Not recorded') AS method,
-      COALESCE(pr.name, '') AS project, t.project_id
+      COALESCE(pr.name, '') AS project, t.project_id, NULL AS payment_details
     FROM transactions t LEFT JOIN contacts c ON c.id = t.contact_id LEFT JOIN projects pr ON pr.id = t.project_id WHERE t.archived = 0
     UNION ALL
     SELECT 'udhaar:' || u.id, 'udhaars', u.id, u.account_key, u.given_date, u.amount, 'out', 'Udhaar given',
-      COALESCE(c.name, u.borrower_name), COALESCE(u.notes, ''), COALESCE(json_extract(u.custom, '$.payment_details.method'), 'Not recorded'), '', NULL
+      COALESCE(c.name, u.borrower_name), COALESCE(u.notes, ''), COALESCE(json_extract(u.custom, '$.payment_details.method'), 'Not recorded'), '', NULL, NULL
     FROM udhaars u LEFT JOIN contacts c ON c.id = u.contact_id WHERE u.archived = 0
     UNION ALL
     SELECT 'repayment:' || COALESCE(json_extract(p.custom, '$.payment_group_id'), p.id), 'udhaar_payments',
       MIN(p.id), p.account_key, p.paid_date, SUM(p.amount), 'in', 'Udhaar repayment',
-      COALESCE(c.name, u.borrower_name), COALESCE(p.notes, ''), COALESCE(p.method, 'Not recorded'), '', NULL
+      COALESCE(c.name, u.borrower_name), COALESCE(p.notes, ''), COALESCE(p.method, 'Not recorded'), '', NULL, NULL
     FROM udhaar_payments p JOIN udhaars u ON u.id = p.udhaar_id LEFT JOIN contacts c ON c.id = u.contact_id
     WHERE p.archived = 0 AND u.archived = 0
     GROUP BY COALESCE(json_extract(p.custom, '$.payment_group_id'), p.id), p.account_key
     UNION ALL
     SELECT 'expense:' || id, 'personal_expenses', id, account_key, purchase_date, amount, 'out', 'Personal expense',
-      '', item_name || CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' · ' || notes END, COALESCE(json_extract(payment_details, '$.method'), 'Not recorded'), '', NULL
+      '', item_name || CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' · ' || notes END, COALESCE(json_extract(payment_details, '$.method'), 'Not recorded'), '', NULL, NULL
     FROM personal_expenses WHERE archived = 0
     UNION ALL
     SELECT 'land:' || l.id, 'land', l.id, l.account_key, l.purchase_date, l.price, 'out', 'Land acquisition',
-      COALESCE(json_extract(l.custom, '$.seller_name'), ''), l.title, 'Not recorded', COALESCE(pr.name, ''), l.project_id
+      COALESCE(json_extract(l.custom, '$.seller_name'), ''), l.title,
+      COALESCE(json_extract(l.custom, '$.payment_details.method'), 'Not recorded'), COALESCE(pr.name, ''), l.project_id,
+      json_extract(l.custom, '$.payment_details')
     FROM land l LEFT JOIN projects pr ON pr.id = l.project_id WHERE l.archived = 0 AND l.price > 0
   ) ORDER BY date DESC, id`);
 }

@@ -103,6 +103,7 @@ export interface Partnership extends BaseRecord {
 export type TransactionDirection = "in" | "out";
 
 export interface Transaction extends BaseRecord {
+  account_key?: "personal" | "builder" | null;
   date: string;
   /** Integer rupees, always > 0 */
   amount: number;

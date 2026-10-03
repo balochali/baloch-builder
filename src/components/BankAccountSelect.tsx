@@ -29,7 +29,9 @@ export function BankAccountSelect({
         <option value="builder">Builder Account</option>
       </select>
       <p className="text-xs text-muted-foreground">
-        Choose whose funds this payment uses, including cash and cheque payments.
+        {direction === "in"
+          ? "Choose which account receives this money, including cash and cheque payments."
+          : "Choose whose funds this payment uses, including cash and cheque payments."}
       </p>
     </div>
   );

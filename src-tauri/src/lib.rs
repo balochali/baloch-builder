@@ -95,6 +95,7 @@ pub fn run() {
             commands::paths::get_app_data_path,
             commands::files::copy_attachment,
             commands::files::open_file,
+            commands::files::save_image_attachment,
             commands::auth::auth_status,
             commands::auth::create_account,
             commands::auth::login,
