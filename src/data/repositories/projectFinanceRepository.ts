@@ -3,6 +3,7 @@ import { z } from "zod";
 import { execute, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
 import type { ProjectEstimate, Transaction } from "@/domain/types";
+import { PaymentDetailsSchema } from "./projectPartnersRepository";
 
 const money = z.number().int().nonnegative().safe();
 
@@ -39,8 +40,9 @@ export const ActualCostInputSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date is required"),
   amount: z.number().int().positive().safe(),
   description: z.string().trim().min(1, "Description is required").max(500),
-  method: z.enum(["cash", "bank", "cheque", "other"]),
+  method: z.enum(["cash", "bank", "digital", "cheque", "other"]),
   reference: z.string().trim().max(120),
+  payment_details: PaymentDetailsSchema.optional(),
 });
 
 export type EstimateInput = z.infer<typeof EstimateInputSchema>;
@@ -170,7 +172,7 @@ async function addCost(
     `INSERT INTO transactions
       (id, date, amount, direction, type, method, reference, description, project_id,
        created_at, updated_at, archived, custom, account_key)
-     VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, 0, '{}', ?)`,
+     VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
     [
       id,
       value.date,
@@ -182,6 +184,7 @@ async function addCost(
       value.project_id,
       timestamp,
       timestamp,
+      JSON.stringify(value.payment_details ? { payment_details: value.payment_details } : {}),
       BankAccountSchema.parse(value.account_key),
     ],
   );

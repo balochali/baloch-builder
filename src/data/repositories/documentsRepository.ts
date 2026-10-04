@@ -23,13 +23,45 @@ export async function listDocuments(): Promise<DocumentRecord[]> {
        d.owner_type, d.owner_id, p.name AS project_name, d.created_at
      FROM documents d
      LEFT JOIN land l ON d.owner_type = 'land' AND l.id = d.owner_id
-     LEFT JOIN projects p ON p.id = l.project_id
+     LEFT JOIN transactions t ON d.owner_type = 'transaction' AND t.id = d.owner_id
+     LEFT JOIN projects p ON p.id = COALESCE(l.project_id, t.project_id)
      WHERE d.archived = 0 ORDER BY d.created_at DESC`,
   );
 }
 
 export async function listLandPaymentReceipts(): Promise<DocumentRecord[]> {
   return (await listDocuments()).filter((document) => document.doc_type === "land_payment_receipt");
+}
+
+export async function listConstructionCostReceipts(projectId: string): Promise<DocumentRecord[]> {
+  return query<DocumentRecord>(
+    `SELECT d.id, d.title, d.doc_type, d.doc_date, d.notes, d.file_path, d.mime, d.size,
+       d.owner_type, d.owner_id, p.name AS project_name, d.created_at
+     FROM documents d
+     JOIN transactions t ON d.owner_type = 'transaction' AND t.id = d.owner_id
+     LEFT JOIN projects p ON p.id = t.project_id
+     WHERE d.archived = 0 AND d.doc_type = 'construction_cost_receipt'
+       AND t.project_id = ? ORDER BY d.created_at DESC`,
+    [projectId],
+  );
+}
+
+export async function saveConstructionCostReceipt(transactionId: string, file: File, date: string): Promise<DocumentRecord> {
+  if (!transactionId) throw new Error("Construction payment is missing");
+  validateImage(file);
+  const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+  const path = await invoke<string>("save_image_attachment", { bytes, mime: file.type });
+  const id = newId();
+  const timestamp = now();
+  await execute(
+    `INSERT INTO documents (id, title, doc_type, doc_date, notes, file_path, mime, size,
+       owner_type, owner_id, created_at, updated_at, archived, custom)
+     VALUES (?, ?, 'construction_cost_receipt', ?, NULL, ?, ?, ?, 'transaction', ?, ?, ?, 0, '{}')`,
+    [id, file.name, date, path, file.type, file.size, transactionId, timestamp, timestamp],
+  );
+  const rows = await query<DocumentRecord>(`SELECT * FROM documents WHERE id = ?`, [id]);
+  if (!rows[0]) throw new Error("Receipt was saved but could not be loaded");
+  return rows[0];
 }
 
 export async function listLandDocuments(landId: string): Promise<DocumentRecord[]> {
@@ -76,10 +108,7 @@ async function saveLandAttachment(
   notes: string | null,
 ): Promise<void> {
   if (!landId) throw new Error("Land record is missing");
-  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type))
-    throw new Error("Choose a JPEG, PNG, WebP or GIF image");
-  if (!file.size || file.size > 10 * 1024 * 1024)
-    throw new Error("Image must be smaller than 10 MB");
+  validateImage(file);
   const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
   const path = await invoke<string>("save_image_attachment", { bytes, mime: file.type });
   const timestamp = now();
@@ -89,6 +118,13 @@ async function saveLandAttachment(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'land', ?, ?, ?, 0, '{}')`,
     [newId(), file.name, type, acquiredDate, notes, path, file.type, file.size, landId, timestamp, timestamp],
   );
+}
+
+function validateImage(file: File): void {
+  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type))
+    throw new Error("Choose a JPEG, PNG, WebP or GIF image");
+  if (!file.size || file.size > 10 * 1024 * 1024)
+    throw new Error("Image must be smaller than 10 MB");
 }
 
 export async function openDocument(path: string): Promise<void> {

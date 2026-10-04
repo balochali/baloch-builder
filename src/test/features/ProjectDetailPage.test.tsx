@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { getProjectById, updateProjectStatus } from "@/data/repositories/projectsRepository";
 import { getProjectLand, saveProjectStage } from "@/data/repositories/projectStageRepository";
-import { listLandDocuments, saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
+import { listConstructionCostReceipts, listLandDocuments, saveConstructionCostReceipt, saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
 import {
   addProjectEstimate,
   archiveProjectEstimate,
@@ -38,7 +38,7 @@ vi.mock("@/data/repositories/projectStageRepository", async (importOriginal) => 
   getProjectLand: vi.fn(),
   saveProjectStage: vi.fn(),
 }));
-vi.mock("@/data/repositories/documentsRepository", () => ({ listLandDocuments: vi.fn(), saveLandImage: vi.fn(), saveLandPaymentReceipt: vi.fn() }));
+vi.mock("@/data/repositories/documentsRepository", () => ({ listConstructionCostReceipts: vi.fn(), listLandDocuments: vi.fn(), saveConstructionCostReceipt: vi.fn(), saveLandImage: vi.fn(), saveLandPaymentReceipt: vi.fn() }));
 vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/data/repositories/projectFinanceRepository")>()),
   listProjectEstimates: vi.fn(),
@@ -85,6 +85,8 @@ describe("ProjectDetailPage", () => {
     vi.mocked(getProjectBuildingDetails).mockResolvedValue(null);
     vi.mocked(getProjectLand).mockResolvedValue(null);
     vi.mocked(listLandDocuments).mockResolvedValue([]);
+    vi.mocked(listConstructionCostReceipts).mockResolvedValue([]);
+    vi.mocked(saveConstructionCostReceipt).mockResolvedValue({ id: "receipt-1", title: "receipt.png", owner_id: "cost-1", owner_type: "transaction", doc_type: "construction_cost_receipt", doc_date: "2026-10-04", notes: null, file_path: "receipt.png", mime: "image/png", size: 10, project_name: "Baloch Residency", created_at: "2026-10-04" });
     vi.mocked(listProjectPartners).mockResolvedValue([]);
     vi.mocked(listPartnerContributions).mockResolvedValue([]);
     vi.mocked(addProjectPartner).mockResolvedValue(undefined);
@@ -452,19 +454,32 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent("Add Construction Cost");
     fireEvent.change(screen.getByLabelText("Amount paid (Rs) *"), { target: { value: "50000" } });
     fireEvent.change(screen.getByLabelText("Cost description *"), { target: { value: "Cement" } });
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/))
-      fireEvent.change(account, { target: { value: "builder" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Builder Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bank transfer" }));
+    expect(screen.getByLabelText("Sending bank *")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Receipt number (optional)")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Sending bank *"), { target: { value: "Meezan" } });
+    fireEvent.change(screen.getByLabelText("Receiving bank *"), { target: { value: "HBL" } });
+    fireEvent.change(screen.getByLabelText("Transfer reference *"), { target: { value: "TRX-123" } });
+    const receipt = new File(["receipt"], "receipt.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText(/Add receipt images/), { target: { files: [receipt] } });
+    expect(screen.getByText("1 image selected")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(addConstructionCost).toHaveBeenCalledWith(
         expect.objectContaining({
           amount: 50000,
           description: "Cement",
+          account_key: "builder",
+          method: "bank",
+          reference: "TRX-123",
+          payment_details: expect.objectContaining({ from_bank: "Meezan", to_bank: "HBL" }),
         }),
       ),
     );
+    await waitFor(() => expect(saveConstructionCostReceipt).toHaveBeenCalledWith("cost-1", receipt, expect.any(String)));
     expect(
-      screen.getByText("Cement", { selector: ".construction-payment-list td" }),
+      screen.getByText("Cement", { selector: ".construction-payment-card strong" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
     expect(screen.getByText("Cement")).toBeInTheDocument();
@@ -677,6 +692,10 @@ describe("ProjectDetailPage", () => {
         }),
       ),
     );
+    fireEvent.click(screen.getByText(/sales estimates and recovery list/));
+    expect(screen.getByText("View prices by floor")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("View prices by floor"));
+    expect(screen.getByText("Floor 1")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Edit Flats sales" }));
     fireEvent.click(screen.getByRole("button", { name: "Next floor" }));
     expect(
@@ -745,6 +764,7 @@ describe("ProjectDetailPage", () => {
       </MemoryRouter>,
     );
     fireEvent.click(await screen.findByRole("tab", { name: "Estimate" }));
+    fireEvent.click(screen.getByText(/estimate breakdown and cost list/));
     expect((await screen.findAllByText("Cement")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Delete Cement" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Delete estimate item?");
@@ -756,7 +776,7 @@ describe("ProjectDetailPage", () => {
       ),
     );
     await waitFor(() => expect(screen.queryByText("Cement")).not.toBeInTheDocument());
-    expect(screen.getAllByText("Rs 0 – Rs 0")).toHaveLength(2);
+    expect(screen.getByText(/0 items · estimate breakdown and cost list/)).toBeInTheDocument();
   });
 
   it("prefills an estimate item and updates its displayed amount", async () => {
@@ -783,6 +803,7 @@ describe("ProjectDetailPage", () => {
       </MemoryRouter>,
     );
     fireEvent.click(await screen.findByRole("tab", { name: "Estimate" }));
+    fireEvent.click(screen.getByText(/estimate breakdown and cost list/));
     fireEvent.click(await screen.findByRole("button", { name: "Edit Cement" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Edit Expected Cost");
     expect(screen.getByLabelText("Cost item *")).toHaveValue("other");

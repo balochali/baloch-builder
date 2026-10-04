@@ -86,6 +86,8 @@ export function DocumentsPage() {
                     ? "Land image"
                     : document.doc_type === "land_payment_receipt"
                       ? `${paymentMethodLabels[document.notes || ""] || "Payment"} receipt`
+                    : document.doc_type === "construction_cost_receipt"
+                      ? "Construction cost receipt"
                     : document.doc_type || "Attachment"}
                 </small>
               </div>

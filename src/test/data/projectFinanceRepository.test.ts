@@ -58,6 +58,24 @@ describe("project finance persistence", () => {
     expect(query).toHaveBeenCalledWith(expect.stringContaining("type = 'construction_cost'"), [projectId]);
   });
 
+  it("keeps construction transfer details in the ledger transaction", async () => {
+    const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
+    vi.spyOn(client, "query").mockResolvedValue([{ id: "transfer-1" }] as Transaction[]);
+    await addConstructionCost({
+      account_key: "personal", project_id: projectId, date: "2026-09-27", amount: 75_000,
+      description: "Steel", method: "bank", reference: "TRX-123",
+      payment_details: {
+        receipt_no: "", from_bank: "Meezan", from_account_name: "", from_account_no: "",
+        to_bank: "HBL", to_account_name: "", to_account_no: "", cheque_no: "",
+        cheque_date: "", cheque_payee: "", received_by: "",
+      },
+    });
+    const parameters = execute.mock.calls[0][1] as unknown[];
+    expect(parameters).toContain("personal");
+    expect(parameters).toContain("TRX-123");
+    expect(parameters).toContainEqual(expect.stringContaining('"from_bank":"Meezan"'));
+  });
+
   it("archives only an estimate belonging to the selected project", async () => {
     const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
     await archiveProjectEstimate(projectId, "estimate-1");

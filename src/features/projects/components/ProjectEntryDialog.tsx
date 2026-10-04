@@ -1,7 +1,8 @@
 import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { useState, type FormEvent } from "react";
 import { format } from "date-fns";
-import { Calculator, CircleDollarSign, ClipboardList, Coins, TrendingUp } from "lucide-react";
+import { Banknote, Building2, Calculator, CircleDollarSign, ClipboardList, Coins, CreditCard, ImagePlus, Landmark, ReceiptText, TrendingUp, Wallet } from "lucide-react";
+import { SelectedImagePreviews } from "@/features/documents/components/ImageGallery";
 import "./project-entry-dialog.css";
 import {
   ActualCostInputSchema,
@@ -10,6 +11,7 @@ import {
   type EstimateInput,
 } from "@/data/repositories/projectFinanceRepository";
 import type { ProjectBuildingDetails, ProjectEstimate } from "@/domain/types";
+import { emptyPaymentDetails, type PaymentDetails } from "@/data/repositories/projectPartnersRepository";
 import {
   flatRecoveryLines,
   plannedFlatGroups,
@@ -51,8 +53,9 @@ interface Props {
   recoveryEstimates?: ProjectEstimate[];
   onOpenChange: (open: boolean) => void;
   onEstimate: (value: EstimateInput) => Promise<void>;
-  onActual: (value: ActualCostInput) => Promise<void>;
+  onActual: (value: ActualCostInput, receiptImages?: File[]) => Promise<void>;
   actualTitle?: string;
+  costKind?: "project" | "construction";
 }
 
 function wholeRupees(input: string): number | null {
@@ -73,8 +76,10 @@ export function ProjectEntryDialog({
   onEstimate,
   onActual,
   actualTitle = "Add Actual Cost",
+  costKind = "project",
 }: Props) {
   const kind = estimate?.kind ?? estimateKind;
+  const constructionMode = mode === "actual" && costKind === "construction";
   const linkedRecovery = estimate ? recoveryLink(estimate) : null;
   const inventory = recoveryInventory(buildingDetails)
     .map((item) => ({
@@ -184,8 +189,12 @@ export function ProjectEntryDialog({
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [amount, setAmount] = useState("");
   const [accountKey, setAccountKey] = useState("");
-  const [method, setMethod] = useState<"cash" | "bank" | "cheque" | "other">("cash");
+  const [method, setMethod] = useState<"cash" | "bank" | "digital" | "cheque" | "other">("cash");
   const [reference, setReference] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({ ...emptyPaymentDetails });
+  const [receiptImages, setReceiptImages] = useState<File[]>([]);
+  const updatePaymentDetail = (key: keyof PaymentDetails, value: string) =>
+    setPaymentDetails((current) => ({ ...current, [key]: value }));
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -271,6 +280,22 @@ export function ProjectEntryDialog({
       }
       value = parsed.data;
     } else {
+      if (constructionMode && !accountKey) {
+        setError("Choose Personal or Builder Account before saving this payment.");
+        return;
+      }
+      if (constructionMode && method === "bank" && (!paymentDetails.from_bank.trim() || !paymentDetails.to_bank.trim() || !reference.trim())) {
+        setError("Enter the sending bank, receiving bank, and transfer reference.");
+        return;
+      }
+      if (constructionMode && method === "digital" && (!paymentDetails.from_bank.trim() || !reference.trim())) {
+        setError("Enter the wallet or service and transaction ID.");
+        return;
+      }
+      if (constructionMode && method === "cheque" && (!paymentDetails.cheque_no.trim() || !paymentDetails.cheque_date || !paymentDetails.from_bank.trim())) {
+        setError("Enter the cheque number, date, and issuing bank.");
+        return;
+      }
       const parsed = ActualCostInputSchema.safeParse({
         account_key: accountKey,
         project_id: projectId,
@@ -279,6 +304,7 @@ export function ProjectEntryDialog({
         description: title,
         method,
         reference,
+        payment_details: constructionMode ? paymentDetails : undefined,
       });
       if (!parsed.success) {
         setError(parsed.error.issues[0]?.message ?? "Check the cost details.");
@@ -290,7 +316,7 @@ export function ProjectEntryDialog({
     setPending(true);
     try {
       if (mode === "estimate") await onEstimate(value as EstimateInput);
-      else await onActual(value as ActualCostInput);
+      else await onActual(value as ActualCostInput, constructionMode ? receiptImages : []);
       onOpenChange(false);
     } catch (cause) {
       setError(`Could not save: ${String(cause)}`);
@@ -302,16 +328,18 @@ export function ProjectEntryDialog({
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent
-        className={`${mode === "estimate" ? `estimate-entry-dialog estimate-entry-${kind}` : ""} max-h-[90vh] overflow-y-auto ${detailedFlats ? "sm:max-w-2xl" : mode === "estimate" ? "sm:max-w-xl" : "sm:max-w-lg"}`}
+        className={`${mode === "estimate" ? `estimate-entry-dialog estimate-entry-${kind}` : ""} ${constructionMode ? "construction-entry-dialog" : ""} max-h-[90vh] overflow-y-auto ${detailedFlats || constructionMode ? "sm:max-w-2xl" : mode === "estimate" ? "sm:max-w-xl" : "sm:max-w-lg"}`}
       >
-        <DialogHeader className={mode === "estimate" ? "estimate-entry-header" : ""}>
+        <DialogHeader className={mode === "estimate" ? "estimate-entry-header" : constructionMode ? "construction-entry-header" : ""}>
           {mode === "estimate" && (
             <span className="estimate-entry-icon" aria-hidden="true">
               {kind === "cost" ? <Calculator size={26} /> : <TrendingUp size={26} />}
             </span>
           )}
+          {constructionMode && <span className="construction-entry-icon" aria-hidden="true"><Building2 size={27} /></span>}
           <div>
             {mode === "estimate" && <span className="estimate-entry-eyebrow">PROJECT ESTIMATE</span>}
+            {constructionMode && <span className="construction-entry-eyebrow">CONSTRUCTION PAYMENT</span>}
             <DialogTitle>
               {estimate
                 ? `Edit ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}`
@@ -326,10 +354,26 @@ export function ProjectEntryDialog({
                   : "Estimate what the planned spaces could earn."}
               </p>
             )}
+            {constructionMode && <p className="construction-entry-subtitle">Record what was paid and how the money reached the recipient.</p>}
           </div>
         </DialogHeader>
         <form id="project-entry-form" onSubmit={save} className="space-y-4">
-          {mode !== "estimate" && <BankAccountSelect value={accountKey} onChange={setAccountKey} />}
+          {mode !== "estimate" && !constructionMode && <BankAccountSelect value={accountKey} onChange={setAccountKey} />}
+          {constructionMode && (
+            <fieldset className="construction-entry-section">
+              <legend><Wallet size={18} /> Pay from account *</legend>
+              <div className="construction-account-options">
+                {(["personal", "builder"] as const).map((account) => (
+                  <label key={account} className={accountKey === account ? "is-selected" : ""}>
+                    <input type="radio" name="construction-account" value={account} checked={accountKey === account} onChange={() => setAccountKey(account)} required />
+                    <span>{account === "personal" ? <Wallet size={21} /> : <Building2 size={21} />}</span>
+                    <strong>{account === "personal" ? "Personal Account" : "Builder Account"}</strong>
+                  </label>
+                ))}
+              </div>
+              <p>Choose whose funds are used, including cash and cheque payments.</p>
+            </fieldset>
+          )}
           {mode === "estimate" && kind === "cost" && (
             <div className="estimate-entry-section space-y-1.5">
               <div className="estimate-entry-section-heading"><ClipboardList size={19} /><span>What are you planning for?</span></div>
@@ -685,31 +729,56 @@ export function ProjectEntryDialog({
                   />
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="entry-method">Payment method</Label>
-                  <select
-                    id="entry-method"
-                    value={method}
-                    onChange={(event) => setMethod(event.target.value as typeof method)}
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="bank">Bank</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="other">Other</option>
-                  </select>
+              {constructionMode ? (
+                <div className="construction-entry-section construction-payment-section">
+                  <div className="construction-entry-section-title"><CreditCard size={19} /><span>How was it paid?</span></div>
+                  <div className="construction-method-options" role="group" aria-label="Payment method">
+                    {([
+                      { key: "cash", label: "Cash", icon: Banknote },
+                      { key: "bank", label: "Bank transfer", icon: Landmark },
+                      { key: "digital", label: "Digital wallet", icon: Wallet },
+                      { key: "cheque", label: "Cheque", icon: ReceiptText },
+                      { key: "other", label: "Other", icon: CircleDollarSign },
+                    ] as const).map(({ key, label, icon: Icon }) => (
+                      <button key={key} type="button" className={method === key ? "is-selected" : ""} aria-pressed={method === key} onClick={() => { setMethod(key); setReference(""); setPaymentDetails({ ...emptyPaymentDetails }); }}><Icon size={19} /><span>{label}</span></button>
+                    ))}
+                  </div>
+                  <div className="construction-method-fields">
+                    {method === "cash" && <div><Label htmlFor="construction-receipt">Receipt number (optional)</Label><Input id="construction-receipt" value={paymentDetails.receipt_no} onChange={(event) => updatePaymentDetail("receipt_no", event.target.value)} placeholder="If you have a cash receipt" /></div>}
+                    {method === "bank" && <><div><Label htmlFor="construction-from-bank">Sending bank *</Label><Input id="construction-from-bank" value={paymentDetails.from_bank} onChange={(event) => updatePaymentDetail("from_bank", event.target.value)} placeholder="e.g. Meezan Bank" required /></div><div><Label htmlFor="construction-to-bank">Receiving bank *</Label><Input id="construction-to-bank" value={paymentDetails.to_bank} onChange={(event) => updatePaymentDetail("to_bank", event.target.value)} placeholder="Recipient's bank" required /></div><div><Label htmlFor="construction-from-account">Sender account / IBAN</Label><Input id="construction-from-account" value={paymentDetails.from_account_no} onChange={(event) => updatePaymentDetail("from_account_no", event.target.value)} /></div><div><Label htmlFor="construction-to-account">Recipient account / IBAN</Label><Input id="construction-to-account" value={paymentDetails.to_account_no} onChange={(event) => updatePaymentDetail("to_account_no", event.target.value)} /></div></>}
+                    {method === "digital" && <><div><Label htmlFor="construction-wallet">Wallet or service *</Label><Input id="construction-wallet" value={paymentDetails.from_bank} onChange={(event) => updatePaymentDetail("from_bank", event.target.value)} placeholder="e.g. Easypaisa" required /></div><div><Label htmlFor="construction-wallet-account">Recipient wallet / number</Label><Input id="construction-wallet-account" value={paymentDetails.to_account_no} onChange={(event) => updatePaymentDetail("to_account_no", event.target.value)} /></div></>}
+                    {method === "cheque" && <><div><Label htmlFor="construction-cheque-bank">Issuing bank *</Label><Input id="construction-cheque-bank" value={paymentDetails.from_bank} onChange={(event) => updatePaymentDetail("from_bank", event.target.value)} required /></div><div><Label htmlFor="construction-cheque-no">Cheque number *</Label><Input id="construction-cheque-no" value={paymentDetails.cheque_no} onChange={(event) => updatePaymentDetail("cheque_no", event.target.value)} required /></div><div><Label htmlFor="construction-cheque-date">Cheque date *</Label><Input id="construction-cheque-date" type="date" value={paymentDetails.cheque_date} onChange={(event) => updatePaymentDetail("cheque_date", event.target.value)} required /></div><div><Label htmlFor="construction-cheque-payee">Payable to</Label><Input id="construction-cheque-payee" value={paymentDetails.cheque_payee} onChange={(event) => updatePaymentDetail("cheque_payee", event.target.value)} /></div></>}
+                    {(method === "bank" || method === "digital" || method === "cheque" || method === "other") && <div className="construction-reference"><Label htmlFor="entry-reference">{method === "bank" ? "Transfer reference *" : method === "digital" ? "Transaction ID *" : method === "cheque" ? "Deposit reference (optional)" : "Reference (optional)"}</Label><Input id="entry-reference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder={method === "bank" || method === "digital" ? "Enter the payment reference" : "Optional reference"} required={method === "bank" || method === "digital"} /></div>}
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="entry-reference">Reference</Label>
-                  <Input
-                    id="entry-reference"
-                    value={reference}
-                    onChange={(event) => setReference(event.target.value)}
-                    placeholder="Optional receipt or transfer ID"
-                  />
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5"><Label htmlFor="entry-method">Payment method</Label><select id="entry-method" value={method} onChange={(event) => setMethod(event.target.value as typeof method)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="cash">Cash</option><option value="bank">Bank</option><option value="cheque">Cheque</option><option value="other">Other</option></select></div>
+                  <div className="space-y-1.5"><Label htmlFor="entry-reference">Reference</Label><Input id="entry-reference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Optional receipt or transfer ID" /></div>
                 </div>
-              </div>
+              )}
+              {constructionMode && (
+                <section className="construction-receipts">
+                  <div className="construction-entry-section-title"><ImagePlus size={19} /><span>Payment receipts (optional)</span></div>
+                  <p>Add photos of a cash receipt, bank transfer, cheque, or other payment proof.</p>
+                  <input id="construction-receipt-images" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="construction-receipt-input" onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    if (files.some((file) => !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024)) {
+                      setError("Choose JPEG, PNG, WebP or GIF images smaller than 10 MB each.");
+                      event.target.value = "";
+                      return;
+                    }
+                    setError("");
+                    setReceiptImages(files);
+                  }} />
+                  <label htmlFor="construction-receipt-images" className="construction-receipt-upload">
+                    <span><ImagePlus size={26} aria-hidden="true" /></span>
+                    <strong>{receiptImages.length ? `${receiptImages.length} image${receiptImages.length === 1 ? "" : "s"} selected` : "Add receipt images"}</strong>
+                    <small>Choose images or tap here to upload · up to 10 MB each</small>
+                  </label>
+                  <SelectedImagePreviews files={receiptImages} />
+                </section>
+              )}
               <p className="text-xs text-muted-foreground">
                 This payment will also appear in the project ledger.
               </p>

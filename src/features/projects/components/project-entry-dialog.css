@@ -129,3 +129,52 @@
   .estimate-recovery-floor-step .flat-recovery-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .estimate-recovery-floor-step .flat-recovery-label { grid-column: 1 / -1; }
 }
+.construction-entry-dialog { --construction-accent: #6d28d9; gap: 0; padding: 0; overflow: hidden; border: 1px solid #d8c9fa; border-radius: 19px; }
+.construction-entry-header { display: flex; flex-direction: row; align-items: center; gap: 15px; padding: 24px 27px; border-bottom: 1px solid var(--border); background: linear-gradient(110deg, #f1eaff, var(--card) 85%); text-align: left; }
+.construction-entry-icon { display: grid; place-items: center; flex: none; width: 54px; height: 54px; border-radius: 15px; background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; }
+.construction-entry-eyebrow { color: var(--construction-accent); font-size: 11px; font-weight: 850; letter-spacing: .1em; }
+.construction-entry-header h2 { margin-top: 3px; color: var(--foreground); font-size: 22px; font-weight: 800; }
+.construction-entry-subtitle { margin-top: 4px; color: var(--muted-foreground); font-size: 12px; }
+.construction-entry-dialog form { display: grid; gap: 16px; padding: 22px 27px; }
+.construction-entry-dialog form > * { margin-top: 0 !important; }
+.construction-entry-dialog label, .construction-entry-dialog legend { color: var(--foreground); font-size: 13px; font-weight: 750; }
+.construction-entry-dialog input { min-height: 44px; border-radius: 9px; background: var(--card); }
+.construction-entry-dialog form > .grid, .construction-entry-dialog form > .space-y-1\.5 { padding: 15px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.construction-entry-section { display: grid; gap: 11px; min-width: 0; padding: 16px; border: 1px solid #d8c9fa; border-radius: 13px; background: color-mix(in srgb, #7c3aed 4%, var(--card)); }
+.construction-entry-section legend { display: flex; align-items: center; gap: 8px; padding: 0 5px; color: var(--construction-accent); font-size: 15px; font-weight: 800; }
+.construction-entry-section > p { color: var(--muted-foreground); font-size: 11px; }
+.construction-account-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.construction-account-options label { display: flex; align-items: center; gap: 10px; min-height: 62px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); cursor: pointer; }
+.construction-account-options label.is-selected { border: 2px solid var(--construction-accent); background: color-mix(in srgb, #7c3aed 10%, var(--card)); }
+.construction-account-options input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.construction-account-options input:focus-visible + span { outline: 2px solid var(--ring); outline-offset: 2px; }
+.construction-account-options label > span { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 9px; background: #ede9fe; color: var(--construction-accent); }
+.construction-account-options strong { font-size: 13px; }
+.construction-entry-section-title { display: flex; align-items: center; gap: 8px; color: var(--construction-accent); font-size: 15px; font-weight: 800; }
+.construction-method-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.construction-method-options button { display: grid; justify-items: center; align-content: center; gap: 5px; min-height: 62px; padding: 7px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--foreground); font-size: 11px; font-weight: 750; cursor: pointer; }
+.construction-method-options button svg { color: var(--construction-accent); }
+.construction-method-options button.is-selected { border: 2px solid var(--construction-accent); background: color-mix(in srgb, #7c3aed 10%, var(--card)); }
+.construction-method-options button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.construction-method-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.construction-method-fields > div { display: grid; gap: 5px; min-width: 0; }
+.construction-reference { grid-column: 1 / -1; }
+.construction-receipts { display: grid; gap: 10px; padding: 16px; border: 1px solid #c7d7fb; border-radius: 13px; background: color-mix(in srgb, #3b82f6 5%, var(--card)); }
+.construction-receipts > p { color: var(--muted-foreground); font-size: 12px; }
+.construction-receipt-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.construction-receipt-upload { display: grid; justify-items: center; gap: 6px; padding: 18px; border: 1.5px dashed #8aaef6; border-radius: 12px; background: var(--card); text-align: center; cursor: pointer; }
+.construction-receipt-input:focus-visible + .construction-receipt-upload { outline: 2px solid var(--ring); outline-offset: 2px; }
+.construction-receipt-upload > span { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 13px; background: #dbeafe; color: #2563eb; }
+.construction-receipt-upload strong { color: var(--foreground); font-size: 14px; }
+.construction-receipt-upload small { color: var(--muted-foreground); font-size: 11px; }
+.construction-receipts .selected-image-previews { margin-top: 4px; }
+.construction-entry-dialog [role="alert"] { padding: 10px 12px; border: 1px solid currentColor; border-radius: 9px; }
+.construction-entry-dialog [data-slot="dialog-footer"] { padding: 15px 27px; border-top: 1px solid var(--border); background: var(--card); }
+.construction-entry-dialog [data-slot="dialog-footer"] button[type="submit"] { min-width: 108px; background: var(--construction-accent); color: white; }
+.dark .construction-entry-dialog { border-color: #59467a; }
+.dark .construction-entry-header { background: linear-gradient(110deg, #30254d, var(--card) 85%); }
+.dark .construction-entry-eyebrow, .dark .construction-entry-section-title, .dark .construction-entry-section legend { color: #c9b5ff; }
+.dark .construction-account-options label > span { background: #342852; color: #c9b5ff; }
+.dark .construction-receipt-upload > span { background: #1e3a5f; color: #93c5fd; }
+@media (max-width: 600px) { .construction-entry-dialog { width: calc(100vw - 24px); } .construction-entry-header { padding: 20px 17px; } .construction-entry-dialog form { padding: 17px; } .construction-entry-dialog [data-slot="dialog-footer"] { padding: 15px 17px; } .construction-method-options { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 450px) { .construction-account-options, .construction-method-fields { grid-template-columns: 1fr; } .construction-reference { grid-column: auto; } }

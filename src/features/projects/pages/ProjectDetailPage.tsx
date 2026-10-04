@@ -1,8 +1,10 @@
 import { BankAccountSelect } from "@/components/BankAccountSelect";
-import { saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
-import { SelectedImagePreviews } from "@/features/documents/components/ImageGallery";
+import { listConstructionCostReceipts, saveConstructionCostReceipt, saveLandImage, saveLandPaymentReceipt, type DocumentRecord } from "@/data/repositories/documentsRepository";
+import { SavedImageGallery, SelectedImagePreviews } from "@/features/documents/components/ImageGallery";
 import "./project-detail.css";
 import "./project-estimate.css";
+import "./project-actual.css";
+import "./project-construction.css";
 import "./project-partners.css";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
@@ -200,6 +202,7 @@ export function ProjectDetailPage() {
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
   const [constructionCosts, setConstructionCosts] = useState<Transaction[]>([]);
+  const [constructionReceipts, setConstructionReceipts] = useState<DocumentRecord[]>([]);
   const [tab, setTab] = useState<Tab>("dashboard");
   const [buildingTab, setBuildingTab] = useState<BuildingTab>("overview");
   const [dialog, setDialog] = useState<EntryMode | null>(null);
@@ -220,6 +223,7 @@ export function ProjectDetailPage() {
       listProjectEstimates(projectId),
       listActualProjectCosts(projectId),
       listConstructionCosts(projectId),
+      listConstructionCostReceipts(projectId),
       listProjectPartners(projectId),
       listPartnerContributions(projectId),
       getProjectLand(projectId),
@@ -231,6 +235,7 @@ export function ProjectDetailPage() {
           estimateRows,
           costRows,
           constructionRows,
+          receiptRows,
           partnerRows,
           contributionRows,
           landRow,
@@ -241,6 +246,7 @@ export function ProjectDetailPage() {
           setEstimates(estimateRows);
           setActualCosts(costRows);
           setConstructionCosts(constructionRows);
+          setConstructionReceipts(receiptRows);
           setPartners(partnerRows);
           setContributions(contributionRows);
           setLandDetails(landRow);
@@ -275,11 +281,19 @@ export function ProjectDetailPage() {
     toast.success("Actual cost recorded");
   }
 
-  async function saveConstruction(value: ActualCostInput) {
+  async function saveConstruction(value: ActualCostInput, receiptImages: File[] = []) {
     const row = await addConstructionCost(value);
     setConstructionCosts((current) => [row, ...current]);
     setActualCosts((current) => [row, ...current]);
     toast.success("Construction cost recorded");
+    if (receiptImages.length) {
+      const results = await Promise.allSettled(receiptImages.map((file) => saveConstructionCostReceipt(row.id, file, value.date)));
+      const saved = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      setConstructionReceipts((current) => [...saved, ...current]);
+      const failures = results.length - saved.length;
+      if (failures) toast.error(`${failures} receipt image${failures === 1 ? "" : "s"} could not be saved.`);
+      else toast.success(`${saved.length} receipt image${saved.length === 1 ? "" : "s"} saved`);
+    }
   }
 
   async function saveBuildingDetails(value: BuildingDetailsInput) {
@@ -514,6 +528,11 @@ export function ProjectDetailPage() {
     facets: [{ label: "Method", value: (item) => item.method }],
   });
   const actualTotal = sum(allActualCosts.map((item) => item.amount));
+  const actualSources = [
+    { key: "land", label: "Land purchase", icon: Landmark, amount: sum(allActualCosts.filter((item) => item.type === "land_purchase").map((item) => item.amount)) },
+    { key: "construction", label: "Construction", icon: HardHat, amount: sum(allActualCosts.filter((item) => item.type === "construction_cost").map((item) => item.amount)) },
+    { key: "other", label: "Other project costs", icon: Wallet, amount: sum(allActualCosts.filter((item) => item.type !== "land_purchase" && item.type !== "construction_cost").map((item) => item.amount)) },
+  ];
   const visibleProjectTabs = projectTabs.filter(
     ({ id }) =>
       id !== "construction" ||
@@ -1080,108 +1099,83 @@ export function ProjectDetailPage() {
                 </div>
                 <p>{revenues.length ? "Compare the highest planned cost with the highest expected recovery. The margin above shows the possible range." : "Add recovery items to compare what the project may bring in against what it may cost."}</p>
               </div>
-              <div className="project-estimate-charts">
-                {costs.length ? <EstimateChart items={costs} title="Estimated cost breakdown" /> : <div className="project-estimate-empty-chart"><Wallet size={26} /><h3>No planned costs yet</h3><p>Add an expected cost to see its range here.</p></div>}
-                {revenues.length ? <EstimateChart items={revenues} title="Expected recovery breakdown" /> : <div className="project-estimate-empty-chart is-recovery"><HandCoins size={26} /><h3>No expected recovery yet</h3><p>Add an expected recovery to compare it with costs.</p></div>}
+              <div className="project-estimate-explore">
+                <h3>Explore the plan</h3>
+                <p>Open a section when you want its chart, filters, or individual items.</p>
               </div>
-              <EstimateSection
-                title="Cost items"
-                items={costs}
-                onDelete={setItemToDelete}
-                onEdit={(item) => {
-                  setEditingEstimate(item);
-                  setEstimateKind("cost");
-                  setDialog("estimate");
-                }}
-              />
-              <EstimateSection
-                title="Recovery / revenue items"
-                items={revenues}
-                onDelete={setItemToDelete}
-                onEdit={(item) => {
-                  setEditingEstimate(item);
-                  setEstimateKind("revenue");
-                  setDialog("estimate");
-                }}
-              />
+              <details className="project-estimate-drawer is-cost">
+                <summary>
+                  <span className="project-estimate-drawer-icon"><Wallet size={22} /></span>
+                  <span className="project-estimate-drawer-copy"><strong>Planned costs</strong><small>{costs.length} {costs.length === 1 ? "item" : "items"} · estimate breakdown and cost list</small></span>
+                  <span className="project-estimate-drawer-total">{formatPKRInLakhCrore(costMin)} – {formatPKRInLakhCrore(costMax)}</span>
+                  <ChevronDown size={19} className="project-estimate-drawer-chevron" />
+                </summary>
+                <div className="project-estimate-drawer-body">
+                  {costs.length ? <EstimateChart items={costs} title="Estimated cost breakdown" /> : <div className="project-estimate-empty-chart"><Wallet size={26} /><h3>No planned costs yet</h3><p>Add an expected cost to see its range here.</p></div>}
+                  <EstimateSection
+                    title="Cost items"
+                    items={costs}
+                    onDelete={setItemToDelete}
+                    onEdit={(item) => {
+                      setEditingEstimate(item);
+                      setEstimateKind("cost");
+                      setDialog("estimate");
+                    }}
+                  />
+                </div>
+              </details>
+              <details className="project-estimate-drawer is-recovery">
+                <summary>
+                  <span className="project-estimate-drawer-icon"><HandCoins size={22} /></span>
+                  <span className="project-estimate-drawer-copy"><strong>Expected recovery</strong><small>{revenues.length} {revenues.length === 1 ? "item" : "items"} · sales estimates and recovery list</small></span>
+                  <span className="project-estimate-drawer-total">{formatPKRInLakhCrore(revenueMin)} – {formatPKRInLakhCrore(revenueMax)}</span>
+                  <ChevronDown size={19} className="project-estimate-drawer-chevron" />
+                </summary>
+                <div className="project-estimate-drawer-body">
+                  {revenues.length ? <EstimateChart items={revenues} title="Expected recovery breakdown" /> : <div className="project-estimate-empty-chart is-recovery"><HandCoins size={26} /><h3>No expected recovery yet</h3><p>Add an expected recovery to compare it with costs.</p></div>}
+                  <EstimateSection
+                    title="Recovery / revenue items"
+                    items={revenues}
+                    onDelete={setItemToDelete}
+                    onEdit={(item) => {
+                      setEditingEstimate(item);
+                      setEstimateKind("revenue");
+                      setDialog("estimate");
+                    }}
+                  />
+                </div>
+              </details>
             </div>
           )}
           {tab === "actual" && (
-            <div id="project-panel-actual" role="tabpanel" aria-labelledby="project-tab-actual">
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">Actual project costs</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Land purchase and construction payments appear here automatically. Add other
-                    project costs below.
-                  </p>
-                </div>
-                <Button onClick={() => setDialog("actual")}>
-                  <Plus className="size-4" />
-                  Add Actual Cost
-                </Button>
+            <div id="project-panel-actual" role="tabpanel" aria-labelledby="project-tab-actual" className="project-actual-panel">
+              <div className="project-actual-hero">
+                <div className="project-actual-hero-copy"><span><Wallet size={28} /></span><div><small>PROJECT MONEY SPENT</small><h2>Actual project costs</h2><p>See what has been paid for land, construction, and other project needs.</p></div></div>
+                <Button onClick={() => setDialog("actual")}><Plus className="size-4" /> Add Actual Cost</Button>
               </div>
-              <div className="mb-6 grid gap-3 sm:grid-cols-2">
-                <Summary title="Total spent" value={formatPKR(actualTotal)} />
-                <Summary
-                  title="Estimated cost range"
-                  value={`${formatPKR(costMin)} – ${formatPKR(costMax)}`}
-                />
+              <div className="project-actual-metrics">
+                <div className="project-actual-metric is-spent"><span className="project-actual-metric-icon"><Wallet size={22} /></span><small>Total spent</small><strong>{formatPKRInLakhCrore(actualTotal)}</strong><p>{formatPKR(actualTotal)} · {allActualCosts.length} {allActualCosts.length === 1 ? "payment" : "payments"}</p></div>
+                <div className="project-actual-metric is-plan"><span className="project-actual-metric-icon"><Calculator size={22} /></span><small>Estimated cost range</small><strong>{costs.length ? `${formatPKRInLakhCrore(costMin)} – ${formatPKRInLakhCrore(costMax)}` : "Not planned yet"}</strong><p>{costs.length ? `${costs.length} planned cost ${costs.length === 1 ? "item" : "items"}` : "Add expected costs in Estimate"}</p></div>
+                <div className="project-actual-metric is-remaining"><span className="project-actual-metric-icon"><PieChart size={22} /></span><small>{actualTotal > costMax && costs.length ? "Over highest estimate" : "Until highest estimate"}</small><strong>{costs.length ? formatPKRInLakhCrore(Math.abs(costMax - actualTotal)) : "—"}</strong><p>{costs.length ? "Based on the maximum planned cost" : "Available after a cost estimate is added"}</p></div>
               </div>
-              <SpendingChart costs={actualFilter.visible} />
-              {actualFilter.controls}
-              <p className="scope-note">
-                Project totals above include all costs. The chart and table use your filters.
-                Matching total: {formatPKR(sum(actualFilter.visible.map((item) => item.amount)))}
-              </p>
-              {allActualCosts.length > 0 && actualFilter.visible.length === 0 && (
-                <p className="filter-empty">No costs match these filters.</p>
-              )}
-              {allActualCosts.length === 0 ? (
-                <p className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-                  No actual costs recorded yet.
-                </p>
-              ) : (
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 text-left text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Date</th>
-                        <th className="px-4 py-3 font-medium">Description</th>
-                        <th className="px-4 py-3 font-medium">Source</th>
-                        <th className="px-4 py-3 font-medium">Method</th>
-                        <th className="px-4 py-3 text-right font-medium">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {actualFilter.visible.map((item) => (
-                        <tr key={item.id} className="border-t">
-                          <td className="px-4 py-3">{formatDate(item.date)}</td>
-                          <td className="px-4 py-3">
-                            {item.description}
-                            {item.reference && (
-                              <span className="block text-xs text-muted-foreground">
-                                Ref: {item.reference}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {item.type === "land_purchase"
-                              ? "Land acquired"
-                              : item.type === "construction_cost"
-                                ? "Construction Cost"
-                                : "Added here"}
-                          </td>
-                          <td className="px-4 py-3 capitalize">{item.method || "—"}</td>
-                          <td className="px-4 py-3 text-right font-medium">
-                            {formatPKR(item.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <div className="project-actual-insights">
+                <section className="project-actual-source-card">
+                  <div className="project-actual-section-title"><div><h3>Where the money went</h3><p>All recorded project costs by source</p></div></div>
+                  <div className="project-actual-source-list">
+                    {actualSources.map(({ key, label, icon: Icon, amount }) => (
+                      <div key={key} className={`project-actual-source is-${key}`}><span className="project-actual-source-icon"><Icon size={18} /></span><div><span><strong>{label}</strong><b>{formatPKR(amount)}</b></span><i><em style={{ width: `${actualTotal ? (amount / actualTotal) * 100 : 0}%` }} /></i></div></div>
+                    ))}
+                  </div>
+                </section>
+                <section className="project-actual-chart-card">{actualFilter.visible.length ? <SpendingChart costs={actualFilter.visible} /> : <><div className="project-actual-section-title"><div><h3>Spending over time</h3><p>Running total for the selected records</p></div></div><div className="project-actual-chart-empty"><PieChart size={27} /><strong>No spending to chart</strong><span>{allActualCosts.length ? "Try changing your filters." : "Recorded costs will appear here."}</span></div></>}</section>
+              </div>
+              <section className="project-actual-history">
+                <div className="project-actual-section-title"><div><h3>Cost history</h3><p>Review every recorded project payment</p></div><span>{actualFilter.visible.length} of {allActualCosts.length} shown</span></div>
+                <details className="project-actual-filter"><summary><span><SlidersHorizontal size={18} /> Search & filter costs</span><span>{actualFilter.active ? "Filters applied" : "All costs"} <ChevronDown size={16} /></span></summary>{actualFilter.controls}</details>
+                {actualFilter.active && <p className="project-actual-filter-summary">Matching total: <strong>{formatPKR(sum(actualFilter.visible.map((item) => item.amount)))}</strong> · Summary cards above include all costs.</p>}
+                {actualFilter.visible.length === 0 ? <div className="project-actual-empty"><Wallet size={25} /><strong>{allActualCosts.length ? "No costs match these filters" : "No actual costs recorded yet"}</strong><p>{allActualCosts.length ? "Adjust your search or filters to see more records." : "Add a cost, or record a land or construction payment."}</p></div> :
+                  <div className="project-actual-records">{actualFilter.visible.map((item) => { const source = item.type === "land_purchase" ? "land" : item.type === "construction_cost" ? "construction" : "other"; const Icon = source === "land" ? Landmark : source === "construction" ? HardHat : Wallet; return <article key={item.id} className={`project-actual-record is-${source}`}><span className="project-actual-record-icon"><Icon size={20} /></span><div className="project-actual-record-main"><strong>{item.description}</strong><span>{formatDate(item.date)} · {source === "land" ? "Land acquired" : source === "construction" ? "Construction Cost" : "Added here"}{item.method ? ` · ${item.method}` : ""}</span>{item.reference && <small>Ref: {item.reference}</small>}{source === "construction" && <><PaymentDetailsView transaction={item} /><SavedImageGallery documents={constructionReceipts.filter((receipt) => receipt.owner_id === item.id)} /></>}</div><b>{formatPKR(item.amount)}</b></article>; })}</div>}
+              </section>
             </div>
           )}
           {tab === "construction" && (
@@ -1191,20 +1185,11 @@ export function ProjectDetailPage() {
               aria-labelledby="project-tab-construction"
               className="construction-cost-section"
             >
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">Construction costs</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Record materials, labour and other building payments here. They also count
-                    toward Actual Cost.
-                  </p>
-                </div>
-                <Button onClick={() => setDialog("construction")}>
-                  <Plus className="size-4" />
-                  Add Construction Cost
-                </Button>
+              <div className="project-construction-hero">
+                <div className="project-construction-hero-copy"><span><HardHat size={28} /></span><div><small>BUILDING PAYMENTS</small><h2>Construction costs</h2><p>Track materials, labour and other building payments. These also appear in Actual Cost.</p></div></div>
+                <Button onClick={() => setDialog("construction")}><Plus className="size-4" /> Add Construction Cost</Button>
               </div>
-              <ConstructionCostInsights costs={constructionCosts} />
+              <ConstructionCostInsights costs={constructionCosts} receipts={constructionReceipts} />
             </div>
           )}
           {dialog && (
@@ -1224,6 +1209,7 @@ export function ProjectDetailPage() {
               onEstimate={saveEstimate}
               onActual={dialog === "construction" ? saveConstruction : saveActual}
               actualTitle={dialog === "construction" ? "Add Construction Cost" : "Add Actual Cost"}
+              costKind={dialog === "construction" ? "construction" : "project"}
             />
           )}
           {buildingDialogOpen && (
@@ -1933,15 +1919,6 @@ export function ProjectDetailPage() {
   );
 }
 
-function Summary({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="rounded-lg border bg-card p-4">
-      <p className="text-sm text-muted-foreground">{title}</p>
-      <p className="mt-2 text-lg font-semibold">{value}</p>
-    </div>
-  );
-}
-
 function EstimateSection({
   title,
   items,
@@ -1976,28 +1953,21 @@ function EstimateSection({
         <div className="project-estimate-empty-list"><Calculator size={23} /><strong>No items added yet</strong><p>Use the button above to start this part of the plan.</p></div>
       ) : (
         <div className="project-estimate-items">
-              {visible.map((item) => (
+              {visible.map((item) => {
+                const flatLines = flatRecoveryLines(item);
+                const link = recoveryLink(item);
+                const floorCount = new Set(flatLines.map((line) => line.floor_index)).size;
+                return (
                 <article key={item.id} className="project-estimate-item">
                   <div className="project-estimate-item-top">
                     <span className="project-estimate-item-icon"><Calculator size={18} /></span>
                     <div><h4>{item.title}</h4>
-                    {recoveryLink(item) && (
+                    {link && (
                       <p>
-                        {recoveryLink(item)!.quantity} planned {recoveryLink(item)!.space} ×
-                        expected price per unit
+                        {link.quantity} {link.space} included
+                        {floorCount > 0 ? ` · ${floorCount} ${floorCount === 1 ? "floor" : "floors"}` : " · priced per unit"}
                       </p>
                     )}
-                    {flatRecoveryLines(item).map((line) => (
-                      <p
-                        key={`${line.floor_index}-${line.rooms}`}
-                      >
-                        {line.floor_index === 0 ? "Ground" : `Floor ${line.floor_index}`}:{" "}
-                        {line.quantity} × {line.rooms}-room flats at{" "}
-                        {formatPKR(line.minimum_unit_price)} – {formatPKR(line.maximum_unit_price)}{" "}
-                        each
-                      </p>
-                    ))}
-                    {item.details && <p>{item.details}</p>}
                     </div>
                     <div className="project-estimate-item-actions">
                     <Button
@@ -2022,8 +1992,22 @@ function EstimateSection({
                     </div>
                   </div>
                   <div className="project-estimate-item-amounts"><span><small>Minimum</small><strong>{formatPKR(item.minimum_amount)}</strong></span><span><small>Maximum</small><strong>{formatPKR(item.maximum_amount)}</strong></span></div>
+                  {flatLines.length > 0 && (
+                    <details className="project-estimate-flat-details">
+                      <summary><span>View prices by floor</span><span>{flatLines.length} flat {flatLines.length === 1 ? "type" : "types"} <ChevronDown size={16} /></span></summary>
+                      <div className="project-estimate-flat-lines">
+                        {flatLines.map((line) => (
+                          <div key={`${line.floor_index}-${line.rooms}`}>
+                            <span><strong>{line.floor_index === 0 ? "Ground" : `Floor ${line.floor_index}`}</strong><small>{line.quantity} × {line.rooms}-room flats</small></span>
+                            <strong>{formatPKR(line.minimum_unit_price)} – {formatPKR(line.maximum_unit_price)} <small>each</small></strong>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                  {item.details && <p className="project-estimate-item-note">{item.details}</p>}
                 </article>
-              ))}
+              );})}
         </div>
       )}
     </section>
