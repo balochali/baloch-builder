@@ -86,6 +86,52 @@
   width: 29px;
   height: 29px;
 }
+.dark .project-detail-page .project-heading-card .project-status-progress {
+  background: transparent;
+  color: var(--foreground);
+}
+.dark .project-detail-page .project-status-heading h2 {
+  color: #f2f6ff;
+}
+.dark .project-detail-page .project-status-heading p {
+  color: #aabbd0;
+}
+.dark .project-detail-page .project-status-steps > div {
+  border-top-color: #40586d;
+  background: #23384c;
+  color: #b9cce0;
+}
+.dark .project-detail-page .project-status-steps > div .project-status-step-mark {
+  background: #344e64;
+  color: #d6e5f2;
+}
+.dark .project-detail-page .project-status-steps > div.is-done {
+  border-top-color: #43ba98;
+  background: #173e3b;
+  color: #a5ead1;
+}
+.dark .project-detail-page .project-status-steps > div.is-done .project-status-step-mark {
+  background: #249b78;
+  color: #fff;
+}
+.dark .project-detail-page .project-status-steps > div.is-current {
+  border-top-color: #eeb541;
+  background: #493c24;
+  color: #ffe0a0;
+}
+.dark .project-detail-page .project-status-steps > div.is-current .project-status-step-mark {
+  background: #eeb541;
+  color: #26394c;
+}
+.dark .project-detail-page .project-heading-back,
+.dark .project-detail-page .project-detail-title small,
+.dark .project-detail-page .project-heading-top button {
+  color: #c9abff;
+}
+.dark .project-detail-page .project-heading-top button {
+  background: #24374b;
+  border-color: #675a89;
+}
 .project-detail-page .project-detail-tabs {
   display: flex;
   width: 100%;
@@ -214,6 +260,54 @@
 .project-stage-redesign .project-stage-payment .project-stage-intro svg {
   color: #059669;
 }
+.project-stage-redesign .project-payment-images {
+  display: grid;
+  gap: 8px;
+  margin-top: 3px;
+  padding-top: 17px;
+  border-top: 1px solid color-mix(in srgb, #059669 22%, var(--border));
+}
+.project-stage-redesign .project-payment-images > p,
+.project-stage-redesign .project-payment-images li {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.project-stage-redesign .project-image-file-input,
+.project-stage-redesign .project-payment-images input[type="file"],
+.project-stage-redesign .project-land-images input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.project-stage-redesign .project-image-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 1px dashed #8b5cf6;
+  border-radius: 11px;
+  background: color-mix(in srgb, #7c3aed 5%, var(--card));
+  color: var(--foreground);
+  cursor: pointer;
+}
+.project-stage-redesign .project-image-upload-payment { border-color: #24a888; background: color-mix(in srgb, #059669 5%, var(--card)); }
+.project-stage-redesign .project-image-upload-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 10px; background: #7c3aed; color: white; }
+.project-stage-redesign .project-image-upload-payment .project-image-upload-icon { background: #059669; }
+.project-stage-redesign .project-image-upload > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.project-stage-redesign .project-image-upload strong { font-size: 13px; }
+.project-stage-redesign .project-image-upload small { color: var(--muted-foreground); font-size: 11px; }
+.project-stage-redesign .project-image-file-input:focus-visible + .project-image-upload { outline: 3px solid #7c3aed65; outline-offset: 2px; }
+.project-stage-redesign .project-payment-images ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+}
 .project-land-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -263,13 +357,6 @@
 .project-land-images {
   display: grid;
   gap: 11px;
-}
-.project-land-images input[type="file"] {
-  width: 100%;
-  padding: 12px;
-  border: 1px dashed #7c3aed;
-  border-radius: 10px;
-  background: color-mix(in srgb, #7c3aed 5%, var(--card));
 }
 .project-land-images > p,
 .project-land-images li {

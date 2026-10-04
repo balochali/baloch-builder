@@ -15,6 +15,7 @@ import {
   HardDrive,
   FolderOpen,
   ArrowUpRight,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,11 @@ const groups = [
     ],
   },
 ];
-export function Sidebar() {
+interface SidebarProps {
+  onLogout: () => void;
+}
+
+export function Sidebar({ onLogout }: SidebarProps) {
   const { pathname } = useLocation();
   const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -105,6 +110,10 @@ export function Sidebar() {
           <span className="sidebar-link-label">Settings</span>
           <ArrowUpRight className="sidebar-settings-arrow" size={15} aria-hidden="true" />
         </NavLink>
+        <button type="button" className="workspace-nav-link sidebar-logout" aria-label="Log out" onClick={onLogout}>
+          <span className="sidebar-link-icon"><LogOut size={19} aria-hidden="true" /></span>
+          <span className="sidebar-link-label">Log out</span>
+        </button>
       </div>
     </aside>
   );

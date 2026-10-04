@@ -28,10 +28,52 @@ export async function listDocuments(): Promise<DocumentRecord[]> {
   );
 }
 
+export async function listLandPaymentReceipts(): Promise<DocumentRecord[]> {
+  return (await listDocuments()).filter((document) => document.doc_type === "land_payment_receipt");
+}
+
+export async function listLandDocuments(landId: string): Promise<DocumentRecord[]> {
+  return query<DocumentRecord>(
+    `SELECT d.id, d.title, d.doc_type, d.doc_date, d.notes, d.file_path, d.mime, d.size,
+       d.owner_type, d.owner_id, p.name AS project_name, d.created_at
+     FROM documents d
+     JOIN land l ON l.id = d.owner_id AND d.owner_type = 'land'
+     LEFT JOIN projects p ON p.id = l.project_id
+     WHERE d.archived = 0 AND d.owner_id = ? ORDER BY d.created_at DESC`,
+    [landId],
+  );
+}
+
+export async function readDocumentImage(document: DocumentRecord): Promise<string> {
+  if (!document.file_path || !document.mime?.startsWith("image/"))
+    throw new Error("Image is unavailable");
+  const bytes = await invoke<number[]>("read_image_attachment", { path: document.file_path });
+  return URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: document.mime }));
+}
+
 export async function saveLandImage(
   landId: string,
   file: File,
   acquiredDate: string,
+): Promise<void> {
+  return saveLandAttachment(landId, file, acquiredDate, "land_image", null);
+}
+
+export async function saveLandPaymentReceipt(
+  landId: string,
+  file: File,
+  acquiredDate: string,
+  paymentMethod: string,
+): Promise<void> {
+  return saveLandAttachment(landId, file, acquiredDate, "land_payment_receipt", paymentMethod);
+}
+
+async function saveLandAttachment(
+  landId: string,
+  file: File,
+  acquiredDate: string,
+  type: "land_image" | "land_payment_receipt",
+  notes: string | null,
 ): Promise<void> {
   if (!landId) throw new Error("Land record is missing");
   if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type))
@@ -44,8 +86,8 @@ export async function saveLandImage(
   await execute(
     `INSERT INTO documents (id, title, doc_type, doc_date, notes, file_path, mime, size,
        owner_type, owner_id, created_at, updated_at, archived, custom)
-     VALUES (?, ?, 'land_image', ?, NULL, ?, ?, ?, 'land', ?, ?, ?, 0, '{}')`,
-    [newId(), file.name, acquiredDate, path, file.type, file.size, landId, timestamp, timestamp],
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'land', ?, ?, ?, 0, '{}')`,
+    [newId(), file.name, type, acquiredDate, notes, path, file.type, file.size, landId, timestamp, timestamp],
   );
 }
 

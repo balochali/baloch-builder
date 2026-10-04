@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Landmark,
   List,
+  Images,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -26,12 +27,15 @@ import {
   type BankEntry,
 } from "@/data/repositories/bankRepository";
 import { LandPaymentDetailsSchema } from "@/data/repositories/projectStageRepository";
+import { listLandPaymentReceipts, type DocumentRecord } from "@/data/repositories/documentsRepository";
+import { SavedImageGallery } from "@/features/documents/components/ImageGallery";
 
-type View = "overview" | "accounts" | "transactions";
+type View = "overview" | "accounts" | "transactions" | "images";
 const views: { key: View; label: string; icon: typeof BarChart3 }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
   { key: "accounts", label: "Accounts", icon: Landmark },
   { key: "transactions", label: "Transactions", icon: List },
+  { key: "images", label: "Images", icon: Images },
 ];
 const accountOptions = [
   { key: "all", label: "All accounts" },
@@ -98,6 +102,8 @@ function LandPaymentInfo({ raw }: { raw: string }) {
 
 export function BankPage() {
   const [entries, setEntries] = useState<BankEntry[]>([]);
+  const [receipts, setReceipts] = useState<DocumentRecord[]>([]);
+  const [imageSearch, setImageSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
@@ -108,6 +114,7 @@ export function BankPage() {
     setError("");
     try {
       setEntries(await listBankEntries());
+      setReceipts(await listLandPaymentReceipts());
     } catch {
       setError("Could not load accounts. Restart the updated desktop app, then refresh.");
     } finally {
@@ -131,8 +138,20 @@ export function BankPage() {
       active = false;
     };
   }, []);
+  useEffect(() => {
+    let active = true;
+    listLandPaymentReceipts()
+      .then((rows) => { if (active) setReceipts(rows); })
+      .catch(() => { if (active) setReceipts([]); });
+    return () => { active = false; };
+  }, []);
   const scoped = entries.filter(
     (row) => account === "all" || (row.account_key ?? "unassigned") === account,
+  );
+  const landEntries = new Map(scoped.filter((row) => row.source === "land").map((row) => [row.source_id, row]));
+  const visibleReceipts = receipts.filter((receipt) =>
+    receipt.owner_id && landEntries.has(receipt.owner_id) &&
+    [receipt.title, receipt.project_name, receipt.notes].join(" ").toLowerCase().includes(imageSearch.trim().toLowerCase()),
   );
   const { visible, controls, search, setSearch, active, reset } = useRecordFilters(scoped, {
     label: "bank transactions",
@@ -574,6 +593,9 @@ export function BankPage() {
                           {row.source === "land" && row.payment_details && (
                             <LandPaymentInfo raw={row.payment_details} />
                           )}
+                          {row.source === "land" && (
+                            <SavedImageGallery documents={receipts.filter((receipt) => receipt.owner_id === row.source_id)} />
+                          )}
                         </td>
                         <td className="money-in">
                           {row.direction === "in" ? formatPKR(row.amount) : "—"}
@@ -605,6 +627,27 @@ export function BankPage() {
                   <p className="bank-empty-visual">No transactions match these filters.</p>
                 )}
               </div>
+            </section>
+          )}
+          {view === "images" && (
+            <section id="bank-panel-images" role="tabpanel" aria-labelledby="bank-tab-images" className="bank-panel">
+              <div className="bank-section-title"><div><h2>Payment images</h2><p>Receipts, cheque photos and payment proof saved with land purchases.</p></div><span>{visibleReceipts.length} images</span></div>
+              <div className="bank-search-box"><Search size={19} /><input aria-label="Search payment images" placeholder="Search images or projects…" value={imageSearch} onChange={(event) => setImageSearch(event.target.value)} /></div>
+              {visibleReceipts.length ? (
+                <div className="bank-images-grid">
+                  {visibleReceipts.map((receipt) => {
+                    const entry = landEntries.get(receipt.owner_id || "");
+                    return <article key={receipt.id} className="bank-image-card">
+                      <div className="bank-image-card-icon"><Images size={23} /></div>
+                      <strong>{receipt.title}</strong>
+                      <span>{receipt.project_name || "Land purchase"} · {entry ? formatDate(entry.date) : ""}</span>
+                      <small>{receipt.notes === "bank" ? "Bank transfer" : receipt.notes === "cheque" ? "Cheque" : receipt.notes === "cash" ? "Cash" : receipt.notes === "digital" ? "Digital payment" : "Payment proof"}</small>
+                      <SavedImageGallery documents={[receipt]} />
+                      {entry?.project_id && <Link to={`/projects/${entry.project_id}`}>Open project <ArrowRight size={14} /></Link>}
+                    </article>;
+                  })}
+                </div>
+              ) : <p className="bank-empty-visual">No payment images match this account or search.</p>}
             </section>
           )}
         </>

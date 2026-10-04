@@ -1,6 +1,8 @@
 import { BankAccountSelect } from "@/components/BankAccountSelect";
-import { saveLandImage } from "@/data/repositories/documentsRepository";
+import { saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
+import { SelectedImagePreviews } from "@/features/documents/components/ImageGallery";
 import "./project-detail.css";
+import "./project-estimate.css";
 import "./project-partners.css";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
@@ -28,6 +30,7 @@ import {
   Clock3,
   HandCoins,
   FolderOpen,
+  Upload,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -186,6 +189,7 @@ export function ProjectDetailPage() {
   });
   const [landStep, setLandStep] = useState(0);
   const [landImages, setLandImages] = useState<File[]>([]);
+  const [landPaymentImages, setLandPaymentImages] = useState<File[]>([]);
   const [landPrice, setLandPrice] = useState("");
   const [landNotes, setLandNotes] = useState("");
   const [partners, setPartners] = useState<ProjectPartnerRow[]>([]);
@@ -369,6 +373,31 @@ export function ProjectDetailPage() {
           else
             toast.success(
               `${landImages.length} image${landImages.length === 1 ? "" : "s"} saved to Documents`,
+            );
+        }
+      }
+      if (land?.success && landPaymentImages.length) {
+        if (!savedLand?.id)
+          toast.error("Land saved, but its payment images could not be linked to Documents.");
+        else {
+          const results = await Promise.allSettled(
+            landPaymentImages.map((file) =>
+              saveLandPaymentReceipt(
+                savedLand.id,
+                file,
+                land.data.purchase_date,
+                land.data.payment_details?.method ?? "other",
+              ),
+            ),
+          );
+          const failures = results.filter((result) => result.status === "rejected").length;
+          if (failures)
+            toast.error(
+              `Land saved, but ${failures} payment image${failures === 1 ? "" : "s"} could not be attached.`,
+            );
+          else
+            toast.success(
+              `${landPaymentImages.length} payment image${landPaymentImages.length === 1 ? "" : "s"} saved to Documents`,
             );
         }
       }
@@ -559,6 +588,7 @@ export function ProjectDetailPage() {
                   );
                   setLandStep(0);
                   setLandImages([]);
+                  setLandPaymentImages([]);
                   setStatusDialogOpen(true);
                 }}
               >
@@ -572,26 +602,6 @@ export function ProjectDetailPage() {
                 Land details have not been added yet. Select Change Status to record the acquired
                 land.
               </p>
-            )}
-            {landDetails && (
-              <div className="project-land-summary">
-                <Landmark size={18} />
-                <div>
-                  <strong>Land acquired: {landDetails.title}</strong>
-                  <span>
-                    {landDetails.location}
-                    {landDetails.area_value
-                      ? ` · ${landDetails.area_value} ${landDetails.area_unit}`
-                      : ""}
-                    {landDetails.price ? ` · ${formatPKR(landDetails.price)}` : ""}
-                  </span>
-                  <span>
-                    Acquired {formatDate(landDetails.purchase_date)}
-                    {landDetails.seller_name ? ` · Seller: ${landDetails.seller_name}` : ""}
-                    {landDetails.notes ? ` · ${landDetails.notes}` : ""}
-                  </span>
-                </div>
-              </div>
             )}
           </section>
 
@@ -1005,13 +1015,15 @@ export function ProjectDetailPage() {
           )}
 
           {tab === "estimate" && (
-            <div id="project-panel-estimate" role="tabpanel" aria-labelledby="project-tab-estimate">
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">Project estimate</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Plan minimum and maximum costs and expected recovery.
-                  </p>
+            <div id="project-panel-estimate" role="tabpanel" aria-labelledby="project-tab-estimate" className="project-estimate-panel">
+              <div className="project-estimate-hero">
+                <div className="project-estimate-hero-copy">
+                  <span className="project-estimate-hero-icon"><Calculator size={27} aria-hidden="true" /></span>
+                  <div>
+                    <small>PROJECT FINANCIAL PLAN</small>
+                    <h2>Project estimate</h2>
+                    <p>Plan your costs and expected recovery before money is spent.</p>
+                  </div>
                 </div>
                 <div className="estimate-actions">
                   <Button
@@ -1037,27 +1049,40 @@ export function ProjectDetailPage() {
                   </Button>
                 </div>
               </div>
-              <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <Summary
-                  title="Estimated costs"
-                  value={`${formatPKR(costMin)} – ${formatPKR(costMax)}`}
-                />
-                <Summary
-                  title="Expected recovery"
-                  value={`${formatPKR(revenueMin)} – ${formatPKR(revenueMax)}`}
-                />
-                <Summary
-                  title="Projected margin range"
-                  value={
-                    revenues.length
-                      ? `${formatPKR(revenueMin - costMax)} – ${formatPKR(revenueMax - costMin)}`
-                      : "Add recovery items"
-                  }
-                />
+              <div className="project-estimate-metrics">
+                <div className="project-estimate-metric is-cost">
+                  <span className="project-estimate-metric-icon"><Wallet size={23} /></span>
+                  <span>Estimated costs</span>
+                  <strong>{formatPKRInLakhCrore(costMin)} – {formatPKRInLakhCrore(costMax)}</strong>
+                  <small>{costs.length} planned {costs.length === 1 ? "cost" : "costs"} · {formatPKR(costMin)} to {formatPKR(costMax)}</small>
+                </div>
+                <div className="project-estimate-metric is-recovery">
+                  <span className="project-estimate-metric-icon"><HandCoins size={23} /></span>
+                  <span>Expected recovery</span>
+                  <strong>{formatPKRInLakhCrore(revenueMin)} – {formatPKRInLakhCrore(revenueMax)}</strong>
+                  <small>{revenues.length} planned {revenues.length === 1 ? "recovery" : "recoveries"} · {formatPKR(revenueMin)} to {formatPKR(revenueMax)}</small>
+                </div>
+                <div className="project-estimate-metric is-margin">
+                  <span className="project-estimate-metric-icon"><PieChart size={23} /></span>
+                  <span>Projected margin range</span>
+                  <strong>{revenues.length ? `${formatPKRInLakhCrore(revenueMin - costMax)} – ${formatPKRInLakhCrore(revenueMax - costMin)}` : "Add recovery items"}</strong>
+                  <small>{revenues.length ? "Recovery after planned costs" : "Add expected recovery to see your margin"}</small>
+                </div>
               </div>
-              <div className="project-insight-grid">
-                <EstimateChart items={costs} title="Estimated cost breakdown" />
-                <EstimateChart items={revenues} title="Expected recovery breakdown" />
+              <div className="project-estimate-comparison">
+                <div className="project-estimate-comparison-heading">
+                  <span><PieChart size={20} /> The plan at a glance</span>
+                  <small>Maximum planned amounts</small>
+                </div>
+                <div className="project-estimate-comparison-bars">
+                  <div><span>Costs <strong>{formatPKR(costMax)}</strong></span><i><b className="is-cost" style={{ width: `${Math.round(costMax / Math.max(costMax, revenueMax, 1) * 100)}%` }} /></i></div>
+                  <div><span>Recovery <strong>{formatPKR(revenueMax)}</strong></span><i><b className="is-recovery" style={{ width: `${Math.round(revenueMax / Math.max(costMax, revenueMax, 1) * 100)}%` }} /></i></div>
+                </div>
+                <p>{revenues.length ? "Compare the highest planned cost with the highest expected recovery. The margin above shows the possible range." : "Add recovery items to compare what the project may bring in against what it may cost."}</p>
+              </div>
+              <div className="project-estimate-charts">
+                {costs.length ? <EstimateChart items={costs} title="Estimated cost breakdown" /> : <div className="project-estimate-empty-chart"><Wallet size={26} /><h3>No planned costs yet</h3><p>Add an expected cost to see its range here.</p></div>}
+                {revenues.length ? <EstimateChart items={revenues} title="Expected recovery breakdown" /> : <div className="project-estimate-empty-chart is-recovery"><HandCoins size={26} /><h3>No expected recovery yet</h3><p>Add an expected recovery to compare it with costs.</p></div>}
               </div>
               <EstimateSection
                 title="Cost items"
@@ -1405,14 +1430,15 @@ export function ProjectDetailPage() {
                                     <select
                                       id="stage-land-method"
                                       value={landPaymentDetails.method}
-                                      onChange={(event) =>
+                                      onChange={(event) => {
                                         setLandPaymentDetails({
                                           ...emptyLandPaymentDetails,
                                           paid_to: landPaymentDetails.paid_to || landSeller,
                                           method: event.target
                                             .value as LandPaymentDetails["method"],
-                                        })
-                                      }
+                                        });
+                                        setLandPaymentImages([]);
+                                      }}
                                     >
                                       <option value="cash">Cash</option>
                                       <option value="bank">Bank transfer</option>
@@ -1540,6 +1566,58 @@ export function ProjectDetailPage() {
                                     />
                                   </div>
                                 )}
+                                <div className="project-payment-images">
+                                  <Label htmlFor="stage-land-payment-images">
+                                    {landPaymentDetails.method === "cash"
+                                      ? "Cash payment photo (optional)"
+                                      : landPaymentDetails.method === "cheque"
+                                        ? "Cheque image (optional)"
+                                        : landPaymentDetails.method === "bank"
+                                          ? "Bank transfer receipt (optional)"
+                                          : landPaymentDetails.method === "digital"
+                                            ? "Digital payment receipt (optional)"
+                                            : "Payment proof image (optional)"}
+                                  </Label>
+                                  <p>
+                                    {landPaymentDetails.method === "cash"
+                                      ? "Add a photo of a signed cash receipt or payment acknowledgement."
+                                      : landPaymentDetails.method === "cheque"
+                                        ? "Add a photo of the cheque or deposit slip."
+                                        : landPaymentDetails.method === "bank"
+                                          ? "Add a screenshot or photo of the transfer receipt."
+                                          : landPaymentDetails.method === "digital"
+                                            ? "Add a screenshot of the wallet payment confirmation."
+                                            : "Add a photo of any payment record you have."}
+                                  </p>
+                                  <input
+                                    key={landPaymentDetails.method}
+                                    id="stage-land-payment-images"
+                                    className="project-image-file-input"
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    multiple
+                                    onChange={(event) => {
+                                      const files = Array.from(event.target.files ?? []);
+                                      const invalid = files.find(
+                                        (file) =>
+                                          !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) ||
+                                          !file.size || file.size > 10 * 1024 * 1024,
+                                      );
+                                      if (invalid) {
+                                        setStatusError("Choose JPEG, PNG, WebP or GIF images smaller than 10 MB each.");
+                                        event.target.value = "";
+                                        return;
+                                      }
+                                      setStatusError("");
+                                      setLandPaymentImages(files);
+                                    }}
+                                  />
+                                  <label className="project-image-upload project-image-upload-payment" htmlFor="stage-land-payment-images">
+                                    <span className="project-image-upload-icon"><Upload size={21} aria-hidden="true" /></span>
+                                    <span><strong>Upload payment images</strong><small>{landPaymentImages.length ? `${landPaymentImages.length} selected · choose again to replace` : "Choose one or more images"}</small></span>
+                                  </label>
+                                  <SelectedImagePreviews files={landPaymentImages} />
+                                </div>
                               </div>
                             )}
                           </>
@@ -1564,6 +1642,7 @@ export function ProjectDetailPage() {
                       <Label htmlFor="stage-land-images">Land photos, receipts or maps</Label>
                       <input
                         id="stage-land-images"
+                        className="project-image-file-input"
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/gif"
                         multiple
@@ -1588,16 +1667,12 @@ export function ProjectDetailPage() {
                           setLandImages(files);
                         }}
                       />
+                      <label className="project-image-upload" htmlFor="stage-land-images">
+                        <span className="project-image-upload-icon"><Upload size={21} aria-hidden="true" /></span>
+                        <span><strong>Upload land images</strong><small>{landImages.length ? `${landImages.length} selected · choose again to replace` : "Choose one or more images"}</small></span>
+                      </label>
                       <p>Up to 10 MB per image. You can select more than one.</p>
-                      {landImages.length > 0 && (
-                        <ul>
-                          {landImages.map((file) => (
-                            <li key={`${file.name}-${file.size}`}>
-                              {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                      <SelectedImagePreviews files={landImages} />
                     </div>
                   )}
                 </div>
@@ -1878,63 +1953,53 @@ function EstimateSection({
   onEdit: (item: ProjectEstimate) => void;
   onDelete: (item: ProjectEstimate) => void;
 }) {
-  const { visible, controls } = useRecordFilters(items, {
+  const { visible, controls, active, reset } = useRecordFilters(items, {
     label: title.toLowerCase(),
     searchText: (item) => [item.title, item.details].filter(Boolean).join(" "),
     amount: (item) => item.maximum_amount,
   });
   return (
-    <section className="mb-6">
-      <h3 className="mb-3 font-semibold">{title}</h3>
-      {controls}
-      <p className="scope-note">Amount filters and sorting use the maximum estimate.</p>
+    <section className="project-estimate-section">
+      <div className="project-estimate-section-heading">
+        <div><h3>{title}</h3><p>Review and update each planned amount.</p></div>
+        <span>{items.length} {items.length === 1 ? "item" : "items"}</span>
+      </div>
+      <details className="project-estimate-filter">
+        <summary><span><SlidersHorizontal size={18} /> Search & filter {title.toLowerCase()}</span><span>{active ? "Filters applied" : "All items"} <ChevronDown size={16} /></span></summary>
+        {controls}
+      </details>
+      {active && <div className="project-estimate-filter-results"><span>{visible.length} of {items.length} shown</span><button type="button" onClick={reset}>Clear filters</button></div>}
       {items.length > 0 && visible.length === 0 && (
         <p className="filter-empty">No estimate items match these filters.</p>
       )}
       {items.length === 0 ? (
-        <p className="rounded-lg border p-6 text-sm text-muted-foreground">No items added yet.</p>
+        <div className="project-estimate-empty-list"><Calculator size={23} /><strong>No items added yet</strong><p>Use the button above to start this part of the plan.</p></div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Item</th>
-                <th className="px-4 py-3 text-right font-medium">Minimum</th>
-                <th className="px-4 py-3 text-right font-medium">Maximum</th>
-                <th className="px-4 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="project-estimate-items">
               {visible.map((item) => (
-                <tr key={item.id} className="border-t">
-                  <td className="px-4 py-3">
-                    <span className="font-medium">{item.title}</span>
+                <article key={item.id} className="project-estimate-item">
+                  <div className="project-estimate-item-top">
+                    <span className="project-estimate-item-icon"><Calculator size={18} /></span>
+                    <div><h4>{item.title}</h4>
                     {recoveryLink(item) && (
-                      <span className="block text-xs text-muted-foreground">
+                      <p>
                         {recoveryLink(item)!.quantity} planned {recoveryLink(item)!.space} ×
                         expected price per unit
-                      </span>
+                      </p>
                     )}
                     {flatRecoveryLines(item).map((line) => (
-                      <span
-                        className="block text-xs text-muted-foreground"
+                      <p
                         key={`${line.floor_index}-${line.rooms}`}
                       >
                         {line.floor_index === 0 ? "Ground" : `Floor ${line.floor_index}`}:{" "}
                         {line.quantity} × {line.rooms}-room flats at{" "}
                         {formatPKR(line.minimum_unit_price)} – {formatPKR(line.maximum_unit_price)}{" "}
                         each
-                      </span>
+                      </p>
                     ))}
-                    {item.details && (
-                      <span className="block text-xs text-muted-foreground">{item.details}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">{formatPKR(item.minimum_amount)}</td>
-                  <td className="px-4 py-3 text-right">{formatPKR(item.maximum_amount)}</td>
-                  <td className="px-4 py-3 text-right">
+                    {item.details && <p>{item.details}</p>}
+                    </div>
+                    <div className="project-estimate-item-actions">
                     <Button
                       type="button"
                       size="icon"
@@ -1954,11 +2019,11 @@ function EstimateSection({
                     >
                       <Trash2 className="size-4" />
                     </Button>
-                  </td>
-                </tr>
+                    </div>
+                  </div>
+                  <div className="project-estimate-item-amounts"><span><small>Minimum</small><strong>{formatPKR(item.minimum_amount)}</strong></span><span><small>Maximum</small><strong>{formatPKR(item.maximum_amount)}</strong></span></div>
+                </article>
               ))}
-            </tbody>
-          </table>
         </div>
       )}
     </section>

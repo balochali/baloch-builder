@@ -3,9 +3,14 @@ import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { BankPage } from "@/features/bank/pages/BankPage";
 import { listBankEntries, assignBankAccount } from "@/data/repositories/bankRepository";
+import { listLandPaymentReceipts } from "@/data/repositories/documentsRepository";
 vi.mock("@/data/repositories/bankRepository", () => ({
   listBankEntries: vi.fn(),
   assignBankAccount: vi.fn(),
+}));
+vi.mock("@/data/repositories/documentsRepository", () => ({
+  listLandPaymentReceipts: vi.fn().mockResolvedValue([]),
+  readDocumentImage: vi.fn(),
 }));
 it("shows bank insights, searches transactions, and saves a historical payment account", async () => {
   const base = {
@@ -90,4 +95,24 @@ it("shows saved land purchase payment details in transaction history", async () 
   expect(screen.getByText("Meezan Bank")).toBeInTheDocument();
   expect(screen.getByText("TRX-42")).toBeInTheDocument();
   expect(screen.getAllByText("Muhammad Murad").length).toBeGreaterThan(0);
+});
+
+it("shows land payment receipts in the Bank Images tab", async () => {
+  vi.mocked(listBankEntries).mockResolvedValue([{
+    id: "land:1", source: "land", source_id: "1", account_key: "builder",
+    date: "2026-10-03", amount: 5000, direction: "out", category: "Land acquisition",
+    person: "Murad", description: "Plot", method: "cash", project: "Baloch Residency",
+    project_id: "project-1", payment_details: null,
+  }]);
+  vi.mocked(listLandPaymentReceipts).mockResolvedValue([{
+    id: "receipt-1", title: "cash-receipt.png", doc_type: "land_payment_receipt",
+    doc_date: "2026-10-03", notes: "cash", file_path: "C:/attachments/cash-receipt.png",
+    mime: "image/png", size: 10, owner_type: "land", owner_id: "1",
+    project_name: "Baloch Residency", created_at: "2026-10-03",
+  }]);
+  render(<MemoryRouter><BankPage /></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Money flow over time" });
+  fireEvent.click(screen.getByRole("tab", { name: "Images" }));
+  await waitFor(() => expect(screen.getAllByText("cash-receipt.png").length).toBeGreaterThan(0));
+  expect(screen.getByRole("button", { name: /cash-receipt.png/ })).toBeInTheDocument();
 });

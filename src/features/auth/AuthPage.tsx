@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { ArrowRight, Building2, Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import towersImage from "@/assets/auth/residential-towers.png";
+import "./auth-page.css";
 
 interface AuthPageProps {
   mode: "setup" | "login";
@@ -40,49 +42,68 @@ export function AuthPage({ mode, onSuccess }: AuthPageProps) {
   }
 
   return (
-    <main className="auth-page min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <div className="auth-panel w-full max-w-md rounded-xl border bg-card p-8 shadow-lg">
-        <div className="mb-8 text-center">
-          <div className="auth-symbol mx-auto mb-4 flex size-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            {setup ? <span className="brand-mark auth-brand-mark" role="img" aria-label="Baloch Builders logo" /> : <LockKeyhole className="size-7" />}
+    <main className="auth-page">
+      <div className="auth-shell">
+        <section className="auth-visual" aria-label="Modern residential buildings">
+          <img src={towersImage} alt="Tall residential towers in warm evening light" />
+          <div className="auth-visual-shade" />
+          <div className="auth-visual-top">
+            <span className="auth-visual-logo"><Building2 aria-hidden="true" /></span>
+            <span><strong>BALOCH</strong><small>BUILDERS & DEVELOPERS</small></span>
           </div>
-          <h1 className="text-2xl font-bold">Baloch Builders</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {setup ? "Create your account to protect this device's records." : "Sign in to open your workspace."}
-          </p>
-        </div>
+          <div className="auth-visual-copy">
+            <span className="auth-visual-eyebrow">BUILT FOR THE WAY YOU BUILD</span>
+            <h2>Every project begins with a clear plan.</h2>
+            <p>Keep your projects, people and finances together in one workspace.</p>
+          </div>
+          <span className="auth-visual-caption">YOUR BUILDING WORKSPACE</span>
+        </section>
 
-        <form onSubmit={submit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="auth-username">Username</Label>
-            <Input id="auth-username" autoComplete="username" autoFocus required minLength={3}
-              maxLength={64} value={username} onChange={(event) => setUsername(event.target.value)} />
+        <section className="auth-form-side">
+          <div className="auth-mobile-brand"><Building2 aria-hidden="true" /> BALOCH <span>BUILDERS & DEVELOPERS</span></div>
+          <div className="auth-panel">
+            <div className="auth-form-icon"><LockKeyhole aria-hidden="true" /></div>
+            <span className="auth-form-eyebrow">YOUR PRIVATE WORKSPACE</span>
+            <h1>{setup ? "Set up your account" : "Welcome back"}</h1>
+            <p className="auth-form-intro">
+              {setup ? "Create your login to start managing your building work." : "Sign in to continue managing your building work."}
+            </p>
+
+            <form onSubmit={submit}>
+              <div className="auth-field">
+                <Label htmlFor="auth-username">Username</Label>
+                <Input id="auth-username" placeholder="Enter your username" autoComplete="username" autoFocus required minLength={3}
+                  maxLength={64} value={username} onChange={(event) => setUsername(event.target.value)} />
+              </div>
+              <div className="auth-field">
+                <Label htmlFor="auth-password">Password</Label>
+                <div className="auth-password-wrap">
+                  <Input id="auth-password" type={showPassword ? "text" : "password"} placeholder="Enter your password"
+                    autoComplete={setup ? "new-password" : "current-password"} required
+                    minLength={setup ? 12 : undefined} value={password}
+                    onChange={(event) => setPassword(event.target.value)} />
+                  <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((value) => !value)}>
+                    {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                  </button>
+                </div>
+                {setup && <p className="auth-field-hint">Use at least 12 characters.</p>}
+              </div>
+              {setup && <div className="auth-field">
+                <Label htmlFor="auth-confirm">Confirm password</Label>
+                <Input id="auth-confirm" type="password" placeholder="Enter your password again" autoComplete="new-password" required
+                  value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+              </div>}
+              {error && <p role="alert" className="auth-error">{error}</p>}
+              <Button type="submit" disabled={pending}>
+                {pending ? "Please wait…" : setup ? "Create account" : "Sign in"}
+                {!pending && <ArrowRight aria-hidden="true" />}
+              </Button>
+            </form>
+            <div className="auth-form-footer"><ShieldCheck aria-hidden="true" /><span>Your records stay on this device.</span></div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="auth-password">Password</Label>
-            <div className="relative">
-              <Input id="auth-password" type={showPassword ? "text" : "password"}
-                autoComplete={setup ? "new-password" : "current-password"} required
-                minLength={setup ? 12 : undefined} value={password}
-                onChange={(event) => setPassword(event.target.value)} className="pr-11" />
-              <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
-                onClick={() => setShowPassword((value) => !value)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-            {setup && <p className="text-xs text-muted-foreground">Use at least 12 characters. Keep this password somewhere safe.</p>}
-          </div>
-          {setup && <div className="space-y-2">
-            <Label htmlFor="auth-confirm">Confirm password</Label>
-            <Input id="auth-confirm" type="password" autoComplete="new-password" required
-              value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
-          </div>}
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Please wait…" : setup ? "Create account" : "Sign in"}
-          </Button>
-        </form>
+          <p className="auth-side-footer">Baloch Builders & Developers</p>
+        </section>
       </div>
     </main>
   );

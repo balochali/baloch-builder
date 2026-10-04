@@ -57,3 +57,15 @@ pub fn save_image_attachment(app: AppHandle, bytes: Vec<u8>, mime: String) -> Re
     fs::write(&dest_path, bytes).map_err(|e| e.to_string())?;
     Ok(dest_path.to_string_lossy().to_string())
 }
+
+/// Read only images stored in this app's attachments folder for an in-app preview.
+#[tauri::command]
+pub fn read_image_attachment(app: AppHandle, path: String) -> Result<Vec<u8>, String> {
+    let attachments = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("attachments");
+    let allowed = attachments.canonicalize().map_err(|e| e.to_string())?;
+    let requested = std::path::Path::new(&path).canonicalize().map_err(|e| e.to_string())?;
+    if !requested.starts_with(&allowed) { return Err("Image is outside the attachments folder".into()); }
+    let metadata = fs::metadata(&requested).map_err(|e| e.to_string())?;
+    if !metadata.is_file() || metadata.len() > 10 * 1024 * 1024 { return Err("Image is unavailable".into()); }
+    fs::read(requested).map_err(|e| e.to_string())
+}

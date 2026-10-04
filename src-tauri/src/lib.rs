@@ -96,6 +96,8 @@ pub fn run() {
             commands::files::copy_attachment,
             commands::files::open_file,
             commands::files::save_image_attachment,
+            commands::files::read_image_attachment,
+            commands::project_stage::save_project_stage,
             commands::auth::auth_status,
             commands::auth::create_account,
             commands::auth::login,

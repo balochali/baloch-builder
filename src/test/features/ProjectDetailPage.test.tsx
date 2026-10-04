@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { getProjectById, updateProjectStatus } from "@/data/repositories/projectsRepository";
 import { getProjectLand, saveProjectStage } from "@/data/repositories/projectStageRepository";
-import { saveLandImage } from "@/data/repositories/documentsRepository";
+import { listLandDocuments, saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
 import {
   addProjectEstimate,
   archiveProjectEstimate,
@@ -38,7 +38,7 @@ vi.mock("@/data/repositories/projectStageRepository", async (importOriginal) => 
   getProjectLand: vi.fn(),
   saveProjectStage: vi.fn(),
 }));
-vi.mock("@/data/repositories/documentsRepository", () => ({ saveLandImage: vi.fn() }));
+vi.mock("@/data/repositories/documentsRepository", () => ({ listLandDocuments: vi.fn(), saveLandImage: vi.fn(), saveLandPaymentReceipt: vi.fn() }));
 vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/data/repositories/projectFinanceRepository")>()),
   listProjectEstimates: vi.fn(),
@@ -84,6 +84,7 @@ describe("ProjectDetailPage", () => {
     vi.mocked(archiveProjectEstimate).mockResolvedValue(undefined);
     vi.mocked(getProjectBuildingDetails).mockResolvedValue(null);
     vi.mocked(getProjectLand).mockResolvedValue(null);
+    vi.mocked(listLandDocuments).mockResolvedValue([]);
     vi.mocked(listProjectPartners).mockResolvedValue([]);
     vi.mocked(listPartnerContributions).mockResolvedValue([]);
     vi.mocked(addProjectPartner).mockResolvedValue(undefined);
@@ -245,6 +246,7 @@ describe("ProjectDetailPage", () => {
         notes: "",
       });
     vi.mocked(saveLandImage).mockResolvedValue();
+    vi.mocked(saveLandPaymentReceipt).mockResolvedValue();
     vi.mocked(saveProjectStage).mockImplementation(async (_id, status) => ({
       ...(await getProjectById("11111111-1111-4111-8111-111111111111"))!,
       status,
@@ -285,6 +287,11 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Transaction reference *"), {
       target: { value: "TRX-42" },
     });
+    expect(screen.getByLabelText("Bank transfer receipt (optional)")).toBeInTheDocument();
+    const receipt = new File(["image"], "transfer.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Bank transfer receipt (optional)"), {
+      target: { files: [receipt] },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByLabelText("Land photos, receipts or maps")).toBeInTheDocument();
     const photo = new File(["image"], "plot.png", { type: "image/png" });
@@ -313,7 +320,10 @@ describe("ProjectDetailPage", () => {
     await waitFor(() =>
       expect(saveLandImage).toHaveBeenCalledWith("land-1", photo, expect.any(String)),
     );
-    expect(screen.getByText(/Land acquired: Baloch Residency/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(saveLandPaymentReceipt).toHaveBeenCalledWith("land-1", receipt, expect.any(String), "bank"),
+    );
+    expect(screen.queryByText(/Land acquired: Baloch Residency/)).not.toBeInTheDocument();
   });
 
   it("shows the updated acquired plot area throughout the building view", async () => {
@@ -620,8 +630,13 @@ describe("ProjectDetailPage", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Estimate" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Expected Recovery" }));
     fireEvent.change(screen.getByLabelText("Space to sell *"), { target: { value: "flats" } });
-    expect(screen.getByText("Ground · 2 rooms")).toBeInTheDocument();
-    expect(screen.getByText("Floor 1 · 3 rooms")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Expected price per flat (Rs) *"), {
+      target: { value: "100000" },
+    });
+    expect(screen.getByText("Rs 300,000 – Rs 300,000")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Customize by floor" }));
+    expect(screen.getByText("Ground floor")).toBeInTheDocument();
+    expect(screen.getByText("2-room flats")).toBeInTheDocument();
     fireEvent.change(
       screen.getByLabelText("Lowest price per flat (Rs)", { selector: "#flat-min-0" }),
       { target: { value: "100000" } },
@@ -630,6 +645,9 @@ describe("ProjectDetailPage", () => {
       screen.getByLabelText("Highest price per flat (Rs)", { selector: "#flat-max-0" }),
       { target: { value: "120000" } },
     );
+    fireEvent.click(screen.getByRole("button", { name: "Next floor" }));
+    expect(screen.getByText("Floor 1")).toBeInTheDocument();
+    expect(screen.getByText("3-room flats")).toBeInTheDocument();
     fireEvent.change(
       screen.getByLabelText("Lowest price per flat (Rs)", { selector: "#flat-min-1" }),
       { target: { value: "200000" } },
@@ -660,6 +678,7 @@ describe("ProjectDetailPage", () => {
       ),
     );
     fireEvent.click(await screen.findByRole("button", { name: "Edit Flats sales" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next floor" }));
     expect(
       screen.getByLabelText("Lowest price per flat (Rs)", { selector: "#flat-min-1" }),
     ).toHaveValue("200000");

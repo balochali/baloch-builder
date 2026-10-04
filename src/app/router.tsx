@@ -47,7 +47,10 @@ export function AppRouter() {
   return (
     <HashRouter>
       <Routes>
-        <Route element={<AppShell />}>
+        <Route element={<AppShell onLogout={() => {
+          window.location.hash = "#/";
+          setAuth("login");
+        }} />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/land" element={<LandPage />} />

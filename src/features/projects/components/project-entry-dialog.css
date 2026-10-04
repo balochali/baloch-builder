@@ -1,0 +1,131 @@
+.estimate-entry-dialog {
+  --entry-accent: #6d28d9;
+  --entry-soft: #f3edff;
+  --entry-border: #d9c9ff;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--entry-border);
+  border-radius: 20px;
+}
+.estimate-entry-revenue {
+  --entry-accent: #059669;
+  --entry-soft: #eaf9f3;
+  --entry-border: #b9e7d4;
+}
+.estimate-entry-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  padding: 26px 28px 22px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(115deg, var(--entry-soft), var(--card) 85%);
+  text-align: left;
+}
+.estimate-entry-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 55px;
+  height: 55px;
+  border-radius: 15px;
+  background: var(--entry-accent);
+  color: white;
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--entry-accent) 22%, transparent);
+}
+.estimate-entry-eyebrow {
+  color: var(--entry-accent);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+.estimate-entry-header h2 {
+  margin-top: 3px;
+  color: var(--foreground);
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.estimate-entry-subtitle {
+  margin-top: 5px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.estimate-entry-dialog form {
+  display: grid;
+  gap: 16px;
+  padding: 23px 28px;
+}
+.estimate-entry-dialog form > * { margin-top: 0 !important; }
+.estimate-entry-section {
+  padding: 17px;
+  border: 1px solid var(--entry-border);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--entry-soft) 55%, var(--card));
+}
+.estimate-entry-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+  color: var(--entry-accent);
+  font-size: 15px;
+  font-weight: 800;
+}
+.estimate-entry-amount-heading { margin: 2px 0 -7px; }
+.estimate-entry-dialog label { color: var(--foreground); font-size: 13px; font-weight: 750; }
+.estimate-entry-dialog input,
+.estimate-entry-dialog select { min-height: 45px; border-radius: 9px; background: var(--card); }
+.estimate-entry-dialog input:focus-visible,
+.estimate-entry-dialog select:focus-visible { outline-color: var(--entry-accent); }
+.estimate-entry-dialog form > .grid,
+.estimate-entry-dialog form > .space-y-1\.5 { padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.estimate-entry-dialog .flat-recovery-groups { border-radius: 12px; }
+.estimate-entry-dialog .flat-recovery-groups { max-height: none; overflow: visible; padding-right: 0; }
+.estimate-recovery-intro { display: grid; gap: 10px; }
+.estimate-recovery-intro .estimate-entry-section-heading { margin-bottom: 0; }
+.estimate-recovery-intro p { color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
+.estimate-recovery-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 5px; border: 1px solid var(--border); border-radius: 12px; background: var(--muted); }
+.estimate-recovery-modes button { min-height: 43px; border-radius: 9px; font-size: 13px; font-weight: 750; }
+.estimate-recovery-modes button.is-active { background: var(--entry-accent); color: white; }
+.estimate-recovery-common { display: grid; gap: 12px; }
+.estimate-recovery-total { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.estimate-recovery-total strong { color: var(--entry-accent); font-size: 17px; }
+.estimate-entry-revenue .flat-recovery-row { border-left-color: var(--entry-accent); background: color-mix(in srgb, var(--entry-soft) 40%, var(--card)); }
+.estimate-recovery-floor-step { display: grid; gap: 15px; padding: 17px; border: 1px solid var(--entry-border); border-radius: 13px; background: var(--card); }
+.estimate-recovery-floor-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.estimate-recovery-floor-heading small { color: var(--entry-accent); font-size: 11px; font-weight: 850; letter-spacing: .09em; }
+.estimate-recovery-floor-heading h3 { margin-top: 3px; color: var(--foreground); font-size: 19px; font-weight: 800; }
+.estimate-recovery-floor-heading p { margin-top: 4px; color: var(--muted-foreground); font-size: 12px; line-height: 1.4; }
+.estimate-recovery-floor-heading > span { flex: none; padding: 7px 10px; border-radius: 99px; background: var(--entry-soft); color: var(--entry-accent); font-size: 12px; font-weight: 800; }
+.estimate-recovery-floor-progress { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; }
+.estimate-recovery-floor-progress i { height: 5px; border-radius: 99px; background: var(--muted); }
+.estimate-recovery-floor-progress i.is-current { background: var(--entry-accent); }
+.estimate-recovery-floor-navigation { display: flex; justify-content: space-between; gap: 10px; }
+.estimate-recovery-floor-navigation button:last-child { background: var(--entry-accent); color: white; }
+.estimate-recovery-floor-step .flat-recovery-row { grid-template-columns: minmax(100px, 1fr) 95px minmax(130px, 1fr) minmax(130px, 1fr); }
+.estimate-entry-dialog form > p.rounded-md { border: 1px solid var(--entry-border); background: var(--entry-soft); color: var(--foreground); }
+.estimate-entry-error { padding: 11px 13px; border: 1px solid currentColor; border-radius: 9px; background: color-mix(in srgb, currentColor 7%, var(--card)); }
+.estimate-entry-footer {
+  padding: 17px 28px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 45%, var(--card));
+}
+.estimate-entry-save { min-width: 112px; background: var(--entry-accent); color: white; }
+.estimate-entry-save:hover { background: color-mix(in srgb, var(--entry-accent) 85%, black); }
+.dark .estimate-entry-dialog { --entry-soft: #2b2141; --entry-border: #59467a; }
+.dark .estimate-entry-revenue { --entry-soft: #173a32; --entry-border: #286956; }
+.dark .estimate-entry-eyebrow,
+.dark .estimate-entry-section-heading { color: color-mix(in srgb, var(--entry-accent) 45%, white); }
+@media (max-width: 540px) {
+  .estimate-entry-dialog { width: calc(100vw - 24px); }
+  .estimate-entry-header { padding: 21px 18px; gap: 12px; }
+  .estimate-entry-icon { width: 46px; height: 46px; }
+  .estimate-entry-header h2 { font-size: 20px; }
+  .estimate-entry-dialog form { padding: 18px; }
+  .estimate-entry-footer { padding: 15px 18px; }
+  .estimate-recovery-modes { grid-template-columns: 1fr; }
+  .estimate-recovery-floor-step .flat-recovery-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .estimate-recovery-floor-step .flat-recovery-label { grid-column: 1 / -1; }
+}

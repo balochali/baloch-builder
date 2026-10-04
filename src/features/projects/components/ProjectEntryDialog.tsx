@@ -1,6 +1,8 @@
 import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { useState, type FormEvent } from "react";
 import { format } from "date-fns";
+import { Calculator, CircleDollarSign, ClipboardList, Coins, TrendingUp } from "lucide-react";
+import "./project-entry-dialog.css";
 import {
   ActualCostInputSchema,
   EstimateInputSchema,
@@ -130,6 +132,12 @@ export function ProjectEntryDialog({
       };
     });
   });
+  const [customizeFlatPrices, setCustomizeFlatPrices] = useState(savedFlatLines.length > 0);
+  const [commonFlatPrice, setCommonFlatPrice] = useState("");
+  const [commonFlatMaximum, setCommonFlatMaximum] = useState("");
+  const floorSteps = [...new Set(flatGroups.map((group) => group.floor_index))].sort((a, b) => a - b);
+  const [floorStep, setFloorStep] = useState(0);
+  const activeFloor = floorSteps[floorStep];
   const flatAvailable = (floorIndex: number, rooms: number) => {
     const group = flatGroups.find(
       (item) => item.floor_index === floorIndex && item.rooms === rooms,
@@ -151,6 +159,22 @@ export function ProjectEntryDialog({
     0,
   );
   const flatCount = includedFlats.reduce((total, line) => total + line.quantity, 0);
+  const invalidFlatLine = (line: (typeof flatDrafts)[number]) =>
+    (!Number.isInteger(line.quantity) ||
+      line.quantity < 0 ||
+      line.quantity > flatAvailable(line.floor_index, line.rooms) ||
+      (line.quantity > 0 && (wholeRupees(line.minimum) === null ||
+        wholeRupees(line.maximum) === null ||
+        wholeRupees(line.maximum)! < wholeRupees(line.minimum)!)));
+  const floorLabel = (floor: number) => floor === 0 ? "Ground floor" : `Floor ${floor}`;
+  function nextFloor() {
+    if (flatDrafts.some((line) => line.floor_index === activeFloor && invalidFlatLine(line))) {
+      setError(`Check the quantities and prices on ${floorLabel(activeFloor)} before continuing.`);
+      return;
+    }
+    setError("");
+    setFloorStep((current) => Math.min(current + 1, floorSteps.length - 1));
+  }
   const [unitMinimum, setUnitMinimum] = useState(
     linkedRecovery ? String(estimate!.minimum_amount / linkedRecovery.quantity) : "",
   );
@@ -167,6 +191,10 @@ export function ProjectEntryDialog({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (detailedFlats && customizeFlatPrices && floorStep < floorSteps.length - 1) {
+      nextFloor();
+      return;
+    }
     setError("");
     let value: EstimateInput | ActualCostInput;
     if (mode === "estimate") {
@@ -201,17 +229,12 @@ export function ProjectEntryDialog({
         (!selectedSpace ||
           flatCount < 1 ||
           flatCount > selectedSpace.available ||
-          includedFlats.some(
-            (line) =>
-              !Number.isInteger(line.quantity) ||
-              line.quantity > flatAvailable(line.floor_index, line.rooms) ||
-              wholeRupees(line.minimum) === null ||
-              wholeRupees(line.maximum) === null ||
-              wholeRupees(line.maximum)! < wholeRupees(line.minimum)!,
-          ))
+          flatDrafts.some(invalidFlatLine))
       ) {
+        const invalidFloor = flatDrafts.find(invalidFlatLine)?.floor_index;
+        if (invalidFloor !== undefined) setFloorStep(floorSteps.indexOf(invalidFloor));
         setError(
-          "Check each flat group: choose available quantities and enter a valid lowest and highest price per flat.",
+          "Check the highlighted floor: each included flat needs a valid lowest and highest price.",
         );
         return;
       }
@@ -279,21 +302,37 @@ export function ProjectEntryDialog({
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent
-        className={`max-h-[90vh] overflow-y-auto ${detailedFlats ? "sm:max-w-2xl" : "sm:max-w-lg"}`}
+        className={`${mode === "estimate" ? `estimate-entry-dialog estimate-entry-${kind}` : ""} max-h-[90vh] overflow-y-auto ${detailedFlats ? "sm:max-w-2xl" : mode === "estimate" ? "sm:max-w-xl" : "sm:max-w-lg"}`}
       >
-        <DialogHeader>
-          <DialogTitle>
-            {estimate
-              ? `Edit ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}`
-              : mode === "estimate"
-                ? `Add ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}`
-                : actualTitle}
-          </DialogTitle>
+        <DialogHeader className={mode === "estimate" ? "estimate-entry-header" : ""}>
+          {mode === "estimate" && (
+            <span className="estimate-entry-icon" aria-hidden="true">
+              {kind === "cost" ? <Calculator size={26} /> : <TrendingUp size={26} />}
+            </span>
+          )}
+          <div>
+            {mode === "estimate" && <span className="estimate-entry-eyebrow">PROJECT ESTIMATE</span>}
+            <DialogTitle>
+              {estimate
+                ? `Edit ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}`
+                : mode === "estimate"
+                  ? `Add ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}`
+                  : actualTitle}
+            </DialogTitle>
+            {mode === "estimate" && (
+              <p className="estimate-entry-subtitle">
+                {kind === "cost"
+                  ? "Plan a realistic cost range for this project."
+                  : "Estimate what the planned spaces could earn."}
+              </p>
+            )}
+          </div>
         </DialogHeader>
         <form id="project-entry-form" onSubmit={save} className="space-y-4">
           {mode !== "estimate" && <BankAccountSelect value={accountKey} onChange={setAccountKey} />}
           {mode === "estimate" && kind === "cost" && (
-            <div className="space-y-1.5">
+            <div className="estimate-entry-section space-y-1.5">
+              <div className="estimate-entry-section-heading"><ClipboardList size={19} /><span>What are you planning for?</span></div>
               <Label htmlFor="entry-cost-choice">Cost item *</Label>
               <select
                 id="entry-cost-choice"
@@ -319,7 +358,8 @@ export function ProjectEntryDialog({
             </div>
           )}
           {mode === "estimate" && kind === "revenue" && !legacyRecovery && (
-            <div className="space-y-2">
+            <div className="estimate-entry-section space-y-2">
+              <div className="estimate-entry-section-heading"><Coins size={19} /><span>What will be sold?</span></div>
               <Label htmlFor="entry-recovery-space">Space to sell *</Label>
               {inventory.length > 0 ? (
                 <>
@@ -404,19 +444,56 @@ export function ProjectEntryDialog({
           )}
           {mode === "estimate" && kind === "revenue" && !legacyRecovery && detailedFlats ? (
             <>
-              <p className="text-sm text-muted-foreground">
-                Set a selling price for each floor and flat size. The total is calculated from the
-                number of flats you include.
-              </p>
-              <div className="flat-recovery-groups">
+              <div className="estimate-recovery-intro">
+                <div className="estimate-entry-section-heading"><CircleDollarSign size={19} /><span>Set selling prices</span></div>
+                <p>{flatCount} available flats are included. Enter one price for all, or customize by floor and size.</p>
+                <div className="estimate-recovery-modes" role="group" aria-label="Flat pricing method">
+                  <Button type="button" variant={!customizeFlatPrices ? "default" : "outline"} className={!customizeFlatPrices ? "is-active" : ""} onClick={() => setCustomizeFlatPrices(false)}>One price for all</Button>
+                  <Button type="button" variant={customizeFlatPrices ? "default" : "outline"} className={customizeFlatPrices ? "is-active" : ""} onClick={() => setCustomizeFlatPrices(true)}>Customize by floor</Button>
+                </div>
+              </div>
+              {!customizeFlatPrices && (
+                <div className="estimate-entry-section estimate-recovery-common">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="flat-common-price">Expected price per flat (Rs) *</Label>
+                      <Input id="flat-common-price" inputMode="numeric" placeholder="e.g. 5,000,000" value={commonFlatPrice} required
+                        onChange={(event) => {
+                          const price = event.target.value;
+                          setCommonFlatPrice(price);
+                          setFlatDrafts((current) => current.map((line) => ({ ...line, minimum: price, maximum: commonFlatMaximum || price })));
+                        }} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="flat-common-maximum">Highest price per flat (Rs) · optional</Label>
+                      <Input id="flat-common-maximum" inputMode="numeric" placeholder="Same as expected price" value={commonFlatMaximum}
+                        onChange={(event) => {
+                          const price = event.target.value;
+                          setCommonFlatMaximum(price);
+                          setFlatDrafts((current) => current.map((line) => ({ ...line, maximum: price || commonFlatPrice })));
+                        }} />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Leave the highest price blank for a single-price estimate.</p>
+                </div>
+              )}
+              {customizeFlatPrices && <div className="estimate-recovery-floor-step">
+                <div className="estimate-recovery-floor-heading">
+                  <div><small>FLOOR {floorStep + 1} OF {floorSteps.length}</small><h3>{floorLabel(activeFloor)}</h3><p>Set the number of flats and price range for each size on this floor.</p></div>
+                  <span>{flatDrafts.filter((line) => line.floor_index === activeFloor).reduce((sum, line) => sum + line.quantity, 0)} flats</span>
+                </div>
+                <div className="estimate-recovery-floor-progress" aria-label={`Floor ${floorStep + 1} of ${floorSteps.length}`}>
+                  {floorSteps.map((floor, index) => <i key={floor} className={index <= floorStep ? "is-current" : ""} />)}
+                </div>
+                <div className="flat-recovery-groups">
                 {flatDrafts.map((line, index) => {
+                  if (line.floor_index !== activeFloor) return null;
                   const available = flatAvailable(line.floor_index, line.rooms);
                   return (
                     <div className="flat-recovery-row" key={`${line.floor_index}-${line.rooms}`}>
                       <div className="flat-recovery-label">
                         <strong>
-                          {line.floor_index === 0 ? "Ground" : `Floor ${line.floor_index}`} ·{" "}
-                          {line.rooms} rooms
+                          {line.rooms}-room flats
                         </strong>
                         <span>{available} available</span>
                       </div>
@@ -476,12 +553,15 @@ export function ProjectEntryDialog({
                     </div>
                   );
                 })}
-              </div>
-              <p className="rounded-md bg-muted p-3 text-sm">
-                {flatCount} flats included · total expected recovery{" "}
-                <strong>
-                  Rs {flatMinTotal.toLocaleString()} – Rs {flatMaxTotal.toLocaleString()}
-                </strong>
+                </div>
+                <div className="estimate-recovery-floor-navigation">
+                  <Button type="button" variant="outline" disabled={floorStep === 0} onClick={() => { setError(""); setFloorStep((current) => current - 1); }}>Previous floor</Button>
+                  {floorStep < floorSteps.length - 1 && <Button type="button" onClick={nextFloor}>Next floor</Button>}
+                </div>
+              </div>}
+              <p className="estimate-recovery-total rounded-md bg-muted p-3 text-sm">
+                <span>{flatCount} flats included · total expected recovery</span>
+                <strong>Rs {flatMinTotal.toLocaleString()} – Rs {flatMaxTotal.toLocaleString()}</strong>
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor="entry-details">Notes (optional)</Label>
@@ -545,6 +625,7 @@ export function ProjectEntryDialog({
             </>
           ) : mode === "estimate" ? (
             <>
+              <div className="estimate-entry-section-heading estimate-entry-amount-heading"><CircleDollarSign size={19} /><span>Estimated amount</span></div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="entry-minimum">Minimum estimate (Rs) *</Label>
@@ -635,18 +716,20 @@ export function ProjectEntryDialog({
             </>
           )}
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="estimate-entry-error text-sm text-destructive">
               {error}
             </p>
           )}
         </form>
-        <DialogFooter>
+        <DialogFooter className={mode === "estimate" ? "estimate-entry-footer" : ""}>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
+            className={mode === "estimate" ? "estimate-entry-save" : ""}
             type="submit"
             form="project-entry-form"
+            style={detailedFlats && customizeFlatPrices && floorStep < floorSteps.length - 1 ? { display: "none" } : undefined}
             disabled={
               pending ||
               (mode === "estimate" &&

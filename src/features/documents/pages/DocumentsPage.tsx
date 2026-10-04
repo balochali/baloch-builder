@@ -8,6 +8,14 @@ import {
 import { formatDate } from "@/lib/dates";
 import "./documents-page.css";
 
+const paymentMethodLabels: Record<string, string> = {
+  cash: "Cash payment",
+  bank: "Bank transfer",
+  digital: "Digital payment",
+  cheque: "Cheque",
+  other: "Payment",
+};
+
 export function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [search, setSearch] = useState("");
@@ -76,6 +84,8 @@ export function DocumentsPage() {
                 <small>
                   {document.doc_type === "land_image"
                     ? "Land image"
+                    : document.doc_type === "land_payment_receipt"
+                      ? `${paymentMethodLabels[document.notes || ""] || "Payment"} receipt`
                     : document.doc_type || "Attachment"}
                 </small>
               </div>

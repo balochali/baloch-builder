@@ -604,6 +604,14 @@
   text-align: right;
   font-weight: 700;
 }
+.bank-table-wrap .saved-image-gallery { margin-top: 8px; }
+.bank-images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; }
+.bank-image-card { display: grid; gap: 8px; min-width: 0; padding: 17px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.bank-image-card-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 11px; background: #ede9fe; color: #6d28d9; }
+.bank-image-card > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--foreground); font-size: 14px; }
+.bank-image-card > span { color: var(--muted-foreground); font-size: 12px; }
+.bank-image-card > small { color: #6d28d9; font-weight: 750; }
+.bank-image-card > a { display: inline-flex; align-items: center; gap: 5px; color: #087c6e; font-size: 12px; font-weight: 750; }
 .bank-error {
   padding: 13px 16px;
   border: 1px solid #ef8095;
