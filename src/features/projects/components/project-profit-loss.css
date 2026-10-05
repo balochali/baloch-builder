@@ -1,0 +1,59 @@
+.project-profit { display: grid; gap: 20px; color: var(--foreground); }
+.project-profit-hero { display: flex; align-items: center; gap: 16px; padding: 25px; border: 1px solid color-mix(in srgb, #7c3aed 25%, var(--border)); border-radius: 20px; background: linear-gradient(112deg, color-mix(in srgb, #7c3aed 10%, var(--card)), color-mix(in srgb, #0d9488 7%, var(--card)) 70%); }
+.project-profit-hero-icon, .project-profit-card-title > span { display: grid; place-items: center; flex: none; width: 58px; height: 58px; border-radius: 15px; background: linear-gradient(140deg, #7c3aed, #4f46e5); color: white; box-shadow: 0 8px 20px #7c3aed25; }
+.project-profit-hero > div { min-width: 0; }
+.project-profit-hero small { color: #6d28d9; font-size: 11px; font-weight: 850; letter-spacing: .12em; }
+.project-profit-hero h2 { color: var(--foreground); font-size: clamp(22px, 2.5vw, 29px); font-weight: 850; }
+.project-profit-hero p { color: var(--muted-foreground); font-size: 13px; }
+.project-profit-hero > b { margin-left: auto; padding: 8px 12px; border-radius: 99px; background: color-mix(in srgb, #059669 13%, var(--card)); color: #047857; font-size: 12px; white-space: nowrap; }
+.project-profit-hero > b.is-loss { background: color-mix(in srgb, #e11d48 12%, var(--card)); color: #be123c; }
+.project-profit-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+.project-profit-metric { --profit-accent: #059669; display: grid; align-content: start; gap: 8px; min-height: 155px; padding: 19px; border: 1px solid var(--border); border-top: 4px solid var(--profit-accent); border-radius: 16px; background: color-mix(in srgb, var(--profit-accent) 4%, var(--card)); }
+.project-profit-metric.is-cost { --profit-accent: #e68a1a; }
+.project-profit-metric.is-result { --profit-accent: #7c3aed; }
+.project-profit-metric.is-loss { --profit-accent: #e11d48; }
+.project-profit-metric > span { display: grid; place-items: center; width: 41px; height: 41px; border-radius: 10px; background: var(--profit-accent); color: white; }
+.project-profit-metric small { color: var(--muted-foreground); font-size: 12px; }
+.project-profit-metric strong { color: var(--foreground); font-size: clamp(21px, 2vw, 28px); line-height: 1.2; overflow-wrap: anywhere; }
+.project-profit-metric p { color: var(--muted-foreground); font-size: 11px; }
+.project-profit-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.project-profit-card { display: grid; gap: 20px; min-width: 0; padding: 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
+.project-profit-card-title { display: flex; align-items: center; gap: 11px; }
+.project-profit-card-title > span { width: 42px; height: 42px; border-radius: 11px; box-shadow: none; }
+.project-profit-card-title h3 { color: var(--foreground); font-size: 17px; font-weight: 800; }
+.project-profit-card-title p { color: var(--muted-foreground); font-size: 11px; }
+.project-profit-bars { display: grid; gap: 18px; }
+.project-profit-bars > div > span { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 7px; color: var(--foreground); font-size: 12px; }
+.project-profit-bars strong { white-space: nowrap; }
+.project-profit-bars i, .project-profit-partner i { display: block; overflow: hidden; height: 12px; border-radius: 99px; background: var(--muted); }
+.project-profit-bars b, .project-profit-partner i b { display: block; height: 100%; border-radius: inherit; }
+.project-profit-bars b.is-sales { background: #0d9f82; }
+.project-profit-bars b.is-cost { background: #e69a24; }
+.project-profit-equation { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; padding: 15px; border-radius: 11px; background: color-mix(in srgb, #7c3aed 7%, var(--card)); }
+.project-profit-equation > div { display: grid; gap: 3px; }
+.project-profit-equation small { color: var(--muted-foreground); font-size: 10px; }
+.project-profit-equation strong { color: var(--foreground); font-size: 13px; }
+.project-profit-equation strong.is-loss, .project-profit-partner > strong.is-loss { color: #be123c; }
+.project-profit-equation strong.is-profit { color: #047857; }
+.project-profit-equation > span { color: var(--muted-foreground); font-weight: 800; }
+.project-profit-note { padding: 11px 13px; border-left: 3px solid #7c3aed; border-radius: 7px; background: color-mix(in srgb, #7c3aed 6%, var(--card)); color: var(--muted-foreground); font-size: 11px; line-height: 1.55; }
+.project-profit-partners { display: grid; gap: 15px; }
+.project-profit-partner { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.project-profit-avatar { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, #7c3aed 12%, var(--card)); color: #6d28d9; font-weight: 850; }
+.project-profit-partner > div { flex: 1; min-width: 0; }
+.project-profit-partner > div > span { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 6px; color: var(--foreground); font-size: 12px; }
+.project-profit-partner > div > span strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-profit-partner > div > span small { flex: none; color: var(--muted-foreground); font-size: 10px; }
+.project-profit-partner i { height: 7px; }
+.project-profit-partner i b { background: #7c3aed; }
+.project-profit-partner > strong { color: var(--foreground); font-size: 12px; white-space: nowrap; }
+.project-profit-unallocated { display: flex; justify-content: space-between; gap: 8px; padding: 11px; border-radius: 9px; background: var(--muted); color: var(--foreground); font-size: 11px; }
+.project-profit-no-partners, .project-profit-state { display: grid; justify-items: center; gap: 6px; padding: 28px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted-foreground); text-align: center; font-size: 12px; }
+.project-profit-no-partners svg { color: #7c3aed; }
+.project-profit-no-partners strong { color: var(--foreground); }
+.dark .project-profit-hero small, .dark .project-profit-avatar { color: #ccb3ff; }
+.dark .project-profit-hero > b.is-profit, .dark .project-profit-equation strong.is-profit { color: #77e7bb; }
+.dark .project-profit-hero > b.is-loss, .dark .project-profit-equation strong.is-loss, .dark .project-profit-partner > strong.is-loss { color: #ff9caf; }
+@media (max-width: 1050px) { .project-profit-columns { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .project-profit-metrics { grid-template-columns: 1fr; } .project-profit-hero { align-items: flex-start; flex-wrap: wrap; } .project-profit-hero > b { margin-left: 0; } }
+@media (max-width: 450px) { .project-profit-card { padding: 16px; } .project-profit-partner { flex-wrap: wrap; } .project-profit-partner > strong { margin-left: 48px; } }

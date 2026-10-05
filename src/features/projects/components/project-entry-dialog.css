@@ -129,14 +129,23 @@
   .estimate-recovery-floor-step .flat-recovery-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .estimate-recovery-floor-step .flat-recovery-label { grid-column: 1 / -1; }
 }
-.construction-entry-dialog { --construction-accent: #6d28d9; gap: 0; padding: 0; overflow: hidden; border: 1px solid #d8c9fa; border-radius: 19px; }
+.construction-entry-dialog { --construction-accent: #6d28d9; display: flex; flex-direction: column; gap: 0; max-height: min(90dvh, 820px); padding: 0; overflow: hidden; border: 1px solid #d8c9fa; border-radius: 19px; }
 .construction-entry-header { display: flex; flex-direction: row; align-items: center; gap: 15px; padding: 24px 27px; border-bottom: 1px solid var(--border); background: linear-gradient(110deg, #f1eaff, var(--card) 85%); text-align: left; }
 .construction-entry-icon { display: grid; place-items: center; flex: none; width: 54px; height: 54px; border-radius: 15px; background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; }
 .construction-entry-eyebrow { color: var(--construction-accent); font-size: 11px; font-weight: 850; letter-spacing: .1em; }
 .construction-entry-header h2 { margin-top: 3px; color: var(--foreground); font-size: 22px; font-weight: 800; }
 .construction-entry-subtitle { margin-top: 4px; color: var(--muted-foreground); font-size: 12px; }
-.construction-entry-dialog form { display: grid; gap: 16px; padding: 22px 27px; }
+.construction-entry-dialog form { display: grid; gap: 16px; min-height: 0; overflow-y: auto; padding: 22px 27px; }
 .construction-entry-dialog form > * { margin-top: 0 !important; }
+.construction-stepper { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.construction-stepper button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--muted-foreground); font-size: 12px; cursor: pointer; }
+.construction-stepper button:disabled { cursor: default; }
+.construction-stepper button.is-current { border-color: #7c3aed; background: color-mix(in srgb, #7c3aed 11%, var(--card)); color: #6d28d9; }
+.construction-stepper button.is-complete { border-color: #7ccfbb; background: color-mix(in srgb, #059669 8%, var(--card)); color: #047857; }
+.construction-stepper button > span { display: grid; place-items: center; }
+.construction-step-intro { display: grid; gap: 3px; padding: 4px 2px 0; }
+.construction-step-intro strong { color: var(--foreground); font-size: 18px; font-weight: 800; }
+.construction-step-intro span { color: var(--muted-foreground); font-size: 12px; }
 .construction-entry-dialog label, .construction-entry-dialog legend { color: var(--foreground); font-size: 13px; font-weight: 750; }
 .construction-entry-dialog input { min-height: 44px; border-radius: 9px; background: var(--card); }
 .construction-entry-dialog form > .grid, .construction-entry-dialog form > .space-y-1\.5 { padding: 15px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
@@ -168,13 +177,30 @@
 .construction-receipt-upload strong { color: var(--foreground); font-size: 14px; }
 .construction-receipt-upload small { color: var(--muted-foreground); font-size: 11px; }
 .construction-receipts .selected-image-previews { margin-top: 4px; }
+.construction-bills { border-color: #a5dccb; background: color-mix(in srgb, #059669 5%, var(--card)); }
+.construction-bills .construction-entry-section-title { color: #047857; }
+.construction-bills .construction-receipt-upload { border-color: #86cdb6; }
+.construction-bills .construction-receipt-upload > span { background: #dbf6eb; color: #059669; }
 .construction-entry-dialog [role="alert"] { padding: 10px 12px; border: 1px solid currentColor; border-radius: 9px; }
-.construction-entry-dialog [data-slot="dialog-footer"] { padding: 15px 27px; border-top: 1px solid var(--border); background: var(--card); }
+.construction-entry-dialog [data-slot="dialog-footer"] { flex: none; padding: 15px 27px; border-top: 1px solid var(--border); background: var(--card); }
 .construction-entry-dialog [data-slot="dialog-footer"] button[type="submit"] { min-width: 108px; background: var(--construction-accent); color: white; }
 .dark .construction-entry-dialog { border-color: #59467a; }
 .dark .construction-entry-header { background: linear-gradient(110deg, #30254d, var(--card) 85%); }
 .dark .construction-entry-eyebrow, .dark .construction-entry-section-title, .dark .construction-entry-section legend { color: #c9b5ff; }
 .dark .construction-account-options label > span { background: #342852; color: #c9b5ff; }
 .dark .construction-receipt-upload > span { background: #1e3a5f; color: #93c5fd; }
+.dark .construction-stepper button.is-current { color: #c9b5ff; }
+.dark .construction-stepper button.is-complete, .dark .construction-bills .construction-entry-section-title { color: #80e2c0; }
+.dark .construction-bills .construction-receipt-upload > span { background: #134436; color: #80e2c0; }
+.actual-entry-dialog { --construction-accent: #c02669; border-color: #f5b5cf; }
+.actual-entry-dialog .construction-entry-header { background: linear-gradient(110deg, #fff0f6, var(--card) 85%); }
+.actual-entry-dialog .construction-entry-icon { background: linear-gradient(135deg, #e11d73, #a21caf); }
+.actual-entry-dialog .construction-entry-section { border-color: #f5b5cf; background: color-mix(in srgb, #e11d73 4%, var(--card)); }
+.actual-entry-dialog .construction-stepper button.is-current, .actual-entry-dialog .construction-account-options label.is-selected, .actual-entry-dialog .construction-method-options button.is-selected { border-color: var(--construction-accent); background: color-mix(in srgb, #e11d73 9%, var(--card)); }
+.actual-entry-dialog .construction-stepper button.is-current { color: var(--construction-accent); }
+.actual-entry-dialog .construction-account-options label > span { background: color-mix(in srgb, #e11d73 12%, var(--card)); }
+.dark .actual-entry-dialog { border-color: #854160; }
+.dark .actual-entry-dialog .construction-entry-header { background: linear-gradient(110deg, #402335, var(--card) 85%); }
+.dark .actual-entry-dialog .construction-stepper button.is-current, .dark .actual-entry-dialog .construction-entry-eyebrow, .dark .actual-entry-dialog .construction-entry-section-title, .dark .actual-entry-dialog .construction-entry-section legend { color: #ffabc9; }
 @media (max-width: 600px) { .construction-entry-dialog { width: calc(100vw - 24px); } .construction-entry-header { padding: 20px 17px; } .construction-entry-dialog form { padding: 17px; } .construction-entry-dialog [data-slot="dialog-footer"] { padding: 15px 17px; } .construction-method-options { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 450px) { .construction-account-options, .construction-method-fields { grid-template-columns: 1fr; } .construction-reference { grid-column: auto; } }
+@media (max-width: 450px) { .construction-account-options, .construction-method-fields { grid-template-columns: 1fr; } .construction-reference { grid-column: auto; } .construction-stepper button { flex-direction: column; gap: 3px; font-size: 10px; } }

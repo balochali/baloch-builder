@@ -19,12 +19,13 @@ export interface DocumentRecord {
 
 export async function listDocuments(): Promise<DocumentRecord[]> {
   return query<DocumentRecord>(
-    `SELECT d.id, d.title, d.doc_type, d.doc_date, d.notes, d.file_path, d.mime, d.size,
+    `SELECT d.id, d.title, d.doc_type, d.doc_date, COALESCE(d.notes, t.method) AS notes, d.file_path, d.mime, d.size,
        d.owner_type, d.owner_id, p.name AS project_name, d.created_at
      FROM documents d
      LEFT JOIN land l ON d.owner_type = 'land' AND l.id = d.owner_id
      LEFT JOIN transactions t ON d.owner_type = 'transaction' AND t.id = d.owner_id
-     LEFT JOIN projects p ON p.id = COALESCE(l.project_id, t.project_id)
+     LEFT JOIN project_sales s ON d.owner_type = 'project_sale' AND s.id = d.owner_id
+     LEFT JOIN projects p ON p.id = COALESCE(l.project_id, t.project_id, s.project_id)
      WHERE d.archived = 0 ORDER BY d.created_at DESC`,
   );
 }
@@ -33,20 +34,66 @@ export async function listLandPaymentReceipts(): Promise<DocumentRecord[]> {
   return (await listDocuments()).filter((document) => document.doc_type === "land_payment_receipt");
 }
 
-export async function listConstructionCostReceipts(projectId: string): Promise<DocumentRecord[]> {
+export async function listProjectSaleDocuments(projectId: string): Promise<DocumentRecord[]> {
   return query<DocumentRecord>(
     `SELECT d.id, d.title, d.doc_type, d.doc_date, d.notes, d.file_path, d.mime, d.size,
        d.owner_type, d.owner_id, p.name AS project_name, d.created_at
      FROM documents d
+     JOIN project_sales s ON d.owner_type = 'project_sale' AND s.id = d.owner_id
+     JOIN projects p ON p.id = s.project_id
+     WHERE d.archived = 0 AND s.archived = 0 AND s.project_id = ? ORDER BY d.created_at DESC`,
+    [projectId],
+  );
+}
+
+export async function saveProjectSaleImage(saleId: string, file: File, date: string): Promise<DocumentRecord> {
+  if (!saleId) throw new Error("Sale record is missing");
+  validateImage(file);
+  const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+  const path = await invoke<string>("save_image_attachment", { bytes, mime: file.type });
+  const id = newId();
+  const timestamp = now();
+  await execute(
+    `INSERT INTO documents (id, title, doc_type, doc_date, notes, file_path, mime, size,
+       owner_type, owner_id, created_at, updated_at, archived, custom)
+     VALUES (?, ?, 'project_sale_document', ?, NULL, ?, ?, ?, 'project_sale', ?, ?, ?, 0, '{}')`,
+    [id, file.name, date, path, file.type, file.size, saleId, timestamp, timestamp],
+  );
+  const rows = await query<DocumentRecord>(`SELECT * FROM documents WHERE id = ?`, [id]);
+  if (!rows[0]) throw new Error("Image was saved but could not be loaded");
+  return rows[0];
+}
+
+export async function listProjectCostDocuments(projectId: string): Promise<DocumentRecord[]> {
+  return query<DocumentRecord>(
+    `SELECT d.id, d.title, d.doc_type, d.doc_date, COALESCE(d.notes, t.method) AS notes, d.file_path, d.mime, d.size,
+       d.owner_type, d.owner_id, p.name AS project_name, d.created_at
+     FROM documents d
      JOIN transactions t ON d.owner_type = 'transaction' AND t.id = d.owner_id
      LEFT JOIN projects p ON p.id = t.project_id
-     WHERE d.archived = 0 AND d.doc_type = 'construction_cost_receipt'
+     WHERE d.archived = 0 AND d.doc_type IN ('construction_cost_receipt', 'construction_supplier_bill', 'project_cost_receipt', 'project_cost_bill')
        AND t.project_id = ? ORDER BY d.created_at DESC`,
     [projectId],
   );
 }
 
-export async function saveConstructionCostReceipt(transactionId: string, file: File, date: string): Promise<DocumentRecord> {
+export async function saveConstructionCostReceipt(transactionId: string, file: File, date: string, method: string): Promise<DocumentRecord> {
+  return saveProjectCostAttachment(transactionId, file, date, "construction_cost_receipt", method);
+}
+
+export async function saveConstructionSupplierBill(transactionId: string, file: File, date: string): Promise<DocumentRecord> {
+  return saveProjectCostAttachment(transactionId, file, date, "construction_supplier_bill", null);
+}
+
+export async function saveActualCostReceipt(transactionId: string, file: File, date: string, method: string): Promise<DocumentRecord> {
+  return saveProjectCostAttachment(transactionId, file, date, "project_cost_receipt", method);
+}
+
+export async function saveActualCostBill(transactionId: string, file: File, date: string): Promise<DocumentRecord> {
+  return saveProjectCostAttachment(transactionId, file, date, "project_cost_bill", null);
+}
+
+async function saveProjectCostAttachment(transactionId: string, file: File, date: string, type: "construction_cost_receipt" | "construction_supplier_bill" | "project_cost_receipt" | "project_cost_bill", method: string | null): Promise<DocumentRecord> {
   if (!transactionId) throw new Error("Construction payment is missing");
   validateImage(file);
   const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
@@ -56,8 +103,8 @@ export async function saveConstructionCostReceipt(transactionId: string, file: F
   await execute(
     `INSERT INTO documents (id, title, doc_type, doc_date, notes, file_path, mime, size,
        owner_type, owner_id, created_at, updated_at, archived, custom)
-     VALUES (?, ?, 'construction_cost_receipt', ?, NULL, ?, ?, ?, 'transaction', ?, ?, ?, 0, '{}')`,
-    [id, file.name, date, path, file.type, file.size, transactionId, timestamp, timestamp],
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?, 0, '{}')`,
+    [id, file.name, type, date, method, path, file.type, file.size, transactionId, timestamp, timestamp],
   );
   const rows = await query<DocumentRecord>(`SELECT * FROM documents WHERE id = ?`, [id]);
   if (!rows[0]) throw new Error("Receipt was saved but could not be loaded");

@@ -1,4 +1,3 @@
-import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { useState, type FormEvent } from "react";
 import { format } from "date-fns";
 import { Banknote, Building2, Calculator, CircleDollarSign, ClipboardList, Coins, CreditCard, ImagePlus, Landmark, ReceiptText, TrendingUp, Wallet } from "lucide-react";
@@ -53,7 +52,7 @@ interface Props {
   recoveryEstimates?: ProjectEstimate[];
   onOpenChange: (open: boolean) => void;
   onEstimate: (value: EstimateInput) => Promise<void>;
-  onActual: (value: ActualCostInput, receiptImages?: File[]) => Promise<void>;
+  onActual: (value: ActualCostInput, documents?: { transactionReceipts: File[]; supplierBills: File[] }) => Promise<void>;
   actualTitle?: string;
   costKind?: "project" | "construction";
 }
@@ -79,7 +78,7 @@ export function ProjectEntryDialog({
   costKind = "project",
 }: Props) {
   const kind = estimate?.kind ?? estimateKind;
-  const constructionMode = mode === "actual" && costKind === "construction";
+  const guidedCostMode = mode === "actual";
   const linkedRecovery = estimate ? recoveryLink(estimate) : null;
   const inventory = recoveryInventory(buildingDetails)
     .map((item) => ({
@@ -192,7 +191,9 @@ export function ProjectEntryDialog({
   const [method, setMethod] = useState<"cash" | "bank" | "digital" | "cheque" | "other">("cash");
   const [reference, setReference] = useState("");
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({ ...emptyPaymentDetails });
+  const [constructionStep, setConstructionStep] = useState(0);
   const [receiptImages, setReceiptImages] = useState<File[]>([]);
+  const [billImages, setBillImages] = useState<File[]>([]);
   const updatePaymentDetail = (key: keyof PaymentDetails, value: string) =>
     setPaymentDetails((current) => ({ ...current, [key]: value }));
   const [error, setError] = useState("");
@@ -200,6 +201,31 @@ export function ProjectEntryDialog({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (guidedCostMode && constructionStep < 2) {
+      if (constructionStep === 0 && (!title.trim() || !date || !wholeRupees(amount) || wholeRupees(amount)! <= 0)) {
+        setError("Enter what was purchased, the payment date, and a valid amount.");
+        return;
+      }
+      if (constructionStep === 1 && !accountKey) {
+        setError("Choose Personal or Builder Account before continuing.");
+        return;
+      }
+      if (constructionStep === 1 && method === "bank" && (!paymentDetails.from_bank.trim() || !paymentDetails.to_bank.trim() || !reference.trim())) {
+        setError("Enter the sending bank, receiving bank, and transfer reference.");
+        return;
+      }
+      if (constructionStep === 1 && method === "digital" && (!paymentDetails.from_bank.trim() || !reference.trim())) {
+        setError("Enter the wallet or service and transaction ID.");
+        return;
+      }
+      if (constructionStep === 1 && method === "cheque" && (!paymentDetails.cheque_no.trim() || !paymentDetails.cheque_date || !paymentDetails.from_bank.trim())) {
+        setError("Enter the cheque number, date, and issuing bank.");
+        return;
+      }
+      setError("");
+      setConstructionStep((current) => current + 1);
+      return;
+    }
     if (detailedFlats && customizeFlatPrices && floorStep < floorSteps.length - 1) {
       nextFloor();
       return;
@@ -280,19 +306,19 @@ export function ProjectEntryDialog({
       }
       value = parsed.data;
     } else {
-      if (constructionMode && !accountKey) {
+      if (guidedCostMode && !accountKey) {
         setError("Choose Personal or Builder Account before saving this payment.");
         return;
       }
-      if (constructionMode && method === "bank" && (!paymentDetails.from_bank.trim() || !paymentDetails.to_bank.trim() || !reference.trim())) {
+      if (guidedCostMode && method === "bank" && (!paymentDetails.from_bank.trim() || !paymentDetails.to_bank.trim() || !reference.trim())) {
         setError("Enter the sending bank, receiving bank, and transfer reference.");
         return;
       }
-      if (constructionMode && method === "digital" && (!paymentDetails.from_bank.trim() || !reference.trim())) {
+      if (guidedCostMode && method === "digital" && (!paymentDetails.from_bank.trim() || !reference.trim())) {
         setError("Enter the wallet or service and transaction ID.");
         return;
       }
-      if (constructionMode && method === "cheque" && (!paymentDetails.cheque_no.trim() || !paymentDetails.cheque_date || !paymentDetails.from_bank.trim())) {
+      if (guidedCostMode && method === "cheque" && (!paymentDetails.cheque_no.trim() || !paymentDetails.cheque_date || !paymentDetails.from_bank.trim())) {
         setError("Enter the cheque number, date, and issuing bank.");
         return;
       }
@@ -304,7 +330,7 @@ export function ProjectEntryDialog({
         description: title,
         method,
         reference,
-        payment_details: constructionMode ? paymentDetails : undefined,
+        payment_details: guidedCostMode ? paymentDetails : undefined,
       });
       if (!parsed.success) {
         setError(parsed.error.issues[0]?.message ?? "Check the cost details.");
@@ -316,7 +342,7 @@ export function ProjectEntryDialog({
     setPending(true);
     try {
       if (mode === "estimate") await onEstimate(value as EstimateInput);
-      else await onActual(value as ActualCostInput, constructionMode ? receiptImages : []);
+      else await onActual(value as ActualCostInput, guidedCostMode ? { transactionReceipts: receiptImages, supplierBills: billImages } : undefined);
       onOpenChange(false);
     } catch (cause) {
       setError(`Could not save: ${String(cause)}`);
@@ -328,18 +354,18 @@ export function ProjectEntryDialog({
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent
-        className={`${mode === "estimate" ? `estimate-entry-dialog estimate-entry-${kind}` : ""} ${constructionMode ? "construction-entry-dialog" : ""} max-h-[90vh] overflow-y-auto ${detailedFlats || constructionMode ? "sm:max-w-2xl" : mode === "estimate" ? "sm:max-w-xl" : "sm:max-w-lg"}`}
+        className={`${mode === "estimate" ? `estimate-entry-dialog estimate-entry-${kind}` : ""} ${guidedCostMode ? `construction-entry-dialog ${costKind === "project" ? "actual-entry-dialog" : ""}` : ""} max-h-[90vh] overflow-y-auto ${detailedFlats || guidedCostMode ? "sm:max-w-2xl" : mode === "estimate" ? "sm:max-w-xl" : "sm:max-w-lg"}`}
       >
-        <DialogHeader className={mode === "estimate" ? "estimate-entry-header" : constructionMode ? "construction-entry-header" : ""}>
+        <DialogHeader className={mode === "estimate" ? "estimate-entry-header" : guidedCostMode ? "construction-entry-header" : ""}>
           {mode === "estimate" && (
             <span className="estimate-entry-icon" aria-hidden="true">
               {kind === "cost" ? <Calculator size={26} /> : <TrendingUp size={26} />}
             </span>
           )}
-          {constructionMode && <span className="construction-entry-icon" aria-hidden="true"><Building2 size={27} /></span>}
+          {guidedCostMode && <span className="construction-entry-icon" aria-hidden="true">{costKind === "construction" ? <Building2 size={27} /> : <Wallet size={27} />}</span>}
           <div>
             {mode === "estimate" && <span className="estimate-entry-eyebrow">PROJECT ESTIMATE</span>}
-            {constructionMode && <span className="construction-entry-eyebrow">CONSTRUCTION PAYMENT</span>}
+            {guidedCostMode && <span className="construction-entry-eyebrow">{costKind === "construction" ? "CONSTRUCTION PAYMENT" : "PROJECT PAYMENT"}</span>}
             <DialogTitle>
               {estimate
                 ? `Edit ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}`
@@ -354,12 +380,19 @@ export function ProjectEntryDialog({
                   : "Estimate what the planned spaces could earn."}
               </p>
             )}
-            {constructionMode && <p className="construction-entry-subtitle">Record what was paid and how the money reached the recipient.</p>}
+            {guidedCostMode && <p className="construction-entry-subtitle">Record what was paid and how the money reached the recipient.</p>}
           </div>
         </DialogHeader>
         <form id="project-entry-form" onSubmit={save} className="space-y-4">
-          {mode !== "estimate" && !constructionMode && <BankAccountSelect value={accountKey} onChange={setAccountKey} />}
-          {constructionMode && (
+          {guidedCostMode && <div className="construction-stepper" aria-label="Cost entry steps">
+            {[
+              { label: "Cost", icon: ClipboardList },
+              { label: "Payment", icon: Wallet },
+              { label: "Documents", icon: ImagePlus },
+            ].map(({ label, icon: Icon }, index) => <button key={label} type="button" className={index === constructionStep ? "is-current" : index < constructionStep ? "is-complete" : ""} aria-current={index === constructionStep ? "step" : undefined} disabled={index > constructionStep} onClick={() => { setConstructionStep(index); setError(""); }}><span><Icon size={17} /></span><strong>{label}</strong></button>)}
+          </div>}
+          {guidedCostMode && <div className="construction-step-intro"><strong>{constructionStep === 0 ? "What did you pay for?" : constructionStep === 1 ? "How did you pay?" : "Keep both proofs together"}</strong><span>{constructionStep === 0 ? "Enter the cost, date and amount." : constructionStep === 1 ? "Choose the account and payment method." : "Upload the transaction receipt and the supplier's bill separately."}</span></div>}
+          {guidedCostMode && constructionStep === 1 && (
             <fieldset className="construction-entry-section">
               <legend><Wallet size={18} /> Pay from account *</legend>
               <div className="construction-account-options">
@@ -461,7 +494,7 @@ export function ProjectEntryDialog({
           )}
           {(mode !== "estimate" ||
             legacyRecovery ||
-            (kind === "cost" && costChoice === "other")) && (
+            (kind === "cost" && costChoice === "other")) && (!guidedCostMode || constructionStep === 0) && (
             <div className="space-y-1.5">
               <Label htmlFor="entry-title">
                 {mode === "actual"
@@ -706,7 +739,7 @@ export function ProjectEntryDialog({
             </>
           ) : (
             <>
-              <div className="grid gap-4 sm:grid-cols-2">
+              {(!guidedCostMode || constructionStep === 0) && <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="entry-date">Payment date *</Label>
                   <Input
@@ -728,8 +761,8 @@ export function ProjectEntryDialog({
                     required
                   />
                 </div>
-              </div>
-              {constructionMode ? (
+              </div>}
+              {guidedCostMode ? constructionStep === 1 && (
                 <div className="construction-entry-section construction-payment-section">
                   <div className="construction-entry-section-title"><CreditCard size={19} /><span>How was it paid?</span></div>
                   <div className="construction-method-options" role="group" aria-label="Payment method">
@@ -757,10 +790,10 @@ export function ProjectEntryDialog({
                   <div className="space-y-1.5"><Label htmlFor="entry-reference">Reference</Label><Input id="entry-reference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Optional receipt or transfer ID" /></div>
                 </div>
               )}
-              {constructionMode && (
+              {guidedCostMode && constructionStep === 2 && (
                 <section className="construction-receipts">
-                  <div className="construction-entry-section-title"><ImagePlus size={19} /><span>Payment receipts (optional)</span></div>
-                  <p>Add photos of a cash receipt, bank transfer, cheque, or other payment proof.</p>
+                  <div className="construction-entry-section-title"><ImagePlus size={19} /><span>Transaction receipt (optional)</span></div>
+                  <p>Upload proof that the payment was made: a cash receipt, transfer screenshot, or cheque image.</p>
                   <input id="construction-receipt-images" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="construction-receipt-input" onChange={(event) => {
                     const files = Array.from(event.target.files ?? []);
                     if (files.some((file) => !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024)) {
@@ -773,10 +806,32 @@ export function ProjectEntryDialog({
                   }} />
                   <label htmlFor="construction-receipt-images" className="construction-receipt-upload">
                     <span><ImagePlus size={26} aria-hidden="true" /></span>
-                    <strong>{receiptImages.length ? `${receiptImages.length} image${receiptImages.length === 1 ? "" : "s"} selected` : "Add receipt images"}</strong>
+                    <strong>{receiptImages.length ? `${receiptImages.length} transaction image${receiptImages.length === 1 ? "" : "s"} selected` : "Add transaction receipt"}</strong>
                     <small>Choose images or tap here to upload · up to 10 MB each</small>
                   </label>
                   <SelectedImagePreviews files={receiptImages} />
+                </section>
+              )}
+              {guidedCostMode && constructionStep === 2 && (
+                <section className="construction-receipts construction-bills">
+                  <div className="construction-entry-section-title"><ReceiptText size={19} /><span>Supplier bill (optional)</span></div>
+                  <p>Upload the company or supplier's bill showing the materials, labour, or items purchased.</p>
+                  <input id="construction-bill-images" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="construction-receipt-input" onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    if (files.some((file) => !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024)) {
+                      setError("Choose JPEG, PNG, WebP or GIF images smaller than 10 MB each.");
+                      event.target.value = "";
+                      return;
+                    }
+                    setError("");
+                    setBillImages(files);
+                  }} />
+                  <label htmlFor="construction-bill-images" className="construction-receipt-upload">
+                    <span><ReceiptText size={26} aria-hidden="true" /></span>
+                    <strong>{billImages.length ? `${billImages.length} bill image${billImages.length === 1 ? "" : "s"} selected` : "Add supplier bill"}</strong>
+                    <small>Choose images or tap here to upload · up to 10 MB each</small>
+                  </label>
+                  <SelectedImagePreviews files={billImages} />
                 </section>
               )}
               <p className="text-xs text-muted-foreground">
@@ -791,6 +846,7 @@ export function ProjectEntryDialog({
           )}
         </form>
         <DialogFooter className={mode === "estimate" ? "estimate-entry-footer" : ""}>
+          {guidedCostMode && constructionStep > 0 && <Button type="button" variant="outline" onClick={() => { setConstructionStep((current) => current - 1); setError(""); }}>Back</Button>}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
@@ -807,7 +863,7 @@ export function ProjectEntryDialog({
                 inventory.length === 0)
             }
           >
-            {pending ? "Saving…" : "Save"}
+            {pending ? "Saving…" : guidedCostMode && constructionStep < 2 ? "Next" : guidedCostMode ? costKind === "construction" ? "Save construction cost" : "Save actual cost" : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

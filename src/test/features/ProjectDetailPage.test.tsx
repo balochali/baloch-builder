@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { getProjectById, updateProjectStatus } from "@/data/repositories/projectsRepository";
 import { getProjectLand, saveProjectStage } from "@/data/repositories/projectStageRepository";
-import { listConstructionCostReceipts, listLandDocuments, saveConstructionCostReceipt, saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
+import { listProjectCostDocuments, listProjectSaleDocuments, listLandDocuments, saveActualCostBill, saveActualCostReceipt, saveConstructionCostReceipt, saveConstructionSupplierBill, saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
+import { listProjectSales } from "@/data/repositories/projectSalesRepository";
 import {
   addProjectEstimate,
   archiveProjectEstimate,
@@ -13,6 +14,7 @@ import {
   listActualProjectCosts,
   listConstructionCosts,
   addConstructionCost,
+  addActualProjectCost,
 } from "@/data/repositories/projectFinanceRepository";
 import {
   getProjectBuildingDetails,
@@ -38,13 +40,15 @@ vi.mock("@/data/repositories/projectStageRepository", async (importOriginal) => 
   getProjectLand: vi.fn(),
   saveProjectStage: vi.fn(),
 }));
-vi.mock("@/data/repositories/documentsRepository", () => ({ listConstructionCostReceipts: vi.fn(), listLandDocuments: vi.fn(), saveConstructionCostReceipt: vi.fn(), saveLandImage: vi.fn(), saveLandPaymentReceipt: vi.fn() }));
+vi.mock("@/data/repositories/documentsRepository", () => ({ listProjectCostDocuments: vi.fn(), listProjectSaleDocuments: vi.fn(), listLandDocuments: vi.fn(), saveActualCostReceipt: vi.fn(), saveActualCostBill: vi.fn(), saveConstructionCostReceipt: vi.fn(), saveConstructionSupplierBill: vi.fn(), saveLandImage: vi.fn(), saveLandPaymentReceipt: vi.fn() }));
+vi.mock("@/data/repositories/projectSalesRepository", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/data/repositories/projectSalesRepository")>()), listProjectSales: vi.fn() }));
 vi.mock("@/data/repositories/projectFinanceRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/data/repositories/projectFinanceRepository")>()),
   listProjectEstimates: vi.fn(),
   listActualProjectCosts: vi.fn(),
   listConstructionCosts: vi.fn(),
   addConstructionCost: vi.fn(),
+  addActualProjectCost: vi.fn(),
   archiveProjectEstimate: vi.fn(),
   addProjectEstimate: vi.fn(),
   updateProjectEstimate: vi.fn(),
@@ -85,8 +89,13 @@ describe("ProjectDetailPage", () => {
     vi.mocked(getProjectBuildingDetails).mockResolvedValue(null);
     vi.mocked(getProjectLand).mockResolvedValue(null);
     vi.mocked(listLandDocuments).mockResolvedValue([]);
-    vi.mocked(listConstructionCostReceipts).mockResolvedValue([]);
+    vi.mocked(listProjectCostDocuments).mockResolvedValue([]);
+    vi.mocked(listProjectSaleDocuments).mockResolvedValue([]);
+    vi.mocked(listProjectSales).mockResolvedValue([]);
     vi.mocked(saveConstructionCostReceipt).mockResolvedValue({ id: "receipt-1", title: "receipt.png", owner_id: "cost-1", owner_type: "transaction", doc_type: "construction_cost_receipt", doc_date: "2026-10-04", notes: null, file_path: "receipt.png", mime: "image/png", size: 10, project_name: "Baloch Residency", created_at: "2026-10-04" });
+    vi.mocked(saveConstructionSupplierBill).mockResolvedValue({ id: "bill-1", title: "bill.png", owner_id: "cost-1", owner_type: "transaction", doc_type: "construction_supplier_bill", doc_date: "2026-10-04", notes: null, file_path: "bill.png", mime: "image/png", size: 10, project_name: "Baloch Residency", created_at: "2026-10-04" });
+    vi.mocked(saveActualCostReceipt).mockResolvedValue({ id: "actual-receipt", title: "actual-receipt.png", owner_id: "actual-1", owner_type: "transaction", doc_type: "project_cost_receipt", doc_date: "2026-10-04", notes: "bank", file_path: "actual-receipt.png", mime: "image/png", size: 10, project_name: "Baloch Residency", created_at: "2026-10-04" });
+    vi.mocked(saveActualCostBill).mockResolvedValue({ id: "actual-bill", title: "actual-bill.png", owner_id: "actual-1", owner_type: "transaction", doc_type: "project_cost_bill", doc_date: "2026-10-04", notes: null, file_path: "actual-bill.png", mime: "image/png", size: 10, project_name: "Baloch Residency", created_at: "2026-10-04" });
     vi.mocked(listProjectPartners).mockResolvedValue([]);
     vi.mocked(listPartnerContributions).mockResolvedValue([]);
     vi.mocked(addProjectPartner).mockResolvedValue(undefined);
@@ -110,6 +119,14 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Building mix" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
     expect(screen.getByText(/Record actual project costs to see a line chart/)).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Dashboard", "Building", "Partners", "Estimate", "Costs", "Sales", "Profit & Loss",
+    ]);
+    fireEvent.click(screen.getByRole("tab", { name: "Sales" }));
+    expect(screen.getByRole("heading", { name: "Flat & shop sales" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record sale" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Profit & Loss" }));
+    expect(screen.getByRole("heading", { name: "Profit & Loss" })).toBeInTheDocument();
   });
 
   it("changes the project status and shows the saved stage", async () => {
@@ -151,7 +168,7 @@ describe("ProjectDetailPage", () => {
     expect(
       screen.getByRole("img", { name: "Project at Construction, stage 3 of 4" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Construction Cost" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Costs" })).toBeInTheDocument();
   });
 
   it("includes the acquired land price in actual costs without a second payment", async () => {
@@ -177,7 +194,7 @@ describe("ProjectDetailPage", () => {
       await screen.findByRole("heading", { name: "Baloch Residency dashboard" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Spending rose to Rs 19,000,000/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Costs" }));
     expect(screen.getByText("Land purchase: Residency plot")).toBeInTheDocument();
     expect(screen.getAllByText("Land acquired").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("Rs 19,000,000").length).toBeGreaterThanOrEqual(2);
@@ -224,9 +241,9 @@ describe("ProjectDetailPage", () => {
     expect(
       await screen.findByRole("img", { name: /Spending rose to Rs 19,050,000/ }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Costs" }));
     expect(screen.getByText("Land purchase: Residency plot")).toBeInTheDocument();
-    expect(screen.getByText("Cement")).toBeInTheDocument();
+    expect(screen.getByText("Cement", { selector: ".project-actual-record-main strong" })).toBeInTheDocument();
     expect(screen.getAllByText("Construction Cost").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Rs 19,050,000").length).toBeGreaterThanOrEqual(1);
   });
@@ -400,7 +417,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.queryByText("7,000 sq yd")).not.toBeInTheDocument();
   });
 
-  it("records construction costs in their own tab after changing status", async () => {
+  it("records construction costs within all project costs after changing status", async () => {
     vi.mocked(updateProjectStatus).mockImplementation(async (_id, status) => ({
       ...(await getProjectById("11111111-1111-4111-8111-111111111111"))!,
       status,
@@ -449,11 +466,14 @@ describe("ProjectDetailPage", () => {
     await waitFor(() =>
       expect(updateProjectStatus).toHaveBeenCalledWith(expect.any(String), "under construction"),
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Construction Cost" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Costs" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Construction Cost" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Add Construction Cost");
     fireEvent.change(screen.getByLabelText("Amount paid (Rs) *"), { target: { value: "50000" } });
     fireEvent.change(screen.getByLabelText("Cost description *"), { target: { value: "Cement" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("How did you pay?")).toBeInTheDocument();
+    expect(addConstructionCost).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("radio", { name: "Builder Account" }));
     fireEvent.click(screen.getByRole("button", { name: "Bank transfer" }));
     expect(screen.getByLabelText("Sending bank *")).toBeInTheDocument();
@@ -461,10 +481,16 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Sending bank *"), { target: { value: "Meezan" } });
     fireEvent.change(screen.getByLabelText("Receiving bank *"), { target: { value: "HBL" } });
     fireEvent.change(screen.getByLabelText("Transfer reference *"), { target: { value: "TRX-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Keep both proofs together")).toBeInTheDocument();
+    expect(addConstructionCost).not.toHaveBeenCalled();
     const receipt = new File(["receipt"], "receipt.png", { type: "image/png" });
-    fireEvent.change(screen.getByLabelText(/Add receipt images/), { target: { files: [receipt] } });
-    expect(screen.getByText("1 image selected")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const bill = new File(["bill"], "bill.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText(/Add transaction receipt/), { target: { files: [receipt] } });
+    fireEvent.change(screen.getByLabelText(/Add supplier bill/), { target: { files: [bill] } });
+    expect(screen.getByText("1 transaction image selected")).toBeInTheDocument();
+    expect(screen.getByText("1 bill image selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save construction cost" }));
     await waitFor(() =>
       expect(addConstructionCost).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -477,12 +503,12 @@ describe("ProjectDetailPage", () => {
         }),
       ),
     );
-    await waitFor(() => expect(saveConstructionCostReceipt).toHaveBeenCalledWith("cost-1", receipt, expect.any(String)));
-    expect(
-      screen.getByText("Cement", { selector: ".construction-payment-card strong" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
-    expect(screen.getByText("Cement")).toBeInTheDocument();
+    await waitFor(() => expect(saveConstructionCostReceipt).toHaveBeenCalledWith("cost-1", receipt, expect.any(String), "bank"));
+    await waitFor(() => expect(saveConstructionSupplierBill).toHaveBeenCalledWith("cost-1", bill, expect.any(String)));
+    fireEvent.click(screen.getByText("Construction spending detail"));
+    expect(await screen.findByText("Cement", { selector: ".construction-payment-card strong" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Costs" }));
+    expect(screen.getByText("Cement", { selector: ".project-actual-record-main strong" })).toBeInTheDocument();
   });
 
   it("opens the estimate and actual cost entry modals from their tabs", async () => {
@@ -508,9 +534,48 @@ describe("ProjectDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Cost item *")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Actual Cost" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Actual Cost" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Costs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Other Cost" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Amount paid");
+  });
+
+  it("saves actual cost through the guided form with separate payment proof and bill", async () => {
+    vi.mocked(addActualProjectCost).mockImplementation(async (input) => ({
+      id: "actual-1", date: input.date, amount: input.amount, description: input.description,
+      project_id: input.project_id, direction: "out", type: "project_cost", method: input.method,
+      reference: input.reference, custom: JSON.stringify({ payment_details: input.payment_details }),
+    }) as Transaction);
+    render(
+      <MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}>
+        <Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("heading", { name: "Baloch Residency" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Costs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Other Cost" }));
+    expect(screen.getByText("What did you pay for?")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Cost description *"), { target: { value: "Site survey" } });
+    fireEvent.change(screen.getByLabelText("Amount paid (Rs) *"), { target: { value: "25000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(addActualProjectCost).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bank transfer" }));
+    fireEvent.change(screen.getByLabelText("Sending bank *"), { target: { value: "Meezan" } });
+    fireEvent.change(screen.getByLabelText("Receiving bank *"), { target: { value: "HBL" } });
+    fireEvent.change(screen.getByLabelText("Transfer reference *"), { target: { value: "ACT-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(addActualProjectCost).not.toHaveBeenCalled();
+    const receipt = new File(["receipt"], "actual-receipt.png", { type: "image/png" });
+    const bill = new File(["bill"], "actual-bill.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText(/Add transaction receipt/), { target: { files: [receipt] } });
+    fireEvent.change(screen.getByLabelText(/Add supplier bill/), { target: { files: [bill] } });
+    fireEvent.click(screen.getByRole("button", { name: "Save actual cost" }));
+    await waitFor(() => expect(addActualProjectCost).toHaveBeenCalledWith(expect.objectContaining({
+      description: "Site survey", amount: 25000, account_key: "personal", method: "bank", reference: "ACT-123",
+    })));
+    await waitFor(() => expect(saveActualCostReceipt).toHaveBeenCalledWith("actual-1", receipt, expect.any(String), "bank"));
+    await waitFor(() => expect(saveActualCostBill).toHaveBeenCalledWith("actual-1", bill, expect.any(String)));
+    expect(screen.getByText("Site survey")).toBeInTheDocument();
   });
 
   it("saves selected and custom costs separately from recovery", async () => {

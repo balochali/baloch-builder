@@ -1,5 +1,5 @@
 import { BankAccountSelect } from "@/components/BankAccountSelect";
-import { listConstructionCostReceipts, saveConstructionCostReceipt, saveLandImage, saveLandPaymentReceipt, type DocumentRecord } from "@/data/repositories/documentsRepository";
+import { listProjectCostDocuments, saveActualCostBill, saveActualCostReceipt, saveConstructionCostReceipt, saveConstructionSupplierBill, saveLandImage, saveLandPaymentReceipt, type DocumentRecord } from "@/data/repositories/documentsRepository";
 import { SavedImageGallery, SelectedImagePreviews } from "@/features/documents/components/ImageGallery";
 import "./project-detail.css";
 import "./project-estimate.css";
@@ -27,6 +27,7 @@ import {
   Calculator,
   Wallet,
   HardHat,
+  Store,
   MapPin,
   SlidersHorizontal,
   Clock3,
@@ -93,6 +94,8 @@ import { ProjectDashboard } from "@/features/projects/components/ProjectDashboar
 import { ConstructionCostInsights } from "@/features/projects/components/ConstructionCostInsights";
 import { ProjectStatusProgress } from "@/features/projects/components/ProjectStatusProgress";
 import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
+import { ProjectSalesPanel } from "@/features/projects/components/ProjectSalesPanel";
+import { ProjectProfitLossPanel } from "@/features/projects/components/ProjectProfitLossPanel";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
 import {
   BuildingAreaChart,
@@ -111,7 +114,7 @@ import {
   updateProjectPartner,
 } from "@/data/repositories/projectPartnersRepository";
 
-type Tab = "dashboard" | "building" | "partners" | "estimate" | "actual" | "construction";
+type Tab = "dashboard" | "building" | "partners" | "estimate" | "costs" | "sales" | "profit";
 type BuildingTab = "overview" | "floors" | "areas";
 type EntryMode = "estimate" | "actual" | "construction";
 const projectTabs: { id: Tab; label: string; icon: LucideIcon }[] = [
@@ -119,8 +122,9 @@ const projectTabs: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "building", label: "Building", icon: Building2 },
   { id: "partners", label: "Partners", icon: Users },
   { id: "estimate", label: "Estimate", icon: Calculator },
-  { id: "actual", label: "Actual Cost", icon: Wallet },
-  { id: "construction", label: "Construction Cost", icon: HardHat },
+  { id: "costs", label: "Costs", icon: Wallet },
+  { id: "sales", label: "Sales", icon: Store },
+  { id: "profit", label: "Profit & Loss", icon: PieChart },
 ];
 const buildingTabs: { id: BuildingTab; label: string; description: string; icon: LucideIcon }[] = [
   {
@@ -202,7 +206,8 @@ export function ProjectDetailPage() {
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
   const [constructionCosts, setConstructionCosts] = useState<Transaction[]>([]);
-  const [constructionReceipts, setConstructionReceipts] = useState<DocumentRecord[]>([]);
+  const [constructionDetailsOpen, setConstructionDetailsOpen] = useState(false);
+  const [costDocuments, setCostDocuments] = useState<DocumentRecord[]>([]);
   const [tab, setTab] = useState<Tab>("dashboard");
   const [buildingTab, setBuildingTab] = useState<BuildingTab>("overview");
   const [dialog, setDialog] = useState<EntryMode | null>(null);
@@ -223,7 +228,7 @@ export function ProjectDetailPage() {
       listProjectEstimates(projectId),
       listActualProjectCosts(projectId),
       listConstructionCosts(projectId),
-      listConstructionCostReceipts(projectId),
+      listProjectCostDocuments(projectId),
       listProjectPartners(projectId),
       listPartnerContributions(projectId),
       getProjectLand(projectId),
@@ -246,7 +251,7 @@ export function ProjectDetailPage() {
           setEstimates(estimateRows);
           setActualCosts(costRows);
           setConstructionCosts(constructionRows);
-          setConstructionReceipts(receiptRows);
+          setCostDocuments(receiptRows);
           setPartners(partnerRows);
           setContributions(contributionRows);
           setLandDetails(landRow);
@@ -275,24 +280,40 @@ export function ProjectDetailPage() {
     }
   }
 
-  async function saveActual(value: ActualCostInput) {
+  async function saveActual(value: ActualCostInput, documents: { transactionReceipts: File[]; supplierBills: File[] } = { transactionReceipts: [], supplierBills: [] }) {
     const row = await addActualProjectCost(value);
     setActualCosts((current) => [row, ...current]);
     toast.success("Actual cost recorded");
+    const uploads = [
+      ...documents.transactionReceipts.map((file) => saveActualCostReceipt(row.id, file, value.date, value.method)),
+      ...documents.supplierBills.map((file) => saveActualCostBill(row.id, file, value.date)),
+    ];
+    if (uploads.length) {
+      const results = await Promise.allSettled(uploads);
+      const saved = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      setCostDocuments((current) => [...saved, ...current]);
+      const failures = results.length - saved.length;
+      if (failures) toast.error(`${failures} document image${failures === 1 ? "" : "s"} could not be saved.`);
+      else toast.success(`${saved.length} document image${saved.length === 1 ? "" : "s"} saved`);
+    }
   }
 
-  async function saveConstruction(value: ActualCostInput, receiptImages: File[] = []) {
+  async function saveConstruction(value: ActualCostInput, documents: { transactionReceipts: File[]; supplierBills: File[] } = { transactionReceipts: [], supplierBills: [] }) {
     const row = await addConstructionCost(value);
     setConstructionCosts((current) => [row, ...current]);
     setActualCosts((current) => [row, ...current]);
     toast.success("Construction cost recorded");
-    if (receiptImages.length) {
-      const results = await Promise.allSettled(receiptImages.map((file) => saveConstructionCostReceipt(row.id, file, value.date)));
+    const uploads = [
+      ...documents.transactionReceipts.map((file) => saveConstructionCostReceipt(row.id, file, value.date, value.method)),
+      ...documents.supplierBills.map((file) => saveConstructionSupplierBill(row.id, file, value.date)),
+    ];
+    if (uploads.length) {
+      const results = await Promise.allSettled(uploads);
       const saved = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-      setConstructionReceipts((current) => [...saved, ...current]);
+      setCostDocuments((current) => [...saved, ...current]);
       const failures = results.length - saved.length;
-      if (failures) toast.error(`${failures} receipt image${failures === 1 ? "" : "s"} could not be saved.`);
-      else toast.success(`${saved.length} receipt image${saved.length === 1 ? "" : "s"} saved`);
+      if (failures) toast.error(`${failures} document image${failures === 1 ? "" : "s"} could not be saved.`);
+      else toast.success(`${saved.length} document image${saved.length === 1 ? "" : "s"} saved`);
     }
   }
 
@@ -533,13 +554,7 @@ export function ProjectDetailPage() {
     { key: "construction", label: "Construction", icon: HardHat, amount: sum(allActualCosts.filter((item) => item.type === "construction_cost").map((item) => item.amount)) },
     { key: "other", label: "Other project costs", icon: Wallet, amount: sum(allActualCosts.filter((item) => item.type !== "land_purchase" && item.type !== "construction_cost").map((item) => item.amount)) },
   ];
-  const visibleProjectTabs = projectTabs.filter(
-    ({ id }) =>
-      id !== "construction" ||
-      project?.status === "under construction" ||
-      project?.status === "completed" ||
-      constructionCosts.length > 0,
-  );
+  const visibleProjectTabs = projectTabs;
   const allocatedShareBp = sum(partners.map((item) => item.share_bp));
   const selectedPartner =
     partners.find((item) => item.partnership_id === selectedPartnerId) ?? null;
@@ -1147,11 +1162,11 @@ export function ProjectDetailPage() {
               </details>
             </div>
           )}
-          {tab === "actual" && (
-            <div id="project-panel-actual" role="tabpanel" aria-labelledby="project-tab-actual" className="project-actual-panel">
+          {tab === "costs" && (
+            <div id="project-panel-costs" role="tabpanel" aria-labelledby="project-tab-costs" className="project-actual-panel">
               <div className="project-actual-hero">
-                <div className="project-actual-hero-copy"><span><Wallet size={28} /></span><div><small>PROJECT MONEY SPENT</small><h2>Actual project costs</h2><p>See what has been paid for land, construction, and other project needs.</p></div></div>
-                <Button onClick={() => setDialog("actual")}><Plus className="size-4" /> Add Actual Cost</Button>
+                <div className="project-actual-hero-copy"><span><Wallet size={28} /></span><div><small>ALL PROJECT SPENDING</small><h2>Project costs</h2><p>Land, construction and other payments together in one place.</p></div></div>
+                <div className="project-actual-actions"><Button onClick={() => setDialog("construction")}><Plus className="size-4" /> Add Construction Cost</Button><Button variant="outline" onClick={() => setDialog("actual")}><Plus className="size-4" /> Add Other Cost</Button></div>
               </div>
               <div className="project-actual-metrics">
                 <div className="project-actual-metric is-spent"><span className="project-actual-metric-icon"><Wallet size={22} /></span><small>Total spent</small><strong>{formatPKRInLakhCrore(actualTotal)}</strong><p>{formatPKR(actualTotal)} · {allActualCosts.length} {allActualCosts.length === 1 ? "payment" : "payments"}</p></div>
@@ -1174,23 +1189,16 @@ export function ProjectDetailPage() {
                 <details className="project-actual-filter"><summary><span><SlidersHorizontal size={18} /> Search & filter costs</span><span>{actualFilter.active ? "Filters applied" : "All costs"} <ChevronDown size={16} /></span></summary>{actualFilter.controls}</details>
                 {actualFilter.active && <p className="project-actual-filter-summary">Matching total: <strong>{formatPKR(sum(actualFilter.visible.map((item) => item.amount)))}</strong> · Summary cards above include all costs.</p>}
                 {actualFilter.visible.length === 0 ? <div className="project-actual-empty"><Wallet size={25} /><strong>{allActualCosts.length ? "No costs match these filters" : "No actual costs recorded yet"}</strong><p>{allActualCosts.length ? "Adjust your search or filters to see more records." : "Add a cost, or record a land or construction payment."}</p></div> :
-                  <div className="project-actual-records">{actualFilter.visible.map((item) => { const source = item.type === "land_purchase" ? "land" : item.type === "construction_cost" ? "construction" : "other"; const Icon = source === "land" ? Landmark : source === "construction" ? HardHat : Wallet; return <article key={item.id} className={`project-actual-record is-${source}`}><span className="project-actual-record-icon"><Icon size={20} /></span><div className="project-actual-record-main"><strong>{item.description}</strong><span>{formatDate(item.date)} · {source === "land" ? "Land acquired" : source === "construction" ? "Construction Cost" : "Added here"}{item.method ? ` · ${item.method}` : ""}</span>{item.reference && <small>Ref: {item.reference}</small>}{source === "construction" && <><PaymentDetailsView transaction={item} /><SavedImageGallery documents={constructionReceipts.filter((receipt) => receipt.owner_id === item.id)} /></>}</div><b>{formatPKR(item.amount)}</b></article>; })}</div>}
+                  <div className="project-actual-records">{actualFilter.visible.map((item) => { const source = item.type === "land_purchase" ? "land" : item.type === "construction_cost" ? "construction" : "other"; const Icon = source === "land" ? Landmark : source === "construction" ? HardHat : Wallet; return <article key={item.id} className={`project-actual-record is-${source}`}><span className="project-actual-record-icon"><Icon size={20} /></span><div className="project-actual-record-main"><strong>{item.description}</strong><span>{formatDate(item.date)} · {source === "land" ? "Land acquired" : source === "construction" ? "Construction Cost" : "Added here"}{item.method ? ` · ${item.method}` : ""}</span>{item.reference && <small>Ref: {item.reference}</small>}{source !== "land" && <><PaymentDetailsView transaction={item} /><SavedImageGallery documents={costDocuments.filter((receipt) => receipt.owner_id === item.id)} /></>}</div><b>{formatPKR(item.amount)}</b></article>; })}</div>}
               </section>
+              <details className="project-actual-construction-details" onToggle={(event) => setConstructionDetailsOpen(event.currentTarget.open)}><summary><span><HardHat size={20} /> Construction spending detail</span><ChevronDown size={18} /></summary>{constructionDetailsOpen && <ConstructionCostInsights costs={constructionCosts} receipts={costDocuments} />}</details>
             </div>
           )}
-          {tab === "construction" && (
-            <div
-              id="project-panel-construction"
-              role="tabpanel"
-              aria-labelledby="project-tab-construction"
-              className="construction-cost-section"
-            >
-              <div className="project-construction-hero">
-                <div className="project-construction-hero-copy"><span><HardHat size={28} /></span><div><small>BUILDING PAYMENTS</small><h2>Construction costs</h2><p>Track materials, labour and other building payments. These also appear in Actual Cost.</p></div></div>
-                <Button onClick={() => setDialog("construction")}><Plus className="size-4" /> Add Construction Cost</Button>
-              </div>
-              <ConstructionCostInsights costs={constructionCosts} receipts={constructionReceipts} />
-            </div>
+          {tab === "sales" && (
+            <ProjectSalesPanel projectId={project.id} buildingDetails={buildingDetails} />
+          )}
+          {tab === "profit" && (
+            <ProjectProfitLossPanel projectId={project.id} costs={allActualCosts} partners={partners} />
           )}
           {dialog && (
             <ProjectEntryDialog
@@ -1208,7 +1216,7 @@ export function ProjectDetailPage() {
               }}
               onEstimate={saveEstimate}
               onActual={dialog === "construction" ? saveConstruction : saveActual}
-              actualTitle={dialog === "construction" ? "Add Construction Cost" : "Add Actual Cost"}
+              actualTitle={dialog === "construction" ? "Add Construction Cost" : "Add Other Cost"}
               costKind={dialog === "construction" ? "construction" : "project"}
             />
           )}
@@ -1665,7 +1673,7 @@ export function ProjectDetailPage() {
               )}
               {statusDraft === "under construction" && (
                 <p className="project-stage-hint">
-                  Construction payments can be added in the Construction Cost tab after you save
+                  Construction payments can be added in the Costs tab after you save
                   this status.
                 </p>
               )}

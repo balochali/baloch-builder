@@ -14,6 +14,7 @@ function setup() {
     INSERT INTO udhaars (id, borrower_name, amount, given_date, created_at, updated_at) VALUES ('u', 'Ali', 1000, '2026-09-30', '', '');
     INSERT INTO udhaar_payments (id, udhaar_id, amount, paid_date, created_at, updated_at) VALUES ('r', 'u', 100, '2026-09-30', '', '');
     INSERT INTO personal_expenses (id, category, item_name, amount, purchase_date, created_at, updated_at) VALUES ('e', 'other', 'Item', 100, '2026-09-30', '', '');`);
+  db.exec("INSERT INTO project_sales (id, project_id, kind, floor_index, unit_number, buyer_name, sale_date, price, created_at, updated_at) VALUES ('sale', 'p', 'flat', 0, 'A-1', 'Ali', '2026-10-04', 5000000, '', '')");
   return db;
 }
 it("resets business records repeatedly, keeps settings and permits fresh entries", () => {

@@ -7,6 +7,16 @@
 .project-actual-hero p { margin-top: 3px; color: #60718a; font-size: 13px; }
 .project-actual-hero button { min-height: 45px; background: #7c3aed; color: white; font-weight: 750; }
 .project-actual-hero button:hover { background: #6d28d9; }
+.project-actual-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.project-actual-hero .project-actual-actions button:last-child { border-color: #7c3aed; background: var(--card); color: #6d28d9; }
+.project-actual-hero .project-actual-actions button:last-child:hover { background: color-mix(in srgb, #7c3aed 9%, var(--card)); }
+.project-actual-construction-details { border: 1px solid var(--border); border-radius: 15px; background: var(--card); }
+.project-actual-construction-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 19px; cursor: pointer; list-style: none; }
+.project-actual-construction-details > summary::-webkit-details-marker { display: none; }
+.project-actual-construction-details > summary span { display: flex; align-items: center; gap: 9px; color: var(--foreground); font-size: 14px; font-weight: 800; }
+.project-actual-construction-details > summary span svg { color: #2563eb; }
+.project-actual-construction-details[open] > summary > svg { transform: rotate(180deg); }
+.project-actual-construction-details .construction-insights { padding: 0 18px 18px; }
 .project-actual-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
 .project-actual-metric { --metric-color: #7c3aed; display: grid; align-content: start; gap: 7px; min-width: 0; padding: 18px; border: 1px solid var(--border); border-top: 4px solid var(--metric-color); border-radius: 15px; background: color-mix(in srgb, var(--metric-color) 5%, var(--card)); }
 .project-actual-metric.is-plan { --metric-color: #2563eb; }
@@ -68,6 +78,6 @@
 .dark .project-actual-hero h2 { color: #f4f0ff; }
 .dark .project-actual-hero p { color: #b9c9d9; }
 .dark .project-actual-hero small, .dark .project-actual-section-title > span { color: #c9b5ff; }
-@media (max-width: 1000px) { .project-actual-hero { align-items: flex-start; flex-direction: column; } .project-actual-insights { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .project-actual-hero { align-items: flex-start; flex-direction: column; } .project-actual-actions { justify-content: flex-start; } .project-actual-insights { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .project-actual-metrics { grid-template-columns: 1fr; } }
 @media (max-width: 540px) { .project-actual-hero { padding: 18px; } .project-actual-hero-copy { align-items: flex-start; } .project-actual-hero-copy > span { width: 46px; height: 46px; } .project-actual-hero button { width: 100%; } .project-actual-source-card, .project-actual-chart-card, .project-actual-history { padding: 15px; } .project-actual-records { grid-template-columns: 1fr; } .project-actual-record { flex-wrap: wrap; } .project-actual-record > b { margin-left: 48px; } }

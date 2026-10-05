@@ -135,6 +135,8 @@
 .project-detail-page .project-detail-tabs {
   display: flex;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
   margin: 22px 0;
   gap: 9px;
   padding: 8px;
@@ -157,19 +159,25 @@
   background: #6d28d9;
   box-shadow: 0 6px 14px #6d28d936;
 }
-.project-detail-page .project-detail-tabs button:nth-child(2) svg {
+.project-detail-page .project-detail-tabs #project-tab-building svg {
   color: #2563eb;
 }
-.project-detail-page .project-detail-tabs button:nth-child(3) svg {
+.project-detail-page .project-detail-tabs #project-tab-partners svg {
   color: #d97706;
 }
-.project-detail-page .project-detail-tabs button:nth-child(4) svg {
+.project-detail-page .project-detail-tabs #project-tab-estimate svg {
   color: #059669;
 }
-.project-detail-page .project-detail-tabs button:nth-child(5) svg {
-  color: #db2777;
-}
-.project-detail-page .project-detail-tabs button[aria-selected="true"] svg {
+.project-detail-page .project-detail-tabs #project-tab-costs svg { color: #db2777; }
+.project-detail-page .project-detail-tabs #project-tab-sales svg { color: #e08616; }
+.project-detail-page .project-detail-tabs #project-tab-profit svg { color: #0d9488; }
+.project-detail-page .project-detail-tabs #project-tab-dashboard[aria-selected="true"] svg,
+.project-detail-page .project-detail-tabs #project-tab-building[aria-selected="true"] svg,
+.project-detail-page .project-detail-tabs #project-tab-partners[aria-selected="true"] svg,
+.project-detail-page .project-detail-tabs #project-tab-estimate[aria-selected="true"] svg,
+.project-detail-page .project-detail-tabs #project-tab-costs[aria-selected="true"] svg,
+.project-detail-page .project-detail-tabs #project-tab-sales[aria-selected="true"] svg,
+.project-detail-page .project-detail-tabs #project-tab-profit[aria-selected="true"] svg {
   color: white;
 }
 .project-detail-page .project-dashboard-heading {
