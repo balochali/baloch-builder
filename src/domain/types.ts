@@ -56,6 +56,7 @@ export interface ProjectBuildingDetails extends BaseRecord {
   plot_area_value: number | null;
   plot_area_unit: AreaUnit | null;
   covered_area_sqft: number | null;
+  covered_area_unit?: "sqft" | "sqyd" | null;
   notes: string | null;
 }
 
@@ -102,6 +103,7 @@ export interface Partnership extends BaseRecord {
 export type TransactionDirection = "in" | "out";
 
 export interface Transaction extends BaseRecord {
+  account_key?: "personal" | "builder" | null;
   date: string;
   /** Integer rupees, always > 0 */
   amount: number;

@@ -1,0 +1,175 @@
+.partner-dialog {
+  border-radius: 20px;
+  padding: 26px;
+}
+.partner-dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-right: 24px;
+}
+.partner-dialog-heading > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 52px;
+  height: 52px;
+  border-radius: 15px;
+  color: white;
+  background: linear-gradient(135deg, #7041ed, #4f32d1);
+  box-shadow: 0 9px 20px #7041ed31;
+}
+.partner-dialog-heading h2 {
+  font-size: 21px;
+  font-weight: 800;
+}
+.partner-dialog-heading p {
+  margin-top: 3px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.partner-dialog-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 20px 0;
+}
+.partner-dialog-steps.is-edit {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.partner-dialog-steps > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 7px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.partner-dialog-steps > div span {
+  display: grid;
+  place-items: center;
+}
+.partner-dialog-steps > div strong {
+  font-size: 12px;
+}
+.partner-dialog-steps > div.is-active {
+  border-color: #7744e9;
+  background: #f1eaff;
+  color: #6530d3;
+  box-shadow: 0 4px 11px #7744e91d;
+}
+.partner-dialog-steps > div.is-complete {
+  border-color: #8cd8c5;
+  background: #e9f8f3;
+  color: #087e65;
+}
+.partner-dialog-section-heading {
+  padding: 0 0 13px;
+  border-bottom: 1px solid var(--border);
+}
+.partner-dialog-section-heading h3 {
+  font-size: 17px;
+  font-weight: 800;
+}
+.partner-dialog-section-heading p {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.partner-dialog form label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.partner-dialog form input,
+.partner-dialog form select {
+  min-height: 43px;
+  border-radius: 9px;
+}
+.partner-dialog-receiving-account {
+  display: grid;
+  grid-template-columns: 37px minmax(0, 1fr);
+  gap: 8px 11px;
+  padding: 14px;
+  border: 1px solid #bce9db;
+  border-radius: 13px;
+  background: color-mix(in srgb, #0d967d 5%, var(--card));
+}
+.partner-dialog-receiving-account > span {
+  display: grid;
+  place-items: center;
+  width: 37px;
+  height: 37px;
+  border-radius: 10px;
+  background: #d7f4ea;
+  color: #078669;
+}
+.partner-dialog-receiving-account > div:nth-child(2) strong {
+  font-size: 13px;
+}
+.partner-dialog-receiving-account > div:nth-child(2) p {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.partner-dialog-receiving-account > div:last-child {
+  grid-column: 1 / -1;
+}
+.partner-dialog-receiving-account > div:last-child p {
+  display: none;
+}
+.partner-dialog-method-details {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #c9dafa;
+  border-radius: 12px;
+  background: color-mix(in srgb, #377cf4 5%, var(--card));
+}
+.partner-dialog-method-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #2865bf;
+  font-size: 13px;
+}
+.partner-dialog [role="alert"] {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--destructive) 35%, var(--border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--destructive) 6%, var(--card));
+}
+.partner-dialog [data-slot="dialog-footer"] {
+  padding-top: 15px;
+  border-top: 1px solid var(--border);
+}
+.partner-dialog [data-slot="dialog-footer"] button:last-child {
+  background: #6d28d9;
+  color: white;
+}
+.dark .partner-dialog-steps > div.is-active {
+  background: #2c2050;
+  color: #d0baff;
+}
+.dark .partner-dialog-steps > div.is-complete {
+  background: #123d36;
+  color: #9ae7d1;
+}
+@media (max-width: 600px) {
+  .partner-dialog {
+    padding: 18px;
+  }
+  .partner-dialog-heading > span {
+    flex-basis: 43px;
+    height: 43px;
+  }
+  .partner-dialog-heading h2 {
+    font-size: 18px;
+  }
+  .partner-dialog-steps > div {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

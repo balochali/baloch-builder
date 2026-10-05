@@ -1,0 +1,116 @@
+.project-estimate-panel { display: grid; gap: 22px; }
+.project-estimate-hero { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 26px; border: 1px solid #d9cdf9; border-radius: 20px; background: linear-gradient(110deg, #f2ecff, #f8faff 65%, #eaf7f3); }
+.project-estimate-hero-copy { display: flex; align-items: center; gap: 17px; min-width: 0; }
+.project-estimate-hero-icon { display: grid; place-items: center; flex: none; width: 60px; height: 60px; border-radius: 17px; background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; box-shadow: 0 10px 20px #7c3aed2e; }
+.project-estimate-hero-copy small { color: #6d28d9; font-size: 11px; font-weight: 850; letter-spacing: .12em; }
+.project-estimate-hero h2 { margin: 4px 0; color: #172b49; font-size: clamp(22px, 2.5vw, 29px); font-weight: 800; }
+.project-estimate-hero p { color: #60718a; font-size: 14px; }
+.project-estimate-hero .estimate-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.project-estimate-hero .estimate-actions button { min-height: 46px; font-weight: 750; }
+.project-estimate-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.project-estimate-metric { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 20px; border: 1px solid var(--border); border-top: 4px solid var(--metric-color); border-radius: 16px; background: color-mix(in srgb, var(--metric-color) 5%, var(--card)); }
+.project-estimate-metric.is-cost { --metric-color: #2563eb; }
+.project-estimate-metric.is-recovery { --metric-color: #059669; }
+.project-estimate-metric.is-margin { --metric-color: #d97706; }
+.project-estimate-metric-icon { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 4px; border-radius: 12px; background: var(--metric-color); color: white; }
+.project-estimate-metric > span:not(.project-estimate-metric-icon) { color: var(--muted-foreground); font-size: 13px; }
+.project-estimate-metric strong { overflow-wrap: anywhere; color: var(--foreground); font-size: clamp(19px, 1.8vw, 26px); line-height: 1.3; }
+.project-estimate-metric small { color: var(--muted-foreground); font-size: 11px; line-height: 1.5; }
+.project-estimate-comparison { display: grid; gap: 18px; padding: 23px; border: 1px solid var(--border); border-radius: 17px; background: var(--card); }
+.project-estimate-comparison-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.project-estimate-comparison-heading > span { display: inline-flex; align-items: center; gap: 9px; color: var(--foreground); font-size: 18px; font-weight: 800; }
+.project-estimate-comparison-heading svg { color: #7c3aed; }
+.project-estimate-comparison-heading small, .project-estimate-comparison > p { color: var(--muted-foreground); font-size: 12px; }
+.project-estimate-comparison-bars { display: grid; gap: 13px; }
+.project-estimate-comparison-bars > div > span { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; color: var(--foreground); font-size: 13px; }
+.project-estimate-comparison-bars > div > span strong { font-weight: 750; }
+.project-estimate-comparison-bars i { display: block; height: 12px; overflow: hidden; border-radius: 99px; background: var(--muted); }
+.project-estimate-comparison-bars b { display: block; height: 100%; min-width: 0; border-radius: inherit; }
+.project-estimate-comparison-bars b.is-cost { background: linear-gradient(90deg, #2563eb, #60a5fa); }
+.project-estimate-comparison-bars b.is-recovery { background: linear-gradient(90deg, #059669, #34d399); }
+.project-estimate-explore { margin-top: 3px; }
+.project-estimate-explore h3 { color: var(--foreground); font-size: 19px; font-weight: 800; }
+.project-estimate-explore p { margin-top: 3px; color: var(--muted-foreground); font-size: 13px; }
+.project-estimate-drawer { overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
+.project-estimate-drawer.is-cost { --drawer-color: #2563eb; --drawer-soft: #e8f1ff; }
+.project-estimate-drawer.is-recovery { --drawer-color: #059669; --drawer-soft: #e5f8ef; }
+.project-estimate-drawer > summary { display: flex; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer; list-style: none; }
+.project-estimate-drawer > summary::-webkit-details-marker { display: none; }
+.project-estimate-drawer > summary:hover { background: color-mix(in srgb, var(--drawer-color) 4%, var(--card)); }
+.project-estimate-drawer-icon { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 13px; background: var(--drawer-color); color: white; }
+.project-estimate-drawer-copy { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.project-estimate-drawer-copy strong { color: var(--foreground); font-size: 16px; font-weight: 800; }
+.project-estimate-drawer-copy small { color: var(--muted-foreground); font-size: 12px; }
+.project-estimate-drawer-total { color: var(--drawer-color); font-size: 15px; font-weight: 800; white-space: nowrap; }
+.project-estimate-drawer-chevron { flex: none; color: var(--muted-foreground); transition: transform .2s; }
+.project-estimate-drawer[open] .project-estimate-drawer-chevron { transform: rotate(180deg); }
+.project-estimate-drawer-body { display: grid; gap: 20px; padding: 20px; border-top: 1px solid var(--border); }
+.project-estimate-drawer-body > .insight-card { width: 100%; min-width: 0; margin: 0; border-top: 3px solid var(--drawer-color); }
+.project-estimate-drawer-body .project-estimate-item { border-left-color: var(--drawer-color); }
+.project-estimate-drawer-body .project-estimate-item-icon { background: var(--drawer-soft); color: var(--drawer-color); }
+.project-estimate-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; align-items: stretch; }
+.project-estimate-charts > .insight-card { width: 100%; min-width: 0; margin: 0; border-top: 3px solid #3b82f6; }
+.project-estimate-charts > .insight-card:nth-child(2) { border-top-color: #10b981; }
+.project-estimate-empty-chart { display: grid; place-content: center; justify-items: center; min-height: 250px; padding: 25px; border: 1px dashed #9ebdf5; border-radius: 17px; background: color-mix(in srgb, #2563eb 4%, var(--card)); text-align: center; }
+.project-estimate-empty-chart.is-recovery { border-color: #9addc6; background: color-mix(in srgb, #059669 4%, var(--card)); }
+.project-estimate-empty-chart svg { margin-bottom: 12px; color: #2563eb; }
+.project-estimate-empty-chart.is-recovery svg { color: #059669; }
+.project-estimate-empty-chart h3 { color: var(--foreground); font-size: 17px; font-weight: 800; }
+.project-estimate-empty-chart p { max-width: 250px; margin-top: 5px; color: var(--muted-foreground); font-size: 13px; }
+.project-estimate-section { display: grid; gap: 13px; }
+.project-estimate-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.project-estimate-section-heading h3 { color: var(--foreground); font-size: 20px; font-weight: 800; }
+.project-estimate-section-heading p { margin-top: 3px; color: var(--muted-foreground); font-size: 13px; }
+.project-estimate-section-heading > span { padding: 7px 10px; border-radius: 99px; background: color-mix(in srgb, #7c3aed 11%, var(--card)); color: #6d28d9; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.project-estimate-filter { border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
+.project-estimate-filter > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 15px 17px; color: var(--foreground); cursor: pointer; list-style: none; }
+.project-estimate-filter > summary::-webkit-details-marker { display: none; }
+.project-estimate-filter > summary span { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 750; }
+.project-estimate-filter > summary span:first-child svg { color: #0d9488; }
+.project-estimate-filter > summary span:last-child { color: var(--muted-foreground); font-size: 11px; }
+.project-estimate-filter[open] > summary span:last-child svg { transform: rotate(180deg); }
+.project-estimate-filter > :not(summary) { margin: 0 16px 16px; }
+.project-estimate-filter-results { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--muted-foreground); font-size: 12px; }
+.project-estimate-filter-results button { padding: 0; border: 0; box-shadow: none; background: transparent; color: #6d28d9; font-size: 12px; font-weight: 750; }
+.project-estimate-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 13px; align-items: start; }
+.project-estimate-item { min-width: 0; padding: 17px; border: 1px solid var(--border); border-left: 4px solid #7c3aed; border-radius: 13px; background: var(--card); }
+.project-estimate-section:last-child .project-estimate-item { border-left-color: #059669; }
+.project-estimate-item-top { display: flex; align-items: flex-start; gap: 10px; }
+.project-estimate-item-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ede9fe; color: #6d28d9; }
+.project-estimate-item-top > div:nth-child(2) { flex: 1; min-width: 0; }
+.project-estimate-item h4 { color: var(--foreground); font-size: 15px; font-weight: 800; }
+.project-estimate-item p { margin-top: 4px; color: var(--muted-foreground); font-size: 11px; line-height: 1.5; }
+.project-estimate-item-actions { display: flex; gap: 2px; flex: none; }
+.project-estimate-item-amounts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 16px; }
+.project-estimate-item-amounts > span { display: grid; gap: 5px; padding: 11px; border-radius: 9px; background: var(--muted); }
+.project-estimate-item-amounts small { color: var(--muted-foreground); font-size: 11px; }
+.project-estimate-item-amounts strong { color: var(--foreground); font-size: 14px; }
+.project-estimate-flat-details { margin-top: 14px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--muted) 45%, var(--card)); }
+.project-estimate-flat-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; color: #047857; cursor: pointer; list-style: none; font-size: 12px; font-weight: 800; }
+.project-estimate-flat-details > summary::-webkit-details-marker { display: none; }
+.project-estimate-flat-details > summary span:last-child { display: inline-flex; align-items: center; gap: 5px; color: var(--muted-foreground); font-weight: 650; }
+.project-estimate-flat-details[open] > summary svg { transform: rotate(180deg); }
+.project-estimate-flat-lines { display: grid; gap: 0; max-height: 260px; overflow-y: auto; border-top: 1px solid var(--border); }
+.project-estimate-flat-lines > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; color: var(--foreground); font-size: 12px; }
+.project-estimate-flat-lines > div + div { border-top: 1px solid var(--border); }
+.project-estimate-flat-lines > div > span { display: grid; gap: 2px; }
+.project-estimate-flat-lines small { color: var(--muted-foreground); font-size: 11px; font-weight: 500; }
+.project-estimate-flat-lines > div > strong { text-align: right; }
+.project-estimate-item-note { margin-top: 12px !important; padding-top: 11px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 12px; }
+.project-estimate-empty-list { display: grid; justify-items: center; gap: 6px; padding: 28px; border: 1px dashed var(--border); border-radius: 13px; color: var(--muted-foreground); text-align: center; }
+.project-estimate-empty-list svg { color: #7c3aed; }
+.project-estimate-empty-list strong { color: var(--foreground); }
+.project-estimate-empty-list p { font-size: 12px; }
+.dark .project-estimate-hero { border-color: #514278; background: linear-gradient(110deg, #2b2049, #192d42 70%, #173a36); }
+.dark .project-estimate-hero h2 { color: #f4f0ff; }
+.dark .project-estimate-hero p { color: #b9c9d9; }
+.dark .project-estimate-hero-copy small, .dark .project-estimate-section-heading > span, .dark .project-estimate-filter-results button { color: #c9b5ff; }
+.dark .project-estimate-item-icon { background: #342852; color: #c9b5ff; }
+.dark .project-estimate-drawer.is-cost { --drawer-soft: #1c355e; }
+.dark .project-estimate-drawer.is-recovery { --drawer-soft: #164838; }
+.dark .project-estimate-drawer-total { color: color-mix(in srgb, var(--drawer-color) 55%, white); }
+.dark .project-estimate-flat-details > summary { color: #6ee7b7; }
+@media (max-width: 1000px) { .project-estimate-hero { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 760px) { .project-estimate-metrics { grid-template-columns: 1fr; } .project-estimate-charts { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .project-estimate-hero { padding: 18px; } .project-estimate-hero-copy { align-items: flex-start; } .project-estimate-hero-icon { width: 46px; height: 46px; } .project-estimate-hero .estimate-actions { width: 100%; } .project-estimate-hero .estimate-actions button { width: 100%; } .project-estimate-items { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .project-estimate-drawer > summary { flex-wrap: wrap; padding: 15px; } .project-estimate-drawer-total { margin-left: 62px; } .project-estimate-drawer-body { padding: 15px; } }

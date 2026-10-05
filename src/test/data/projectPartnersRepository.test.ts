@@ -1,42 +1,118 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as client from "@/data/client";
-import { AddProjectPartnerSchema, PartnerContributionSchema,
-  addProjectPartner, addPartnerContribution, emptyPaymentDetails } from "@/data/repositories/projectPartnersRepository";
+import {
+  AddProjectPartnerSchema,
+  PartnerContributionSchema,
+  addProjectPartner,
+  addPartnerContribution,
+  updateProjectPartner,
+  emptyPaymentDetails,
+} from "@/data/repositories/projectPartnersRepository";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const partnerId = "22222222-2222-4222-8222-222222222222";
 
-const partner = { account_key: "builder" as const,
-  project_id: projectId, name: "Ali", phone: "03001234567", phone2: "", address: "Quetta",
-  notes: "", share_bp: 2500, agreed_contribution: 1_000_000,
-  initial_amount: 200_000, initial_date: "2026-09-22",
-  initial_method: "bank" as const, initial_reference: "TRX-1",
-  initial_payment_details: { ...emptyPaymentDetails, from_bank: "HBL", from_account_name: "Ali",
-    to_bank: "Meezan", to_account_name: "Project Account", receipt_no: "R-101" },
+const partner = {
+  account_key: "builder" as const,
+  project_id: projectId,
+  name: "Ali",
+  phone: "03001234567",
+  phone2: "",
+  address: "Quetta",
+  notes: "",
+  share_bp: 2500,
+  agreed_contribution: 1_000_000,
+  initial_amount: 200_000,
+  initial_date: "2026-09-22",
+  initial_method: "bank" as const,
+  initial_reference: "TRX-1",
+  initial_payment_details: {
+    ...emptyPaymentDetails,
+    from_bank: "HBL",
+    from_account_name: "Ali",
+    to_bank: "Meezan",
+    to_account_name: "Project Account",
+    receipt_no: "R-101",
+  },
 };
 
 describe("project partners", () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it("requires the first payment amount and date together", () => {
-    expect(AddProjectPartnerSchema.safeParse({ ...partner, initial_date: null }).success).toBe(false);
-    expect(AddProjectPartnerSchema.safeParse({ ...partner, initial_amount: null }).success).toBe(false);
-    expect(PartnerContributionSchema.safeParse({ project_id: projectId, partner_id: partnerId,
-      amount: 10.5, date: "2026-09-22", method: "cash", reference: "", description: "",
-      payment_details: emptyPaymentDetails }).success).toBe(false);
+    expect(AddProjectPartnerSchema.safeParse({ ...partner, initial_date: null }).success).toBe(
+      false,
+    );
+    expect(AddProjectPartnerSchema.safeParse({ ...partner, initial_amount: null }).success).toBe(
+      false,
+    );
+    expect(
+      PartnerContributionSchema.safeParse({
+        project_id: projectId,
+        partner_id: partnerId,
+        amount: 10.5,
+        date: "2026-09-22",
+        method: "cash",
+        reference: "",
+        description: "",
+        payment_details: emptyPaymentDetails,
+      }).success,
+    ).toBe(false);
   });
 
   it("requires bank and cheque details for the selected method", () => {
-    expect(AddProjectPartnerSchema.safeParse({ ...partner, initial_reference: "" }).success).toBe(false);
-    expect(AddProjectPartnerSchema.safeParse({ ...partner,
-      initial_payment_details: { ...emptyPaymentDetails, from_bank: "HBL" } }).success).toBe(false);
-    const cheque = { project_id: projectId, partner_id: partnerId, amount: 50_000,
-      date: "2026-09-22", method: "cheque", reference: "", description: "",
-      payment_details: { ...emptyPaymentDetails, from_bank: "HBL", from_account_name: "Ali",
-        cheque_no: "12345", cheque_date: "2026-09-20", cheque_payee: "Baloch Builder" } };
+    expect(AddProjectPartnerSchema.safeParse({ ...partner, initial_reference: "" }).success).toBe(
+      false,
+    );
+    expect(
+      AddProjectPartnerSchema.safeParse({
+        ...partner,
+        initial_payment_details: { ...emptyPaymentDetails, from_bank: "HBL" },
+      }).success,
+    ).toBe(false);
+    const cheque = {
+      project_id: projectId,
+      partner_id: partnerId,
+      amount: 50_000,
+      date: "2026-09-22",
+      method: "cheque",
+      reference: "",
+      description: "",
+      payment_details: {
+        ...emptyPaymentDetails,
+        from_bank: "HBL",
+        from_account_name: "Ali",
+        cheque_no: "12345",
+        cheque_date: "2026-09-20",
+        cheque_payee: "Baloch Builder",
+      },
+    };
     expect(PartnerContributionSchema.safeParse(cheque).success).toBe(true);
-    expect(PartnerContributionSchema.safeParse({ ...cheque,
-      payment_details: { ...cheque.payment_details, cheque_no: "" } }).success).toBe(false);
+    expect(
+      PartnerContributionSchema.safeParse({
+        ...cheque,
+        payment_details: { ...cheque.payment_details, cheque_no: "" },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts digital payments with a transaction reference", () => {
+    expect(
+      AddProjectPartnerSchema.safeParse({
+        ...partner,
+        initial_method: "digital",
+        initial_reference: "DIG-42",
+        initial_payment_details: { ...emptyPaymentDetails, from_bank: "Easypaisa" },
+      }).success,
+    ).toBe(true);
+    expect(
+      AddProjectPartnerSchema.safeParse({
+        ...partner,
+        initial_method: "digital",
+        initial_reference: "",
+        initial_payment_details: emptyPaymentDetails,
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects partner shares that exceed the remaining project share", async () => {
@@ -55,12 +131,15 @@ describe("project partners", () => {
     expect(execute.mock.calls[3][0]).toContain("'partner_contribution'");
     expect(execute.mock.calls[3][1]).toContain(200_000);
     expect(execute.mock.calls[3][1]).toContain("2026-09-22");
-    expect(execute.mock.calls[3][1]).toContain(JSON.stringify({ payment_details: partner.initial_payment_details }));
+    expect(execute.mock.calls[3][1]).toContain(
+      JSON.stringify({ payment_details: partner.initial_payment_details }),
+    );
   });
 
   it("retires new partner records if the first payment fails", async () => {
     vi.spyOn(client, "query").mockResolvedValueOnce([]);
-    const execute = vi.spyOn(client, "execute")
+    const execute = vi
+      .spyOn(client, "execute")
       .mockResolvedValueOnce({ rowsAffected: 1 })
       .mockResolvedValueOnce({ rowsAffected: 1 })
       .mockResolvedValueOnce({ rowsAffected: 1 })
@@ -78,9 +157,17 @@ describe("project partners", () => {
   it("only records payments for a partner linked to this project", async () => {
     const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
     const query = vi.spyOn(client, "query").mockResolvedValueOnce([]);
-    const payment = { account_key: "builder" as const, project_id: projectId, partner_id: partnerId, amount: 50_000,
-      date: "2026-09-22", method: "bank" as const, reference: "ABC", description: "Second payment",
-      payment_details: partner.initial_payment_details };
+    const payment = {
+      account_key: "builder" as const,
+      project_id: projectId,
+      partner_id: partnerId,
+      amount: 50_000,
+      date: "2026-09-22",
+      method: "bank" as const,
+      reference: "ABC",
+      description: "Second payment",
+      payment_details: partner.initial_payment_details,
+    };
     await expect(addPartnerContribution(payment)).rejects.toThrow("not part of this project");
     expect(execute).not.toHaveBeenCalled();
     query.mockResolvedValueOnce([{ contact_id: "33333333-3333-4333-8333-333333333333" }]);
@@ -88,5 +175,61 @@ describe("project partners", () => {
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute.mock.calls[0][1]).toContain(50_000);
     expect(execute.mock.calls[0][1]).toContain("bank");
+  });
+
+  it("updates share and promised amount without changing recorded contributions", async () => {
+    const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
+    vi.spyOn(client, "query")
+      .mockResolvedValueOnce([{ partner_id: partnerId, contact_id: "contact-1" }])
+      .mockResolvedValueOnce([{ assigned: 4000 }])
+      .mockResolvedValueOnce([
+        {
+          partnership_id: "share-1",
+          share_bp: 3500,
+          agreed_contribution: 2_000_000,
+          contributed: 300_000,
+        },
+      ]);
+    const updated = await updateProjectPartner({
+      project_id: projectId,
+      partnership_id: "share-1",
+      name: "Ali",
+      phone: "03001234567",
+      phone2: "",
+      address: "Quetta",
+      notes: "",
+      share_bp: 3500,
+      agreed_contribution: 2_000_000,
+    });
+    expect(updated.share_bp).toBe(3500);
+    expect(updated.contributed).toBe(300_000);
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(
+      execute.mock.calls.some(([sql]) => String(sql).includes("UPDATE partnerships SET share_bp")),
+    ).toBe(true);
+    expect(execute.mock.calls.some(([sql]) => String(sql).includes("UPDATE transactions"))).toBe(
+      false,
+    );
+  });
+
+  it("rejects an edited share that would exceed 100 percent", async () => {
+    const execute = vi.spyOn(client, "execute");
+    vi.spyOn(client, "query")
+      .mockResolvedValueOnce([{ partner_id: partnerId, contact_id: "contact-1" }])
+      .mockResolvedValueOnce([{ assigned: 8000 }]);
+    await expect(
+      updateProjectPartner({
+        project_id: projectId,
+        partnership_id: "share-1",
+        name: "Ali",
+        phone: "03001234567",
+        phone2: "",
+        address: "",
+        notes: "",
+        share_bp: 3500,
+        agreed_contribution: null,
+      }),
+    ).rejects.toThrow("cannot exceed 100%");
+    expect(execute).not.toHaveBeenCalled();
   });
 });

@@ -8,13 +8,16 @@ import {
   startOfWeek,
   startOfYear,
 } from "date-fns";
-import { BarChart3, CalendarDays, TrendingUp } from "lucide-react";
+import { BarChart3, CalendarDays, ChevronDown, HardHat, Layers3, SlidersHorizontal, TrendingUp, Wallet } from "lucide-react";
 import { useRecordFilters } from "@/components/RecordFilters";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Transaction } from "@/domain/types";
 import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
+import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
+import { SavedImageGallery } from "@/features/documents/components/ImageGallery";
+import type { DocumentRecord } from "@/data/repositories/documentsRepository";
 
 type Period = "all" | "daily" | "weekly" | "monthly" | "yearly" | "custom";
 const periodLabels: Record<Period, string> = {
@@ -130,7 +133,7 @@ function TrendChart({
   );
 }
 
-export function ConstructionCostInsights({ costs }: { costs: Transaction[] }) {
+export function ConstructionCostInsights({ costs, receipts = [] }: { costs: Transaction[]; receipts?: DocumentRecord[] }) {
   const [period, setPeriod] = useState<Period>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -229,24 +232,30 @@ export function ConstructionCostInsights({ costs }: { costs: Transaction[] }) {
       </section>
       {validRange && (
         <>
-          {controls}
           <div className="construction-period-summary">
-            <div>
+            <div className="is-spent">
+              <span className="construction-summary-icon"><Wallet size={21} /></span>
               <span>Paid in this period</span>
               <strong>{formatPKRInLakhCrore(periodTotal)}</strong>
               <small>{formatPKR(periodTotal)} in full</small>
             </div>
-            <div>
+            <div className="is-payments">
+              <span className="construction-summary-icon"><CalendarDays size={21} /></span>
               <span>Payments</span>
               <strong>{periodCosts.length}</strong>
               <small>Construction payments in this period</small>
             </div>
-            <div>
+            <div className="is-items">
+              <span className="construction-summary-icon"><Layers3 size={21} /></span>
               <span>Items paid for</span>
               <strong>{items.length}</strong>
               <small>Grouped by payment description</small>
             </div>
           </div>
+          <details className="construction-search-drawer">
+            <summary><span><SlidersHorizontal size={18} /> Search & filter payments</span><span>Refine results <ChevronDown size={16} /></span></summary>
+            {controls}
+          </details>
           {periodCosts.length === 0 ? (
             <div className="construction-chart-empty">
               <CalendarDays size={26} />
@@ -332,30 +341,14 @@ export function ConstructionCostInsights({ costs }: { costs: Transaction[] }) {
                   </h3>
                   <p>These are the payments included in the selected line.</p>
                 </div>
-                <div className="overflow-x-auto">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Item paid for</th>
-                        <th>Method</th>
-                        <th>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {shownCosts.map((cost) => (
-                        <tr key={cost.id}>
-                          <td>{formatDate(cost.date)}</td>
-                          <td>
-                            {itemName(cost)}
-                            {cost.reference && <small>Ref: {cost.reference}</small>}
-                          </td>
-                          <td className="capitalize">{cost.method || "—"}</td>
-                          <td>{formatPKR(cost.amount)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="construction-payment-cards">
+                  {shownCosts.map((cost) => (
+                    <article key={cost.id} className="construction-payment-card">
+                      <span className="construction-payment-icon"><HardHat size={19} /></span>
+                      <div><strong>{itemName(cost)}</strong><span>{formatDate(cost.date)} · {cost.method || "Method not set"}</span>{cost.reference && <small>Ref: {cost.reference}</small>}<PaymentDetailsView transaction={cost} /><SavedImageGallery documents={receipts.filter((receipt) => receipt.owner_id === cost.id)} /></div>
+                      <b>{formatPKR(cost.amount)}</b>
+                    </article>
+                  ))}
                 </div>
               </section>
             </>

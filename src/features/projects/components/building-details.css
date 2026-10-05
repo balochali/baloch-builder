@@ -1,0 +1,225 @@
+.building-wizard-redesign.building-wizard-redesign {
+  width: min(790px, calc(100vw - 30px));
+  max-width: 790px;
+  padding: 26px 26px 0;
+  border-radius: 22px;
+  gap: 17px;
+}
+.building-wizard-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.building-wizard-heading > span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 54px;
+  height: 54px;
+  color: white;
+  background: linear-gradient(145deg, #7c3aed, #4f46e5);
+  border-radius: 15px;
+  box-shadow: 0 8px 17px #7c3aed30;
+}
+.building-wizard-heading p {
+  margin-top: 3px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.building-wizard-redesign .building-wizard-progress {
+  gap: 8px;
+}
+.building-wizard-redesign .building-wizard-progress span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 49px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.building-wizard-redesign .building-wizard-progress span.is-current {
+  border: 1px solid #7c3aed;
+  color: #6d28d9;
+  background: color-mix(in srgb, #7c3aed 9%, var(--card));
+  box-shadow: 0 0 0 1px #7c3aed;
+}
+.building-wizard-redesign .building-wizard-progress span.is-done {
+  border-color: color-mix(in srgb, #059669 34%, var(--border));
+  color: #059669;
+  background: color-mix(in srgb, #059669 7%, var(--card));
+}
+.building-wizard-redesign .building-wizard-form {
+  display: grid;
+  gap: 18px;
+  padding: 4px 5px 22px 1px;
+}
+.building-wizard-redesign .building-wizard-form h3 {
+  color: var(--foreground);
+  font-size: 18px;
+}
+.building-wizard-redesign .building-wizard-form label {
+  font-weight: 700;
+}
+.building-wizard-redesign .building-wizard-form input:not([type="checkbox"]),
+.building-wizard-redesign .building-wizard-form select,
+.building-wizard-redesign .building-wizard-form textarea {
+  min-height: 44px;
+  border-radius: 9px;
+}
+.building-use-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+  margin-top: 17px;
+}
+.building-use-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 113px;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--building-color) 25%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--building-color) 5%, var(--card));
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+.building-use-option > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  color: white;
+  background: var(--building-color);
+}
+.building-use-option strong {
+  font-size: 13px;
+}
+.building-use-option:hover,
+.building-use-option[aria-pressed="true"] {
+  border-color: var(--building-color);
+  background: color-mix(in srgb, var(--building-color) 12%, var(--card));
+  box-shadow: 0 5px 17px color-mix(in srgb, var(--building-color) 14%, transparent);
+}
+.building-use-option[aria-pressed="true"] {
+  outline: 2px solid var(--building-color);
+  outline-offset: -2px;
+}
+.building-use-select-label,
+.building-wizard-redesign #building-use {
+  position: absolute;
+  width: 1px;
+  height: 1px !important;
+  min-height: 1px !important;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.building-wizard-redesign .building-space-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 77px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--building-color) 17%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--building-color) 4%, var(--card));
+  cursor: pointer;
+}
+.building-wizard-redesign .building-space-option:has(input:checked) {
+  border-color: var(--building-color);
+  background: color-mix(in srgb, var(--building-color) 11%, var(--card));
+}
+.building-space-option input {
+  flex: none;
+  accent-color: var(--building-color);
+}
+.building-space-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: white;
+  background: var(--building-color);
+}
+.building-space-option > span:last-child {
+  min-width: 0;
+}
+.building-wizard-redesign .building-wizard-group-title {
+  color: var(--foreground);
+}
+.building-wizard-redesign .building-wizard-floor {
+  border-color: color-mix(in srgb, #2563eb 20%, var(--border));
+  border-radius: 15px;
+  background: color-mix(in srgb, #2563eb 5%, var(--card));
+}
+.building-wizard-redesign .building-wizard-floor-head h4 {
+  color: var(--foreground);
+}
+.building-wizard-redesign .building-wizard-floor-head p {
+  color: #2563eb;
+}
+.building-wizard-redesign .building-wizard-example {
+  border-color: #2563eb;
+  border-radius: 8px;
+  background: color-mix(in srgb, #2563eb 7%, var(--card));
+}
+.building-wizard-redesign .building-wizard-no-flats,
+.building-wizard-redesign .building-wizard-flat-row {
+  border-color: var(--border);
+  background: var(--card);
+}
+.building-wizard-redesign .building-wizard-running-total {
+  color: #047857;
+  background: color-mix(in srgb, #059669 11%, var(--card));
+  border-radius: 9px;
+}
+.building-wizard-redesign [data-slot="dialog-footer"] {
+  margin: 0 -26px;
+  padding: 14px 26px;
+  background: var(--card);
+  border-radius: 0 0 22px 22px;
+}
+.building-wizard-redesign [data-slot="dialog-footer"] button[type="submit"] {
+  color: white;
+  background: #6d28d9;
+}
+.dark .building-wizard-redesign .building-wizard-progress span.is-current {
+  color: #c4b5fd;
+}
+.dark .building-wizard-redesign .building-wizard-progress span.is-done {
+  color: #6ee7b7;
+}
+@media (max-width: 600px) {
+  .building-wizard-redesign.building-wizard-redesign {
+    padding: 19px 19px 0;
+  }
+  .building-wizard-redesign .building-wizard-progress {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .building-use-grid {
+    grid-template-columns: 1fr;
+  }
+  .building-use-option {
+    flex-direction: row;
+    align-items: center;
+    min-height: 66px;
+  }
+  .building-wizard-redesign [data-slot="dialog-footer"] {
+    margin: 0 -19px;
+    padding: 12px 19px;
+  }
+}

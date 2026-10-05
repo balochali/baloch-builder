@@ -3,7 +3,11 @@ import { ChevronRight, CalendarDays, Sun, Moon } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useThemeStore } from "@/stores/themeStore";
 
-export function AppShell() {
+interface AppShellProps {
+  onLogout: () => void;
+}
+
+export function AppShell({ onLogout }: AppShellProps) {
   const { pathname } = useLocation();
   const { theme, setTheme } = useThemeStore();
   const section = pathname.startsWith("/projects/")
@@ -13,6 +17,7 @@ export function AppShell() {
           "/": "Dashboard",
           "/contacts": "Contacts",
           "/land": "Land",
+          "/documents": "Documents",
           "/projects": "Projects",
           "/partners": "Partners",
           "/personal-expense": "Personal Expense",
@@ -33,7 +38,7 @@ export function AppShell() {
       >
         Skip to content
       </a>
-      <Sidebar />
+      <Sidebar onLogout={onLogout} />
       <div className="app-workspace">
         <header className="app-topbar">
           <div className="workspace-breadcrumb">

@@ -17,7 +17,7 @@ describe("ConstructionCostInsights", () => {
     fireEvent.click(screen.getByRole("button", { name: /Cement.*3 payments/ }));
     expect(screen.getByRole("img", { name: "Cement spending rose to Rs 120,000" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Payments for Cement" })).toBeInTheDocument();
-    expect(screen.queryByText("Steel", { selector: ".construction-payment-list td" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Steel", { selector: ".construction-payment-card strong" })).not.toBeInTheDocument();
   });
 
   it("filters item bars, trend and payments by the selected dates", () => {

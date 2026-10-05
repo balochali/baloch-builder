@@ -53,8 +53,8 @@ describe("PersonalExpensePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByLabelText("Amount paid (Rs) *")).toHaveValue("500000");
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.change(screen.getByLabelText(/Pay from account/), { target: { value: "personal" } });
-    fireEvent.change(screen.getByLabelText("How was it paid? *"), { target: { value: "digital" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Digital wallet", exact: true }));
     fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     fireEvent.change(screen.getByLabelText("Wallet / app name *"), {
       target: { value: "JazzCash" },
@@ -77,6 +77,21 @@ describe("PersonalExpensePage", () => {
         }),
       ),
     );
+  });
+
+  it("asks for an account before reviewing the purchase", async () => {
+    render(<PersonalExpensePage />);
+    await screen.findByRole("heading", { name: "Where your money went" });
+    fireEvent.click(screen.getByRole("button", { name: "Add purchase" }));
+    fireEvent.change(screen.getByLabelText("Car name or details *"), { target: { value: "Car" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Amount paid (Rs) *"), { target: { value: "500000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Choose the account used for this purchase.",
+    );
+    expect(screen.getByText(/Step 3 of 4/)).toBeInTheDocument();
   });
 
   it("shares category filters across charts, purchases and payments", async () => {

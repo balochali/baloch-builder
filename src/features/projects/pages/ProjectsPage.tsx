@@ -1,5 +1,20 @@
-import { useEffect, useState } from "react";
-import { FolderKanban, Plus, MapPin, ArrowRight, Building2, CalendarDays } from "lucide-react";
+import "./projects.css";
+import { useEffect, useState, type CSSProperties } from "react";
+import {
+  FolderKanban,
+  Plus,
+  MapPin,
+  ArrowRight,
+  Building2,
+  CalendarDays,
+  CircleCheck,
+  HardHat,
+  Pause,
+  MapPinned,
+  ClipboardList,
+  SlidersHorizontal,
+  ChevronDown,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,12 +29,55 @@ import {
 } from "@/data/repositories/projectsRepository";
 import { ProjectDialog } from "@/features/projects/components/ProjectDialog";
 
+const projectStages = [
+  {
+    status: "planning",
+    label: "Planning",
+    short: "Planning",
+    color: "#7c3aed",
+    icon: ClipboardList,
+  },
+  {
+    status: "land acquired",
+    label: "Land acquired",
+    short: "Land",
+    color: "#2563eb",
+    icon: MapPinned,
+  },
+  {
+    status: "under construction",
+    label: "Under construction",
+    short: "Building",
+    color: "#d97706",
+    icon: HardHat,
+  },
+  {
+    status: "completed",
+    label: "Completed",
+    short: "Complete",
+    color: "#059669",
+    icon: CircleCheck,
+  },
+];
+const pausedStage = {
+  status: "on hold",
+  label: "On hold",
+  short: "Paused",
+  color: "#e11d48",
+  icon: Pause,
+};
+
 export function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { visible: visibleProjects, controls } = useRecordFilters(projects, {
+  const {
+    visible: visibleProjects,
+    controls,
+    active: filtersActive,
+    reset: resetFilters,
+  } = useRecordFilters(projects, {
     label: "projects",
     searchText: (project) =>
       [project.name, project.code, project.location, project.status, project.description]
@@ -32,7 +90,6 @@ export function ProjectsPage() {
       { label: "Location", value: (project) => project.location },
     ],
   });
-  const stages = ["planning", "land acquired", "under construction", "completed"];
   const activeCount = projects.filter(
     (project) => project.status !== "completed" && project.status !== "on hold",
   ).length;
@@ -67,7 +124,9 @@ export function ProjectsPage() {
       <section className="projects-overview" aria-label="Project overview">
         <div className="projects-overview-heading">
           <div>
-            <p className="projects-eyebrow">YOUR DEVELOPMENTS</p>
+            <p className="projects-eyebrow">
+              <Building2 size={16} aria-hidden="true" /> YOUR DEVELOPMENTS
+            </p>
             <h1>Projects</h1>
             <p>See where each development stands and open one to view its full details.</p>
           </div>
@@ -78,28 +137,45 @@ export function ProjectsPage() {
         </div>
         {!loading && !error && projects.length > 0 && (
           <div className="projects-summary">
-            <div>
-              <span>All projects</span>
-              <strong>{projects.length}</strong>
-              <small>Your complete project list</small>
-            </div>
-            <div>
-              <span>In progress</span>
-              <strong>{activeCount}</strong>
-              <small>Planning, land or construction</small>
-            </div>
-            <div>
-              <span>Completed</span>
-              <strong>{completedCount}</strong>
-              <small>Finished developments</small>
-            </div>
-            {onHoldCount > 0 && (
-              <div>
-                <span>On hold</span>
-                <strong>{onHoldCount}</strong>
-                <small>Paused for now</small>
+            {[
+              {
+                label: "All projects",
+                count: projects.length,
+                note: "Your complete project list",
+                icon: Building2,
+                color: "#2563eb",
+              },
+              {
+                label: "In progress",
+                count: activeCount,
+                note: "Planning, land or construction",
+                icon: HardHat,
+                color: "#d97706",
+              },
+              {
+                label: "Completed",
+                count: completedCount,
+                note: "Finished developments",
+                icon: CircleCheck,
+                color: "#059669",
+              },
+              {
+                label: "On hold",
+                count: onHoldCount,
+                note: "Paused for now",
+                icon: Pause,
+                color: "#e11d48",
+              },
+            ].map(({ label, count, note, icon: Icon, color }) => (
+              <div key={label} style={{ "--summary-color": color } as CSSProperties}>
+                <span className="projects-summary-icon">
+                  <Icon size={25} aria-hidden="true" />
+                </span>
+                <span>{label}</span>
+                <strong>{count}</strong>
+                <small>{note}</small>
               </div>
-            )}
+            ))}
           </div>
         )}
       </section>
@@ -115,7 +191,26 @@ export function ProjectsPage() {
           </span>
         )}
       </div>
-      {controls}
+      <details className="projects-search-panel">
+        <summary>
+          <span>
+            <SlidersHorizontal size={18} /> Search & filter projects
+          </span>
+          <span>
+            {filtersActive ? "Filters applied" : "All projects"}
+            <ChevronDown size={16} />
+          </span>
+        </summary>
+        {controls}
+      </details>
+      {filtersActive && (
+        <div className="projects-active-filters">
+          <span>{visibleProjects.length} projects match your filters.</span>
+          <Button variant="ghost" size="sm" onClick={resetFilters}>
+            Clear filters
+          </Button>
+        </div>
+      )}
 
       {loading && (
         <p className="py-8 text-center text-sm text-muted-foreground">Loading projects…</p>
@@ -145,80 +240,104 @@ export function ProjectsPage() {
       )}
       {!loading && !error && visibleProjects.length > 0 && (
         <div className="projects-grid">
-          {visibleProjects.map((project) => (
-            <Link
-              key={project.id}
-              to={`/projects/${project.id}`}
-              className="projects-card group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <div className="projects-card-main">
-                <div className="projects-card-icon">
-                  <Building2 size={25} />
-                </div>
-                <div className="projects-card-title">
-                  <div>
+          {visibleProjects.map((project) => {
+            const stage =
+              project.status === "on hold"
+                ? pausedStage
+                : (projectStages.find((item) => item.status === project.status) ??
+                  projectStages[0]);
+            const StageIcon = stage.icon;
+            const currentIndex = Math.max(
+              0,
+              projectStages.findIndex((item) => item.status === project.status),
+            );
+            return (
+              <Link
+                key={project.id}
+                to={"/projects/" + project.id}
+                className="projects-card"
+                style={{ "--project-color": stage.color } as CSSProperties}
+              >
+                <div className="projects-card-main">
+                  <div className="projects-card-top">
+                    <span className="projects-card-icon">
+                      <Building2 size={29} strokeWidth={1.8} aria-hidden="true" />
+                    </span>
+                    <span className="projects-stage-badge">
+                      <StageIcon size={15} aria-hidden="true" />
+                      {stage.label}
+                    </span>
+                  </div>
+                  <div className="projects-card-title">
                     <h3>{project.name}</h3>
-                    {project.code && <span>Project {project.code}</span>}
                   </div>
-                  <ArrowRight size={20} />
+                  <span className="projects-card-code">
+                    {project.code ? "Project " + project.code : "Development project"}
+                  </span>
+                  <div className="projects-card-facts">
+                    <p className="projects-card-meta">
+                      <MapPin size={17} aria-hidden="true" />
+                      <span>{project.location || "Location not added"}</span>
+                    </p>
+                    <p className="projects-card-meta">
+                      <CalendarDays size={17} aria-hidden="true" />
+                      <span>
+                        {project.start_date
+                          ? "Started " + formatDate(project.start_date)
+                          : "Start date not set"}
+                      </span>
+                    </p>
+                  </div>
+                  {project.description && (
+                    <p className="projects-card-description">{project.description}</p>
+                  )}
                 </div>
-                {project.location && (
-                  <p className="projects-card-meta">
-                    <MapPin size={17} />
-                    {project.location}
-                  </p>
-                )}
-                {project.start_date && (
-                  <p className="projects-card-meta">
-                    <CalendarDays size={17} />
-                    Started {formatDate(project.start_date)}
-                  </p>
-                )}
-                {project.description && (
-                  <p className="projects-card-description">{project.description}</p>
-                )}
-                <span className="projects-card-action">
-                  Open project details <ArrowRight size={16} />
-                </span>
-              </div>
-              <div className="projects-card-stage">
-                <span className="projects-card-stage-label">CURRENT STAGE</span>
-                <strong className="capitalize">{project.status || "Planning"}</strong>
-                <p>
-                  {project.status === "completed"
-                    ? "This development is finished."
-                    : project.status === "on hold"
-                      ? "Work on this project is paused."
-                      : "Follow the project from planning through completion."}
-                </p>
-                {project.status !== "on hold" && (
-                  <div
-                    className="projects-stage-steps"
-                    aria-label={`Project stage: ${project.status || "planning"}`}
-                  >
-                    {stages.map((stage, index) => {
-                      const currentIndex = Math.max(
-                        0,
-                        stages.indexOf(project.status || "planning"),
-                      );
-                      return (
-                        <div className={index <= currentIndex ? "is-reached" : ""} key={stage}>
-                          <span>{index + 1}</span>
-                          <small>
-                            {stage === "land acquired"
-                              ? "Land"
-                              : stage === "under construction"
-                                ? "Building"
-                                : stage}
-                          </small>
-                        </div>
-                      );
-                    })}
+                <div className="projects-card-stage">
+                  <div className="projects-stage-heading">
+                    <span>Project journey</span>
+                    <strong>
+                      {project.status === "on hold"
+                        ? "Paused"
+                        : "Stage " + (currentIndex + 1) + " of 4"}
+                    </strong>
                   </div>
-                )}
-              </div>
-            </Link>
-          ))}
+                  {project.status === "on hold" ? (
+                    <p className="projects-paused-note">
+                      <Pause size={18} aria-hidden="true" />
+                      Work is paused. Open the project to review its status.
+                    </p>
+                  ) : (
+                    <ol
+                      className="projects-stage-steps"
+                      aria-label={"Project stage: " + (project.status || "planning")}
+                    >
+                      {projectStages.map((item, index) => {
+                        const Icon = index < currentIndex ? CircleCheck : item.icon;
+                        return (
+                          <li
+                            key={item.status}
+                            className={index <= currentIndex ? "is-reached" : ""}
+                            aria-current={index === currentIndex ? "step" : undefined}
+                          >
+                            <span>
+                              <Icon size={16} aria-hidden="true" />
+                            </span>
+                            <small>{item.short}</small>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+                </div>
+                <div className="projects-card-footer">
+                  <span>Open project details</span>
+                  <span>
+                    <ArrowRight size={18} aria-hidden="true" />
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
 

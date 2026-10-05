@@ -682,12 +682,217 @@
   color: var(--trend-color);
   font-size: 12px;
 }
+/* Purchase dialogs use the same clear, colorful language as the expense dashboard. */
+.expense-wizard-redesign.expense-wizard-redesign {
+  width: min(660px, calc(100vw - 28px));
+  max-width: 660px;
+  padding: 28px;
+  gap: 18px;
+  border-radius: 22px;
+}
+.expense-wizard-redesign .expense-wizard-head {
+  align-items: center;
+}
+.expense-wizard-redesign .expense-wizard-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  color: white;
+  background: linear-gradient(145deg, #7c3aed, #4f46e5);
+  border-radius: 16px;
+  box-shadow: 0 8px 18px #7c3aed30;
+}
+.expense-wizard-redesign [data-slot="dialog-title"] {
+  font-size: 23px;
+}
+.expense-step-status {
+  margin: 0;
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.expense-wizard-redesign .expense-wizard-steps {
+  gap: 8px;
+  margin: 0;
+}
+.expense-wizard-redesign .expense-wizard-steps li {
+  min-height: 66px;
+  gap: 7px;
+  padding: 9px 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+.expense-wizard-redesign .expense-wizard-steps li[aria-current="step"] {
+  border-color: #7c3aed;
+  color: #6d28d9;
+  background: color-mix(in srgb, #7c3aed 9%, var(--card));
+  box-shadow: 0 0 0 1px #7c3aed;
+}
+.expense-wizard-redesign .expense-wizard-steps li[data-complete="true"] {
+  border-color: color-mix(in srgb, #059669 35%, var(--border));
+  color: #059669;
+  background: color-mix(in srgb, #059669 7%, var(--card));
+}
+.expense-wizard-redesign .expense-wizard-steps .expense-step-num {
+  width: 33px;
+  height: 33px;
+  border-radius: 10px;
+  background: var(--muted);
+}
+.expense-wizard-redesign .expense-wizard-steps li[aria-current="step"] .expense-step-num {
+  color: white;
+  background: #7c3aed;
+}
+.expense-wizard-redesign .expense-wizard-steps li[data-complete="true"] .expense-step-num {
+  color: white;
+  background: #059669;
+}
+.expense-wizard-redesign .expense-wizard-steps .expense-step-name {
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 750;
+}
+.expense-wizard-redesign .expense-form {
+  display: grid;
+  gap: 17px;
+  padding: 20px;
+  border-radius: 15px;
+  background: color-mix(in srgb, #7c3aed 3%, var(--card));
+}
+.expense-wizard-redesign .expense-form label {
+  display: block;
+  margin-bottom: 7px;
+  font-weight: 700;
+}
+.expense-wizard-redesign .expense-form input,
+.expense-wizard-redesign .expense-form select {
+  min-height: 45px;
+  border-radius: 9px;
+}
+.expense-wizard-redesign .expense-category-grid-select {
+  gap: 9px;
+  margin: 8px 0 5px;
+}
+.expense-wizard-redesign .expense-cat-option {
+  color: var(--foreground);
+  font-weight: 700;
+}
+.expense-wizard-redesign .expense-cat-option.is-selected {
+  box-shadow: 0 5px 15px color-mix(in srgb, var(--cat-color) 16%, transparent);
+}
+.expense-wizard-redesign .expense-cat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+.expense-wizard-redesign .expense-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.expense-step-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, #7c3aed 17%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, #7c3aed 6%, var(--card));
+}
+.expense-step-intro > span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  color: white;
+  background: #7c3aed;
+}
+.expense-step-intro strong {
+  display: block;
+  font-size: 14px;
+}
+.expense-step-intro p {
+  margin-top: 3px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.expense-payment-step .expense-step-intro {
+  border-color: color-mix(in srgb, #059669 20%, var(--border));
+  background: color-mix(in srgb, #059669 6%, var(--card));
+}
+.expense-payment-step .expense-step-intro > span {
+  background: #059669;
+}
+.expense-wizard-redesign .expense-form-preview {
+  border: 1px solid color-mix(in srgb, #7c3aed 23%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, #7c3aed 6%, var(--card));
+}
+.expense-wizard-redesign .expense-preview-eyebrow {
+  color: #6d28d9;
+}
+.expense-wizard-redesign [data-slot="dialog-footer"] {
+  gap: 8px;
+}
+.expense-wizard-redesign [data-slot="dialog-footer"] button[type="submit"] {
+  color: white;
+  background: #6d28d9;
+}
+.expense-remove-dialog.expense-remove-dialog {
+  padding: 25px;
+  border-radius: 20px;
+}
+.expense-remove-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  color: white;
+  background: #e11d48;
+}
+.expense-remove-dialog [data-slot="dialog-title"] {
+  font-size: 21px;
+}
+.dark .expense-step-status,
+.dark .expense-wizard-redesign .expense-wizard-steps li[aria-current="step"],
+.dark .expense-wizard-redesign .expense-preview-eyebrow {
+  color: #c4b5fd;
+}
 @media (max-width: 1100px) {
   .expense-spending-tag {
     display: none;
   }
 }
 @media (max-width: 720px) {
+  .expense-wizard-redesign.expense-wizard-redesign {
+    padding: 19px;
+  }
+  .expense-wizard-redesign .expense-category-grid-select {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .expense-wizard-redesign .expense-form {
+    padding: 14px;
+  }
+  .expense-wizard-redesign .expense-wizard-steps .expense-step-name {
+    font-size: 10px;
+  }
   .expense-page.expense-page .expense-spending-card {
     padding: 18px;
   }

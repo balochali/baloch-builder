@@ -1,0 +1,60 @@
+.project-detail-page .construction-cost-section { display: grid; gap: 20px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.project-construction-hero { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 25px; border: 1px solid #d2c6fa; border-radius: 19px; background: linear-gradient(110deg, #f1eaff, #f8faff 64%, #eaf8f1); }
+.project-construction-hero-copy { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.project-construction-hero-copy > span { display: grid; place-items: center; flex: none; width: 58px; height: 58px; border-radius: 16px; background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; box-shadow: 0 10px 21px #7c3aed2b; }
+.project-construction-hero small { color: #6d28d9; font-size: 11px; font-weight: 850; letter-spacing: .12em; }
+.project-construction-hero h2 { margin-top: 3px; color: #172b49; font-size: clamp(22px, 2.5vw, 29px); font-weight: 800; }
+.project-construction-hero p { margin-top: 3px; color: #60718a; font-size: 13px; }
+.project-construction-hero button { min-height: 45px; background: #7c3aed; color: white; font-weight: 750; }
+.project-construction-hero button:hover { background: #6d28d9; }
+.construction-cost-section .construction-insights { gap: 18px; }
+.construction-cost-section .construction-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 13px 18px; padding: 17px 20px; border-radius: 15px; background: var(--card); box-shadow: none; }
+.construction-cost-section .construction-filters > div:first-child { flex: 0 0 220px; }
+.construction-cost-section .construction-filters h3 { color: var(--foreground); font-size: 15px; }
+.construction-cost-section .construction-filters p { font-size: 11px; }
+.construction-cost-section .construction-period-options { flex: 1; }
+.construction-cost-section .construction-period-options button { background: var(--card); color: var(--foreground); }
+.construction-cost-section .construction-period-options button[aria-pressed="true"] { border-color: #7c3aed; background: #7c3aed; color: #fff; }
+.construction-cost-section .construction-range-caption { flex-basis: 100%; color: #6d28d9; font-size: 12px; }
+.construction-cost-section .construction-custom-range { flex-basis: 100%; }
+.construction-cost-section .construction-period-summary { gap: 13px; }
+.construction-cost-section .construction-period-summary > div { --summary-color: #7c3aed; display: grid; align-content: start; gap: 7px; padding: 18px; border: 1px solid var(--border); border-top: 4px solid var(--summary-color); border-radius: 15px; background: color-mix(in srgb, var(--summary-color) 5%, var(--card)); }
+.construction-cost-section .construction-period-summary > div.is-payments { --summary-color: #059669; }
+.construction-cost-section .construction-period-summary > div.is-items { --summary-color: #d97706; }
+.construction-summary-icon { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 3px; border-radius: 11px; background: var(--summary-color); color: white !important; }
+.construction-cost-section .construction-period-summary strong { color: var(--foreground); }
+.construction-cost-section .construction-period-summary span:not(.construction-summary-icon), .construction-cost-section .construction-period-summary small { font-size: 12px; }
+.construction-search-drawer { border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.construction-search-drawer > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 17px; cursor: pointer; list-style: none; }
+.construction-search-drawer > summary::-webkit-details-marker { display: none; }
+.construction-search-drawer > summary span { display: inline-flex; align-items: center; gap: 7px; color: var(--foreground); font-size: 12px; font-weight: 750; }
+.construction-search-drawer > summary span:first-child svg { color: #0d9488; }
+.construction-search-drawer > summary span:last-child { color: var(--muted-foreground); font-size: 11px; }
+.construction-search-drawer[open] > summary span:last-child svg { transform: rotate(180deg); }
+.construction-search-drawer .record-filters { margin: 0 15px 15px; }
+.construction-cost-section .construction-charts { align-items: start; }
+.construction-cost-section .construction-chart-card, .construction-cost-section .construction-payment-list { padding: 20px; border-radius: 15px; box-shadow: none; }
+.construction-cost-section .construction-chart-title h3, .construction-cost-section .construction-payment-list h3 { color: var(--foreground); }
+.construction-cost-section .construction-chart-title > svg { color: #7c3aed; }
+.construction-cost-section .construction-item-bars button { background: color-mix(in srgb, #7c3aed 4%, var(--card)); }
+.construction-cost-section .construction-item-bars button:hover, .construction-cost-section .construction-item-bars button.is-selected { border-color: #bca4f4; background: color-mix(in srgb, #7c3aed 10%, var(--card)); }
+.construction-cost-section .construction-item-bars strong, .construction-cost-section .construction-trend-total { color: var(--foreground); }
+.construction-cost-section .construction-item-bars small { color: var(--muted-foreground); }
+.construction-cost-section .construction-item-track { background: var(--muted); }
+.construction-cost-section .construction-item-track > span { background: linear-gradient(90deg, #7c3aed, #34d399); }
+.construction-cost-section .construction-item-picker label { color: var(--foreground); }
+.construction-cost-section .construction-item-picker select { background: var(--card); color: var(--foreground); }
+.construction-payment-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 11px; }
+.construction-payment-card { display: flex; align-items: flex-start; gap: 11px; min-width: 0; padding: 15px; border: 1px solid var(--border); border-left: 4px solid #7c3aed; border-radius: 11px; background: color-mix(in srgb, #7c3aed 3%, var(--card)); }
+.construction-payment-icon { display: grid; place-items: center; flex: none; width: 37px; height: 37px; border-radius: 9px; background: color-mix(in srgb, #7c3aed 14%, var(--card)); color: #7c3aed; }
+.construction-payment-card > div { display: grid; gap: 5px; flex: 1; min-width: 0; }
+.construction-payment-card strong { overflow-wrap: anywhere; color: var(--foreground); font-size: 13px; }
+.construction-payment-card span:not(.construction-payment-icon), .construction-payment-card small { color: var(--muted-foreground); font-size: 11px; }
+.construction-payment-card b { color: var(--foreground); font-size: 13px; white-space: nowrap; }
+.dark .project-construction-hero { border-color: #514278; background: linear-gradient(110deg, #2b2049, #192d42 70%, #173a36); }
+.dark .project-construction-hero h2 { color: #f4f0ff; }
+.dark .project-construction-hero p { color: #b9c9d9; }
+.dark .project-construction-hero small, .dark .construction-cost-section .construction-range-caption { color: #c9b5ff; }
+.dark .construction-cost-section .construction-chart-empty { background: var(--card); color: var(--muted-foreground); }
+@media (max-width: 1000px) { .project-construction-hero { align-items: flex-start; flex-direction: column; } .construction-cost-section .construction-filters > div:first-child { flex-basis: 100%; } }
+@media (max-width: 650px) { .project-construction-hero { padding: 18px; } .project-construction-hero-copy { align-items: flex-start; } .project-construction-hero-copy > span { width: 46px; height: 46px; } .project-construction-hero button { width: 100%; } .construction-payment-cards { grid-template-columns: 1fr; } .construction-payment-card { flex-wrap: wrap; } .construction-payment-card b { margin-left: 48px; } }

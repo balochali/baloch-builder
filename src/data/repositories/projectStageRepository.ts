@@ -1,12 +1,65 @@
 import { BankAccountSchema } from "@/domain/bankAccount";
+import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
-import { db, query } from "@/data/client";
+import { query } from "@/data/client";
 import { newId, now } from "@/data/ids";
 import { ProjectStatuses, type ProjectStatus } from "./projectsRepository";
 import type { Project } from "@/domain/types";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date");
 const amount = z.number().int().positive().safe();
+
+export const LandPaymentDetailsSchema = z.object({
+  method: z.enum(["cash", "bank", "digital", "cheque", "other"]),
+  paid_to: z.string().trim().max(120),
+  provider: z.string().trim().max(120),
+  account_name: z.string().trim().max(120),
+  account_no: z.string().trim().max(120),
+  reference: z.string().trim().max(120),
+  cheque_date: z.union([date, z.literal("")]),
+});
+export type LandPaymentDetails = z.infer<typeof LandPaymentDetailsSchema>;
+export const emptyLandPaymentDetails: LandPaymentDetails = {
+  method: "cash",
+  paid_to: "",
+  provider: "",
+  account_name: "",
+  account_no: "",
+  reference: "",
+  cheque_date: "",
+};
+
+function validateLandPayment(value: LandPaymentDetails | null | undefined, ctx: z.RefinementCtx) {
+  if (!value) return;
+  if (!value.paid_to)
+    ctx.addIssue({
+      code: "custom",
+      path: ["payment_details", "paid_to"],
+      message: "Enter who received the payment",
+    });
+  if (value.method !== "cash" && !value.provider)
+    ctx.addIssue({
+      code: "custom",
+      path: ["payment_details", "provider"],
+      message: "Enter the bank, wallet or payment service",
+    });
+  if (
+    (value.method === "bank" || value.method === "digital" || value.method === "cheque") &&
+    !value.reference
+  )
+    ctx.addIssue({
+      code: "custom",
+      path: ["payment_details", "reference"],
+      message:
+        value.method === "cheque" ? "Enter the cheque number" : "Enter the transaction reference",
+    });
+  if (value.method === "cheque" && !value.cheque_date)
+    ctx.addIssue({
+      code: "custom",
+      path: ["payment_details", "cheque_date"],
+      message: "Enter the cheque date",
+    });
+}
 
 export const LandAcquisitionSchema = z
   .object({
@@ -18,11 +71,29 @@ export const LandAcquisitionSchema = z
     area_unit: z.enum(["marla", "kanal", "sqft", "sqyd", "acre"]).nullable(),
     seller_name: z.string().trim().max(120),
     price: amount.nullable(),
+    payment_details: LandPaymentDetailsSchema.nullable().optional(),
     notes: z.string().trim().max(1000),
   })
   .refine((value) => (value.area_value === null) === (value.area_unit === null), {
     path: ["area_value"],
     message: "Enter both the land area and its unit",
+  })
+  .superRefine((value, ctx) => {
+    if (value.price !== null) {
+      if (!value.account_key)
+        ctx.addIssue({
+          code: "custom",
+          path: ["account_key"],
+          message: "Choose the paying account",
+        });
+      if (!value.payment_details)
+        ctx.addIssue({
+          code: "custom",
+          path: ["payment_details"],
+          message: "Enter how the land was paid for",
+        });
+      validateLandPayment(value.payment_details, ctx);
+    }
   });
 
 export type LandAcquisitionInput = z.infer<typeof LandAcquisitionSchema>;
@@ -45,10 +116,17 @@ export async function getProjectLand(projectId: string): Promise<ProjectLand | n
   } catch {
     /* Older records may not have valid custom data. */
   }
-  return { ...row, seller_name: sellerName };
+  let paymentDetails: LandPaymentDetails | null = null;
+  try {
+    const parsed = LandPaymentDetailsSchema.safeParse(JSON.parse(row.custom)?.payment_details);
+    if (parsed.success) paymentDetails = parsed.data;
+  } catch {
+    /* Older records may not have payment details. */
+  }
+  return { ...row, seller_name: sellerName, payment_details: paymentDetails };
 }
 
-/** Save stage details and the new status in one SQLite transaction. */
+/** Save stage details and status in one native SQLite transaction. */
 export async function saveProjectStage(
   projectId: string,
   status: ProjectStatus,
@@ -60,77 +138,13 @@ export async function saveProjectStage(
   if (validLand && validStatus !== "land acquired")
     throw new Error("Land details require the Land acquired status");
   if (validLand?.price != null) BankAccountSchema.parse(validLand.account_key);
-  const database = await db();
-  const timestamp = now();
-  await database.execute("BEGIN IMMEDIATE");
-  try {
-    const projects = await database.select<Project[]>(
-      "SELECT * FROM projects WHERE id = ? AND archived = 0",
-      [projectId],
-    );
-    if (!projects[0]) throw new Error("Project not found");
-    if (validLand) {
-      const existing = await database.select<{ id: string }[]>(
-        "SELECT id FROM land WHERE project_id = ? AND archived = 0 ORDER BY created_at LIMIT 1",
-        [projectId],
-      );
-      if (existing[0]) {
-        await database.execute(
-          `UPDATE land SET title = ?, location = ?, purchase_date = ?, area_value = ?, area_unit = ?,
-          price = ?, notes = ?, custom = ?, status = 'acquired', updated_at = ?, account_key = ? WHERE id = ?`,
-          [
-            validLand.title,
-            validLand.location,
-            validLand.purchase_date,
-            validLand.area_value,
-            validLand.area_unit,
-            validLand.price,
-            validLand.notes || null,
-            JSON.stringify({ seller_name: validLand.seller_name }),
-            timestamp,
-            validLand.account_key ?? null,
-            existing[0].id,
-          ],
-        );
-      } else {
-        await database.execute(
-          `INSERT INTO land (id, title, location, area_value, area_unit, purchase_date, price,
-          status, project_id, is_personal, notes, created_at, updated_at, archived, custom, account_key)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'acquired', ?, 0, ?, ?, ?, 0, ?, ?)`,
-          [
-            newId(),
-            validLand.title,
-            validLand.location,
-            validLand.area_value,
-            validLand.area_unit,
-            validLand.purchase_date,
-            validLand.price,
-            projectId,
-            validLand.notes || null,
-            timestamp,
-            timestamp,
-            JSON.stringify({ seller_name: validLand.seller_name }),
-            validLand.account_key ?? null,
-          ],
-        );
-      }
-      // The acquired land defines the plot size for this project's building plan.
-      await database.execute(
-        `UPDATE project_building_details SET plot_area_value = ?, plot_area_unit = ?,
-        updated_at = ? WHERE project_id = ? AND archived = 0`,
-        [validLand.area_value, validLand.area_unit, timestamp, projectId],
-      );
-    }
-    await database.execute("UPDATE projects SET status = ?, updated_at = ? WHERE id = ?", [
-      validStatus,
-      timestamp,
-      projectId,
-    ]);
-    await database.execute("COMMIT");
-  } catch (cause) {
-    await database.execute("ROLLBACK");
-    throw cause;
-  }
+  await invoke("save_project_stage", {
+    projectId,
+    status: validStatus,
+    land: validLand,
+    landId: newId(),
+    timestamp: now(),
+  });
   const projects = await query<Project>("SELECT * FROM projects WHERE id = ?", [projectId]);
   if (!projects[0]) throw new Error("Stage was saved but the project could not be reloaded");
   return projects[0];

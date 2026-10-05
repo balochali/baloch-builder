@@ -5,6 +5,7 @@ type Facet<T> = { label: string; value: (record: T) => string | null | undefined
 type Config<T> = {
   label: string;
   sortable?: boolean;
+  showSearch?: boolean;
   searchText: (record: T) => string;
   date?: (record: T) => string | null | undefined;
   dateLabel?: string;
@@ -86,18 +87,24 @@ export function useRecordFilters<T>(records: T[], config: Config<T>) {
         </button>
       </div>
       <div className="filter-fields">
-        <FilterField label={`Search ${config.label}`} id={`${id}-search`} className="filter-search">
-          <span>
-            <Search size={17} />
-            <input
-              id={`${id}-search`}
-              type="text"
-              placeholder={`Search ${config.label}…`}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </span>
-        </FilterField>
+        {config.showSearch !== false && (
+          <FilterField
+            label={`Search ${config.label}`}
+            id={`${id}-search`}
+            className="filter-search"
+          >
+            <span>
+              <Search size={17} />
+              <input
+                id={`${id}-search`}
+                type="text"
+                placeholder={`Search ${config.label}…`}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </span>
+          </FilterField>
+        )}
         {(config.facets ?? []).map((facet, index) => (
           <FilterField key={facet.label} label={facet.label} id={`${id}-facet-${index}`}>
             <select
@@ -200,7 +207,7 @@ export function useRecordFilters<T>(records: T[], config: Config<T>) {
       </div>
     </section>
   );
-  return { visible, controls, search, active, reset };
+  return { visible, controls, search, setSearch, active, reset };
 }
 
 function FilterField({

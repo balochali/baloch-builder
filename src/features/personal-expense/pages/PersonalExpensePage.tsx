@@ -1,3 +1,4 @@
+import { PaymentModalHeader } from "@/components/PaymentChoices";
 import "./personal-expense.css";
 import { accountName } from "@/domain/bankAccount";
 import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
@@ -33,6 +34,8 @@ import {
   Trash2,
   TrendingUp,
   Watch,
+  CircleCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -970,8 +973,11 @@ export function PersonalExpensePage() {
           if (!open && !busy) setRemoving(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="expense-remove-dialog sm:max-w-md">
           <DialogHeader>
+            <span className="expense-remove-icon">
+              <AlertTriangle size={24} />
+            </span>
             <DialogTitle>Remove this purchase?</DialogTitle>
             <p className="text-sm text-muted-foreground">
               {removing?.item_name} will be removed from your spending totals and list.
@@ -1007,6 +1013,7 @@ function ExpenseForm({
 }) {
   const [step, setStep] = useState(0);
   const steps = ["Purchase", "Amount", "Payment", "Review"];
+  const stepIcons = [ShoppingBag, Wallet, ReceiptText, CircleCheck];
   const [paymentDetails, setPaymentDetails] = useState(
     record?.payment_details ?? emptyPaymentDetails,
   );
@@ -1048,6 +1055,10 @@ function ExpenseForm({
       setStep(2);
       return;
     }
+    if (step === 2 && !accountKey) {
+      setError("Choose the account used for this purchase.");
+      return;
+    }
     const result = PersonalExpenseSchema.safeParse({
       payment_details: paymentDetails,
       account_key: accountKey,
@@ -1082,34 +1093,27 @@ function ExpenseForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="expense-dialog expense-wizard max-h-[92vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <div className="expense-wizard-head">
-            <span className="expense-wizard-icon">
-              <ShoppingBag size={22} aria-hidden="true" />
-            </span>
-            <div>
-              <DialogTitle>{record ? "Edit purchase" : "Add a personal purchase"}</DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                Complete one short step at a time, then review your purchase.
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
-        <p role="status" className="text-sm font-semibold text-primary">
+      <DialogContent className="expense-dialog expense-wizard expense-wizard-redesign payment-modal">
+        <PaymentModalHeader icon={ShoppingBag} eyebrow="PERSONAL PURCHASE" title={record ? "Edit purchase" : "Add a personal purchase"} description="Complete one short step at a time, then review your purchase." />
+        <p role="status" className="expense-step-status">
           Step {step + 1} of 4 · {steps[step]}
         </p>
         <ol className="expense-wizard-steps" aria-label="Purchase progress">
-          {steps.map((label, index) => (
-            <li
-              key={label}
-              aria-current={step === index ? "step" : undefined}
-              data-complete={index < step}
-            >
-              <span className="expense-step-num">{index + 1}</span>
-              <span className="expense-step-name">{label}</span>
-            </li>
-          ))}
+          {steps.map((label, index) => {
+            const StepIcon = stepIcons[index];
+            return (
+              <li
+                key={label}
+                aria-current={step === index ? "step" : undefined}
+                data-complete={index < step}
+              >
+                <span className="expense-step-num">
+                  <StepIcon size={17} aria-hidden="true" />
+                </span>
+                <span className="expense-step-name">{label}</span>
+              </li>
+            );
+          })}
         </ol>
         <form id="expense-form" onSubmit={submit} className="expense-form">
           {step === 0 && (
@@ -1184,6 +1188,15 @@ function ExpenseForm({
           )}
           {step === 1 && (
             <>
+              <div className="expense-step-intro">
+                <span>
+                  <Wallet size={21} />
+                </span>
+                <div>
+                  <strong>How much did it cost?</strong>
+                  <p>Enter the full purchase amount and date.</p>
+                </div>
+              </div>
               <div className="expense-form-grid">
                 <div>
                   <Label htmlFor="expense-amount">Amount paid (Rs) *</Label>
@@ -1210,7 +1223,16 @@ function ExpenseForm({
             </>
           )}
           {step === 2 && (
-            <div className="space-y-4">
+            <div className="space-y-4 expense-payment-step">
+              <div className="expense-step-intro">
+                <span>
+                  <ReceiptText size={21} />
+                </span>
+                <div>
+                  <strong>How did you pay?</strong>
+                  <p>Choose the account, then add the payment details.</p>
+                </div>
+              </div>
               <BankAccountSelect value={accountKey} onChange={setAccountKey} />
               {accountKey && (
                 <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />
@@ -1219,6 +1241,15 @@ function ExpenseForm({
           )}
           {step === 3 && (
             <>
+              <div className="expense-step-intro">
+                <span>
+                  <CircleCheck size={21} />
+                </span>
+                <div>
+                  <strong>Review your purchase</strong>
+                  <p>Check everything before saving.</p>
+                </div>
+              </div>
               <div>
                 <Label htmlFor="expense-notes">Notes (optional)</Label>
                 <Input
@@ -1238,9 +1269,7 @@ function ExpenseForm({
                   <small>
                     {categoryInfo(category).singular} · {formatDate(purchaseDate)}
                   </small>
-                  <small>
-                    {accountKey === "personal" ? "Personal Account" : "Builder Account"}
-                  </small>
+                  <small>{accountKey ? accountName(accountKey) : "Account not selected"}</small>
                   <small>{paymentSummary(JSON.stringify(paymentDetails))}</small>
                 </div>
               </div>
@@ -1269,7 +1298,16 @@ function ExpenseForm({
               Back
             </Button>
           )}
-          <Button type="submit" form="expense-form" disabled={saving}>
+          <Button
+            type="submit"
+            form="expense-form"
+            disabled={saving}
+            onClick={() => {
+              if (step === 2 && !accountKey) {
+                setError("Choose the account used for this purchase.");
+              }
+            }}
+          >
             {saving ? "Saving…" : step < 3 ? "Next" : record ? "Save changes" : "Save purchase"}
           </Button>
         </DialogFooter>

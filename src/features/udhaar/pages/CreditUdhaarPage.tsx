@@ -1,3 +1,4 @@
+import { PaymentModalHeader } from "@/components/PaymentChoices";
 import "./credit-udhaar.css";
 import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
 import { emptyPaymentDetails, paymentSummary } from "@/domain/udhaarPaymentDetails";
@@ -43,7 +44,6 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -927,12 +927,7 @@ export function CreditUdhaarPage() {
         <DialogContent className="udhaar-person-dialog max-h-[90vh] overflow-y-auto sm:max-w-xl">
           {selected && (
             <>
-              <DialogHeader>
-                <span className="udhaar-dialog-icon">
-                  <UserRound size={25} aria-hidden="true" />
-                </span>
-                <DialogTitle>{selected.borrower_name}'s udhaar</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><span className="udhaar-dialog-icon"><UserRound size={25} aria-hidden="true" /></span><DialogTitle>{selected.borrower_name}'s udhaar</DialogTitle></DialogHeader>
               <p className="text-sm text-muted-foreground">
                 {selected.phone || "No phone number saved"} · Latest loan{" "}
                 {formatDate(selected.given_date)}
@@ -1132,19 +1127,8 @@ function UdhaarForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="udhaar-entry-dialog udhaar-colorful-entry">
-        <DialogHeader className="udhaar-entry-header">
-          <span className="udhaar-entry-icon">
-            <HandCoins size={26} aria-hidden="true" />
-          </span>
-          <div>
-            <p className="udhaar-entry-eyebrow">NEW MONEY LENT</p>
-            <DialogTitle>Give Udhaar</DialogTitle>
-            <DialogDescription>
-              Record who you lent to, the amount, and how it was paid.
-            </DialogDescription>
-          </div>
-        </DialogHeader>
+      <DialogContent className="udhaar-entry-dialog udhaar-colorful-entry payment-modal">
+        <PaymentModalHeader icon={HandCoins} eyebrow="NEW MONEY LENT" title="Give Udhaar" description="Record who you lent to, the amount, and how it was paid." />
         <nav className="udhaar-entry-progress" aria-label="Udhaar steps">
           <p role="status">
             Step {step + 1} of 4 · {steps[step]}
@@ -1459,17 +1443,13 @@ function RepaymentForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="udhaar-repayment-dialog max-h-[92vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <span className="udhaar-dialog-icon">
-            <ArrowDownLeft size={26} aria-hidden="true" />
-          </span>
-          <DialogTitle>Record repayment from {record.borrower_name}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="udhaar-repayment-dialog payment-modal">
+        <PaymentModalHeader icon={ArrowDownLeft} eyebrow="MONEY RECEIVED" title={`Record repayment from ${record.borrower_name}`} description="Choose the receiving account and record the payment details." />
+        <form id="udhaar-payment-form" onSubmit={submit} className="space-y-4">
         <p className="udhaar-repayment-balance">
           Total still to receive: <strong>{formatPKR(remaining)}</strong>
         </p>
-        <form id="udhaar-payment-form" onSubmit={submit} className="space-y-4">
+        
           <BankAccountSelect value={accountKey} onChange={setAccountKey} direction="in" />
           {accountKey && (
             <UdhaarPaymentDetails value={paymentDetails} onChange={setPaymentDetails} />

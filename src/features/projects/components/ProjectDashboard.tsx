@@ -38,7 +38,7 @@ export function ProjectDashboard({ project, buildingDetails, land = null, partne
       <div><span className="project-dashboard-metric-icon"><Layers3 size={20} /></span><small>Planned spaces</small><strong>{buildingDetails ? spaces.toLocaleString() : "Not added"}</strong><p>Flats, shops, offices and houses</p></div>
       <div><span className="project-dashboard-metric-icon"><Users size={20} /></span><small>Partners</small><strong>{partners.length}</strong><p>People linked to this project</p></div>
       <div><span className="project-dashboard-metric-icon"><HandCoins size={20} /></span><small>Money received</small><strong>{formatPKRInLakhCrore(received)}</strong><p>Payments from partners</p></div>
-      <div><span className="project-dashboard-metric-icon"><Building2 size={20} /></span><small>Actual cost</small><strong>{formatPKRInLakhCrore(spent)}</strong><p>Land purchase and project spending so far</p></div>
+      <div><span className="project-dashboard-metric-icon"><Building2 size={20} /></span><small>Project costs</small><strong>{formatPKRInLakhCrore(spent)}</strong><p>Land purchase and project spending so far</p></div>
     </div>
     <div className="project-dashboard-charts">
       {land && <div className="project-dashboard-chart"><BuildingAreaChart details={buildingDetails} land={land} /></div>}

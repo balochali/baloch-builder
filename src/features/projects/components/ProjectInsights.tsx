@@ -201,7 +201,10 @@ export function BuildingAreaChart({
           {
             label: "Planned covered area",
             value: covered,
-            display: `${covered.toLocaleString()} sq ft`,
+            display:
+              details?.covered_area_unit === "sqyd"
+                ? `${Number((covered / 9).toFixed(4)).toLocaleString()} sq yd`
+                : `${covered.toLocaleString()} sq ft`,
             color: "#256aa3",
           },
         ]

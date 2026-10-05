@@ -15,6 +15,7 @@ import { PartnersPage } from "@/features/partners/pages/PartnersPage";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
 import { CreditUdhaarPage } from "@/features/udhaar/pages/CreditUdhaarPage";
 import { PersonalExpensePage } from "@/features/personal-expense/pages/PersonalExpensePage";
+import { DocumentsPage } from "@/features/documents/pages/DocumentsPage";
 
 export function AppRouter() {
   const [auth, setAuth] = useState<"loading" | "setup" | "login" | "ready" | "error">("loading");
@@ -46,7 +47,10 @@ export function AppRouter() {
   return (
     <HashRouter>
       <Routes>
-        <Route element={<AppShell />}>
+        <Route element={<AppShell onLogout={() => {
+          window.location.hash = "#/";
+          setAuth("login");
+        }} />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/land" element={<LandPage />} />
@@ -56,7 +60,7 @@ export function AppRouter() {
           <Route path="/personal-expense" element={<PersonalExpensePage />} />
           <Route path="/credit-udhaar" element={<CreditUdhaarPage />} />
           <Route path="/ledger" element={<Navigate to="/credit-udhaar" replace />} />
-          <Route path="/documents" element={<Navigate to="/projects" replace />} />
+          <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/bank" element={<BankPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           {/* Catch-all */}

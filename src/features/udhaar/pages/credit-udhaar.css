@@ -353,14 +353,14 @@
   border-bottom: 1px solid var(--border);
   border-radius: 0;
 }
-.udhaar-trend-badge-label {
+.udhaar-page.udhaar-page .udhaar-activity-card .udhaar-trend-badge-label {
   display: flex;
   align-items: center;
   gap: 6px;
   color: var(--muted-foreground);
   font-size: 11px;
 }
-.udhaar-page.udhaar-page .udhaar-trend-total {
+.udhaar-page.udhaar-page .udhaar-activity-card .udhaar-trend-badge .udhaar-trend-total {
   margin: 0;
   color: var(--foreground);
   font-size: clamp(24px, 2.5vw, 32px);
@@ -797,4 +797,40 @@
   .udhaar-page.udhaar-page .udhaar-card:hover {
     transform: none;
   }
+}
+.udhaar-page.udhaar-page .udhaar-heading [data-slot="button"] {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.udhaar-page.udhaar-page .udhaar-summary > div .udhaar-summary-icon {
+  color: white;
+  background: var(--summary-color);
+}
+.udhaar-page.udhaar-page .udhaar-tabs button[aria-selected] > span {
+  color: #4f46e5;
+  background: color-mix(in srgb, #6366f1 12%, var(--card));
+}
+.udhaar-page.udhaar-page .udhaar-cards .udhaar-card .udhaar-card-status {
+  color: var(--person-color);
+  background: color-mix(in srgb, var(--person-color) 10%, var(--card));
+}
+.dark .udhaar-page.udhaar-page .udhaar-chart-metrics strong {
+  color: #93c5fd;
+}
+.dark .udhaar-page.udhaar-page .udhaar-tabs button[aria-selected="true"],
+.dark .udhaar-page.udhaar-page .udhaar-tabs button > svg {
+  color: #c4b5fd;
+}
+.dark .udhaar-page.udhaar-page .udhaar-chart-metrics > div:last-child strong {
+  color: #6ee7b7;
+}
+.dark .udhaar-page.udhaar-page .udhaar-activity-card .viz-mode button[aria-pressed="true"],
+.dark .udhaar-page.udhaar-page .udhaar-activity-card .viz-data summary {
+  color: color-mix(in srgb, var(--chart-color) 45%, var(--foreground));
+}
+.dark .udhaar-page.udhaar-page .udhaar-cards .udhaar-card .udhaar-card-status {
+  color: color-mix(in srgb, var(--person-color) 45%, var(--foreground));
 }
