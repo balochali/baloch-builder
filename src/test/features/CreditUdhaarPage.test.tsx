@@ -59,16 +59,16 @@ describe("CreditUdhaarPage", () => {
     expect(screen.getAllByText(/Money given ·/)).toHaveLength(2);
     expect(screen.getByText(/Paid back ·/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Record repayment against")).not.toBeInTheDocument();
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) {
-      fireEvent.change(account, { target: { value: "builder" } });
+    for (const account of screen.queryAllByRole("radio", { name: "Builder Account" })) {
+      fireEvent.click(account);
       fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Record repayment" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), {
       target: { value: "200000" },
     });
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) {
-      fireEvent.change(account, { target: { value: "builder" } });
+    for (const account of screen.queryAllByRole("radio", { name: "Builder Account" })) {
+      fireEvent.click(account);
       fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));
@@ -104,8 +104,8 @@ describe("CreditUdhaarPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "50000" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) {
-      fireEvent.change(account, { target: { value: "builder" } });
+    for (const account of screen.queryAllByRole("radio", { name: "Builder Account" })) {
+      fireEvent.click(account);
       fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -129,7 +129,7 @@ describe("CreditUdhaarPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "5000" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.change(screen.getByLabelText(/Pay from account/), { target: { value: "personal" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
     fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Save udhaar" }));
@@ -138,9 +138,9 @@ describe("CreditUdhaarPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: /People & balances/ }));
     fireEvent.click(screen.getByRole("button", { name: "View Ali's udhaar" }));
     fireEvent.click(screen.getByRole("button", { name: "Record repayment" }));
-    fireEvent.change(screen.getByLabelText(/Receive into account/), { target: { value: "personal" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), { target: { value: "1000" } });
-    fireEvent.change(screen.getByLabelText("How was it paid? *"), { target: { value: "digital" } });
+    fireEvent.click(screen.getByRole("button", { name: "Digital wallet", exact: true }));
     fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ahmed" } });
     fireEvent.change(screen.getByLabelText("Wallet / app name *"), { target: { value: "Easypaisa" } });
     fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));
@@ -201,16 +201,16 @@ describe("CreditUdhaarPage", () => {
     expect(
       await screen.findByText("Rs 30,000", { selector: ".udhaar-history strong" }),
     ).toBeInTheDocument();
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) {
-      fireEvent.change(account, { target: { value: "builder" } });
+    for (const account of screen.queryAllByRole("radio", { name: "Builder Account" })) {
+      fireEvent.click(account);
       fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Record repayment" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), {
       target: { value: "80000" },
     });
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) {
-      fireEvent.change(account, { target: { value: "builder" } });
+    for (const account of screen.queryAllByRole("radio", { name: "Builder Account" })) {
+      fireEvent.click(account);
       fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));
@@ -219,8 +219,8 @@ describe("CreditUdhaarPage", () => {
     fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), {
       target: { value: "20000" },
     });
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) {
-      fireEvent.change(account, { target: { value: "builder" } });
+    for (const account of screen.queryAllByRole("radio", { name: "Builder Account" })) {
+      fireEvent.click(account);
       fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));
@@ -239,8 +239,8 @@ describe("CreditUdhaarPage", () => {
     fireEvent.change(screen.getByLabelText("Amount given (Rs) *"), { target: { value: "50000" } });
     fireEvent.change(screen.getByLabelText("Date given *"), { target: { value: "2026-09-24" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/)) {
-      fireEvent.change(account, { target: { value: "builder" } });
+    for (const account of screen.queryAllByRole("radio", { name: "Builder Account" })) {
+      fireEvent.click(account);
       fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Next" }));

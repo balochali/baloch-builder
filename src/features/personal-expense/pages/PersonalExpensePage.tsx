@@ -1,3 +1,4 @@
+import { PaymentModalHeader } from "@/components/PaymentChoices";
 import "./personal-expense.css";
 import { accountName } from "@/domain/bankAccount";
 import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
@@ -1092,20 +1093,8 @@ function ExpenseForm({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="expense-dialog expense-wizard expense-wizard-redesign max-h-[92vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <div className="expense-wizard-head">
-            <span className="expense-wizard-icon">
-              <ShoppingBag size={22} aria-hidden="true" />
-            </span>
-            <div>
-              <DialogTitle>{record ? "Edit purchase" : "Add a personal purchase"}</DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                Complete one short step at a time, then review your purchase.
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
+      <DialogContent className="expense-dialog expense-wizard expense-wizard-redesign payment-modal">
+        <PaymentModalHeader icon={ShoppingBag} eyebrow="PERSONAL PURCHASE" title={record ? "Edit purchase" : "Add a personal purchase"} description="Complete one short step at a time, then review your purchase." />
         <p role="status" className="expense-step-status">
           Step {step + 1} of 4 · {steps[step]}
         </p>

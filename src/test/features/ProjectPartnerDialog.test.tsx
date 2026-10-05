@@ -26,7 +26,7 @@ describe("ProjectPartnerDialog payment methods", () => {
     fireEvent.change(screen.getByLabelText("Amount received (Rs)"), {
       target: { value: "100000" },
     });
-    fireEvent.change(screen.getByLabelText("Payment method"), { target: { value: "bank" } });
+    fireEvent.click(screen.getByRole("button", { name: "Bank transfer", exact: true }));
     expect(screen.getByLabelText("Sender bank *")).toBeInTheDocument();
     expect(screen.queryByLabelText("Cheque number *")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Transfer reference / transaction ID *"), {
@@ -39,8 +39,8 @@ describe("ProjectPartnerDialog payment methods", () => {
       target: { value: "Project" },
     });
     fireEvent.change(screen.getByLabelText("Receipt number"), { target: { value: "R-9" } });
-    for (const account of screen.queryAllByLabelText(/^(Pay from|Receive into) account/))
-      fireEvent.change(account, { target: { value: "builder" } });
+    for (const account of screen.queryAllByRole("radio", { name: "Builder Account" }))
+      fireEvent.click(account);
     fireEvent.click(screen.getByRole("button", { name: "Add Partner" }));
     await waitFor(() =>
       expect(onAddPartner).toHaveBeenCalledWith(
@@ -74,10 +74,8 @@ describe("ProjectPartnerDialog payment methods", () => {
     fireEvent.change(screen.getByLabelText("Project share (%) *"), { target: { value: "20" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs)"), { target: { value: "15000" } });
-    fireEvent.change(screen.getByLabelText("Receive into account *"), {
-      target: { value: "builder" },
-    });
-    fireEvent.change(screen.getByLabelText("Payment method"), { target: { value: "digital" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Builder Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Digital wallet", exact: true }));
     fireEvent.change(screen.getByLabelText("Transfer reference / transaction ID *"), {
       target: { value: "TX-8" },
     });
@@ -117,7 +115,7 @@ describe("ProjectPartnerDialog payment methods", () => {
         }}
       />,
     );
-    fireEvent.change(screen.getByLabelText("Payment method"), { target: { value: "cheque" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cheque", exact: true }));
     expect(screen.getByLabelText("Cheque number *")).toBeInTheDocument();
     expect(screen.getByLabelText("Cheque date *")).toBeInTheDocument();
     expect(screen.getByLabelText("Payable to *")).toBeInTheDocument();

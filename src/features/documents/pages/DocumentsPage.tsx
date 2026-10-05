@@ -23,7 +23,7 @@ const paymentMethodLabels: Record<string, string> = {
 
 function categoryOf(document: DocumentRecord): DocumentTab {
   if (document.doc_type === "project_sale_document") return "sales";
-  if (document.doc_type === "land_payment_receipt" || document.doc_type === "project_cost_receipt") return "bank";
+  if (document.doc_type === "land_payment_receipt" || document.doc_type === "project_cost_receipt" || document.doc_type === "partner_contribution_receipt" || document.doc_type === "partner_payout_receipt") return "bank";
   if (document.doc_type === "construction_supplier_bill" || document.doc_type === "project_cost_bill") return "construction";
   if (document.doc_type === "construction_cost_receipt")
     return ["bank", "cheque", "digital"].includes(document.notes || "") ? "bank" : "construction";
@@ -40,6 +40,8 @@ function descriptionOf(document: DocumentRecord): string {
   if (document.doc_type === "construction_supplier_bill") return "Supplier bill";
   if (document.doc_type === "project_cost_receipt") return paymentMethodLabels[document.notes || ""] || "Project payment receipt";
   if (document.doc_type === "project_cost_bill") return "Project cost bill";
+  if (document.doc_type === "partner_contribution_receipt") return `Partner contribution · ${paymentMethodLabels[document.notes || ""] || "payment image"}`;
+  if (document.doc_type === "partner_payout_receipt") return `Partner profit payout · ${paymentMethodLabels[document.notes || ""] || "payment image"}`;
   return document.doc_type || "Project document";
 }
 
@@ -114,7 +116,7 @@ export function DocumentsPage() {
               <article className={`documents-card is-${tab}`} key={document.id}>
                 <div className="documents-card-top"><span className="documents-card-icon"><FileImage size={23} /></span><span className="documents-card-kind">{descriptionOf(document)}</span></div>
                 <h3>{document.title}</h3>
-                <span className="documents-card-source">{document.doc_type === "project_sale_document" ? "Flat or shop sale" : document.doc_type === "construction_cost_receipt" ? "Construction payment" : document.doc_type === "construction_supplier_bill" ? "Construction supplier" : document.doc_type === "project_cost_receipt" ? "Project payment" : document.doc_type === "project_cost_bill" ? "Project supplier" : document.doc_type === "land_payment_receipt" ? "Land purchase payment" : "Land record"}</span>
+                <span className="documents-card-source">{document.doc_type === "project_sale_document" ? "Flat or shop sale" : document.doc_type === "construction_cost_receipt" ? "Construction payment" : document.doc_type === "construction_supplier_bill" ? "Construction supplier" : document.doc_type === "project_cost_receipt" ? "Project payment" : document.doc_type === "project_cost_bill" ? "Project supplier" : document.doc_type === "land_payment_receipt" ? "Land purchase payment" : document.doc_type === "partner_contribution_receipt" ? "Partner contribution" : document.doc_type === "partner_payout_receipt" ? "Partner profit payout" : "Land record"}</span>
                 <div className="documents-card-project"><Building2 size={16} /><span><small>PROJECT</small><strong>{document.project_name || "Project not linked"}</strong></span></div>
                 <div className="documents-card-date"><CalendarDays size={15} />{document.doc_date ? formatDate(document.doc_date) : "No date"}</div>
                 <button type="button" disabled={!document.file_path} onClick={async () => {

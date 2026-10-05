@@ -236,15 +236,16 @@ export async function listPartnerContributions(projectId: string): Promise<Trans
 async function insertContribution(
   value: PartnerContributionInput,
   contactId: string,
-): Promise<void> {
+): Promise<string> {
   const timestamp = now();
+  const id = newId();
   await execute(
     `INSERT INTO transactions
        (id, date, amount, direction, type, method, reference, description, project_id,
         partner_id, contact_id, created_at, updated_at, archived, custom, account_key)
      VALUES (?, ?, ?, 'in', 'partner_contribution', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
     [
-      newId(),
+      id,
       value.date,
       value.amount,
       value.method,
@@ -259,6 +260,7 @@ async function insertContribution(
       BankAccountSchema.parse(value.account_key),
     ],
   );
+  return id;
 }
 
 export async function addProjectPartner(input: AddProjectPartnerInput): Promise<void> {
@@ -357,7 +359,7 @@ export async function addProjectPartner(input: AddProjectPartnerInput): Promise<
   }
 }
 
-export async function addPartnerContribution(input: PartnerContributionInput): Promise<void> {
+export async function addPartnerContribution(input: PartnerContributionInput): Promise<string> {
   const value = PartnerContributionSchema.parse(input);
   const rows = await query<{ contact_id: string }>(
     `SELECT p.contact_id FROM partnerships pp JOIN partners p ON p.id = pp.partner_id
@@ -365,7 +367,7 @@ export async function addPartnerContribution(input: PartnerContributionInput): P
     [value.project_id, value.partner_id],
   );
   if (!rows[0]) throw new Error("Partner is not part of this project");
-  await insertContribution(value, rows[0].contact_id);
+  return insertContribution(value, rows[0].contact_id);
 }
 
 export async function updateProjectPartner(

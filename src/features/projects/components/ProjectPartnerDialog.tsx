@@ -1,4 +1,5 @@
 import { BankAccountSelect } from "@/components/BankAccountSelect";
+import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
 import "./project-partner-dialog.css";
 import { useState } from "react";
 import {
@@ -17,8 +18,6 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,7 +40,7 @@ type Props = {
   remainingShareBp?: number;
   onOpenChange: (open: boolean) => void;
   onAddPartner?: (value: AddProjectPartnerInput) => Promise<void>;
-  onContribution?: (value: PartnerContributionInput) => Promise<void>;
+  onContribution?: (value: PartnerContributionInput) => Promise<void | string>;
   onUpdatePartner?: (value: UpdateProjectPartnerInput) => Promise<void>;
 };
 
@@ -256,30 +255,8 @@ export function ProjectPartnerDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="partner-dialog max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <div className="partner-dialog-heading">
-            <span>
-              <HandCoins size={25} aria-hidden="true" />
-            </span>
-            <div>
-              <DialogTitle>
-                {partner
-                  ? `Record payment · ${partner.name}`
-                  : editingPartner
-                    ? `Edit partner · ${editingPartner.name}`
-                    : "Add project partner"}
-              </DialogTitle>
-              <p>
-                {partner
-                  ? "Record money received from this partner."
-                  : editingPartner
-                    ? "Update this partner’s profile and agreement."
-                    : "Add a partner in three short steps."}
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
+      <DialogContent className="partner-dialog payment-modal">
+        <PaymentModalHeader icon={HandCoins} eyebrow="PROJECT PARTNER" title={partner ? `Record payment · ${partner.name}` : editingPartner ? `Edit partner · ${editingPartner.name}` : "Add project partner"} description={partner ? "Record money received from this partner." : editingPartner ? "Update this partner’s profile and agreement." : "Add a partner in three short steps."} />
         {!partner && (
           <div
             className={`partner-dialog-steps${editingPartner ? " is-edit" : ""}`}
@@ -412,21 +389,7 @@ export function ProjectPartnerDialog({
                     <BankAccountSelect value={accountKey} onChange={setAccountKey} direction="in" />
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="partner-method">Payment method</Label>
-                      <select
-                        id="partner-method"
-                        value={method}
-                        onChange={(event) => setMethod(event.target.value as typeof method)}
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      >
-                        <option value="cash">Cash</option>
-                        <option value="bank">Bank transfer</option>
-                        <option value="digital">Digital / mobile wallet</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
+                    <div className="sm:col-span-2"><PaymentMethodSelect value={method} onChange={setMethod} /></div>
                     <Field
                       id="partner-reference"
                       label={

@@ -3,13 +3,13 @@ import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { BankPage } from "@/features/bank/pages/BankPage";
 import { listBankEntries, assignBankAccount } from "@/data/repositories/bankRepository";
-import { listLandPaymentReceipts } from "@/data/repositories/documentsRepository";
+import { listBankPaymentReceipts } from "@/data/repositories/documentsRepository";
 vi.mock("@/data/repositories/bankRepository", () => ({
   listBankEntries: vi.fn(),
   assignBankAccount: vi.fn(),
 }));
 vi.mock("@/data/repositories/documentsRepository", () => ({
-  listLandPaymentReceipts: vi.fn().mockResolvedValue([]),
+  listBankPaymentReceipts: vi.fn().mockResolvedValue([]),
   readDocumentImage: vi.fn(),
 }));
 it("shows bank insights, searches transactions, and saves a historical payment account", async () => {
@@ -104,7 +104,7 @@ it("shows land payment receipts in the Bank Images tab", async () => {
     person: "Murad", description: "Plot", method: "cash", project: "Baloch Residency",
     project_id: "project-1", payment_details: null,
   }]);
-  vi.mocked(listLandPaymentReceipts).mockResolvedValue([{
+  vi.mocked(listBankPaymentReceipts).mockResolvedValue([{
     id: "receipt-1", title: "cash-receipt.png", doc_type: "land_payment_receipt",
     doc_date: "2026-10-03", notes: "cash", file_path: "C:/attachments/cash-receipt.png",
     mime: "image/png", size: 10, owner_type: "land", owner_id: "1",

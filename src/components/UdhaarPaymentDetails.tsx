@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { PaymentMethodSelect } from "@/components/PaymentChoices";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { emptyPaymentDetails, type PaymentDetails } from "@/domain/udhaarPaymentDetails";
@@ -29,27 +30,7 @@ export function UdhaarPaymentDetails({
   return (
     <fieldset className="space-y-3 rounded-xl border bg-muted/30 p-4">
       <legend className="px-1 text-sm font-semibold">Payment details</legend>
-      <div className="space-y-1">
-        <Label htmlFor={`${id}-method`}>How was it paid? *</Label>
-        <select
-          id={`${id}-method`}
-          className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-          value={value.method}
-          onChange={(e) =>
-            onChange({
-              ...emptyPaymentDetails,
-              received_by: value.received_by,
-              method: e.target.value as PaymentDetails["method"],
-            })
-          }
-        >
-          <option value="cash">Cash</option>
-          <option value="bank">Bank transfer</option>
-          <option value="digital">Digital wallet</option>
-          <option value="cheque">Cheque</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
+      <PaymentMethodSelect value={value.method} onChange={(method) => onChange({ ...emptyPaymentDetails, received_by: value.received_by, method })} />
       <div className="grid gap-3 sm:grid-cols-2">
         {field("received_by", "Received by *", true)}
         {value.method !== "cash" &&

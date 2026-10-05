@@ -1,3 +1,4 @@
+import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
 import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { listProjectCostDocuments, saveActualCostBill, saveActualCostReceipt, saveConstructionCostReceipt, saveConstructionSupplierBill, saveLandImage, saveLandPaymentReceipt, type DocumentRecord } from "@/data/repositories/documentsRepository";
 import { SavedImageGallery, SelectedImagePreviews } from "@/features/documents/components/ImageGallery";
@@ -94,6 +95,7 @@ import { ProjectDashboard } from "@/features/projects/components/ProjectDashboar
 import { ConstructionCostInsights } from "@/features/projects/components/ConstructionCostInsights";
 import { ProjectStatusProgress } from "@/features/projects/components/ProjectStatusProgress";
 import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
+import { ProjectPartnerManageDialog } from "@/features/projects/components/ProjectPartnerManageDialog";
 import { ProjectSalesPanel } from "@/features/projects/components/ProjectSalesPanel";
 import { ProjectProfitLossPanel } from "@/features/projects/components/ProjectProfitLossPanel";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
@@ -463,13 +465,14 @@ export function ProjectDetailPage() {
   }
 
   async function saveContribution(value: PartnerContributionInput) {
-    await addPartnerContribution(value);
+    const id = await addPartnerContribution(value);
     toast.success("Partner contribution recorded");
     try {
       await refreshPartners(value.project_id);
     } catch {
       toast.error("Contribution saved. Refresh the page to see the latest details.");
     }
+    return id;
   }
 
   async function savePartnerUpdate(value: UpdateProjectPartnerInput) {
@@ -1198,7 +1201,7 @@ export function ProjectDetailPage() {
             <ProjectSalesPanel projectId={project.id} buildingDetails={buildingDetails} />
           )}
           {tab === "profit" && (
-            <ProjectProfitLossPanel projectId={project.id} costs={allActualCosts} partners={partners} />
+            <ProjectProfitLossPanel projectId={project.id} costs={allActualCosts} partners={partners} contributions={contributions} />
           )}
           {dialog && (
             <ProjectEntryDialog
@@ -1234,16 +1237,9 @@ export function ProjectDetailPage() {
               if (!savingStatus) setStatusDialogOpen(open);
             }}
           >
-            <DialogContent className="project-stage-dialog project-stage-redesign max-h-[90vh] overflow-y-auto sm:max-w-xl">
-              <DialogHeader>
-                <span className="project-modal-icon">
-                  <Building2 size={26} />
-                </span>
-                <DialogTitle>Change project status</DialogTitle>
-                <p className="text-sm text-muted-foreground">
-                  Choose the stage that best describes this project now.
-                </p>
-              </DialogHeader>
+            <DialogContent className="project-stage-dialog project-stage-redesign payment-modal">
+              <PaymentModalHeader icon={Building2} eyebrow="PROJECT JOURNEY" title="Change project status" description="Choose the project stage and save the land and payment details." />
+              <div className="payment-modal-scroll">
               <div className="project-stage-preview">
                 <ProjectStatusProgress status={statusDraft} />
               </div>
@@ -1419,28 +1415,7 @@ export function ProjectDetailPage() {
                                   </div>
                                 </div>
                                 <div className="project-stage-grid">
-                                  <div>
-                                    <Label htmlFor="stage-land-method">Payment method *</Label>
-                                    <select
-                                      id="stage-land-method"
-                                      value={landPaymentDetails.method}
-                                      onChange={(event) => {
-                                        setLandPaymentDetails({
-                                          ...emptyLandPaymentDetails,
-                                          paid_to: landPaymentDetails.paid_to || landSeller,
-                                          method: event.target
-                                            .value as LandPaymentDetails["method"],
-                                        });
-                                        setLandPaymentImages([]);
-                                      }}
-                                    >
-                                      <option value="cash">Cash</option>
-                                      <option value="bank">Bank transfer</option>
-                                      <option value="digital">Digital / mobile wallet</option>
-                                      <option value="cheque">Cheque</option>
-                                      <option value="other">Other</option>
-                                    </select>
-                                  </div>
+                                  <div className="sm:col-span-2"><PaymentMethodSelect value={landPaymentDetails.method} onChange={(method) => { setLandPaymentDetails({ ...emptyLandPaymentDetails, paid_to: landPaymentDetails.paid_to || landSeller, method }); setLandPaymentImages([]); }} /></div>
                                   <div>
                                     <Label htmlFor="stage-land-paid-to">Paid to *</Label>
                                     <input
@@ -1682,6 +1657,7 @@ export function ProjectDetailPage() {
                   {statusError}
                 </p>
               )}
+              </div>
               <DialogFooter>
                 {statusDraft === "land acquired" && landStep > 0 && (
                   <Button
@@ -1725,147 +1701,18 @@ export function ProjectDetailPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Dialog
-            open={!!selectedPartner}
-            onOpenChange={(open) => {
-              if (!open) setSelectedPartnerId(null);
-            }}
-          >
-            <DialogContent className="partner-dialog partner-profile-modal max-h-[90vh] overflow-y-auto sm:max-w-xl">
-              {selectedPartner && (
-                <>
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-3">
-                      <span className="partner-profile-avatar">
-                        <UserRound size={23} />
-                      </span>
-                      <span>{selectedPartner.name}</span>
-                    </DialogTitle>
-                  </DialogHeader>
-                  <p className="partner-profile-share-summary">
-                    {(selectedPartner.share_bp / 100).toFixed(2)}% share in this project
-                  </p>
-                  <div className="partner-modal-facts">
-                    <p>
-                      <span>Phone</span>
-                      <strong>{selectedPartner.phone || "Not added"}</strong>
-                    </p>
-                    {selectedPartner.phone2 && (
-                      <p>
-                        <span>Other phone</span>
-                        <strong>{selectedPartner.phone2}</strong>
-                      </p>
-                    )}
-                    {selectedPartner.address && (
-                      <p>
-                        <span>Address</span>
-                        <strong>{selectedPartner.address}</strong>
-                      </p>
-                    )}
-                    {selectedPartner.notes && (
-                      <p>
-                        <span>Notes</span>
-                        <strong>{selectedPartner.notes}</strong>
-                      </p>
-                    )}
-                  </div>
-                  <div className="partner-modal-money">
-                    <div>
-                      <span>Agreed contribution</span>
-                      <strong>
-                        {selectedPartner.agreed_contribution === null
-                          ? "Not set"
-                          : formatPKR(selectedPartner.agreed_contribution)}
-                      </strong>
-                    </div>
-                    <div>
-                      <span>Money received</span>
-                      <strong>{formatPKR(selectedPartner.contributed)}</strong>
-                    </div>
-                    <div>
-                      <span>Still to receive</span>
-                      <strong>
-                        {selectedPartner.agreed_contribution === null
-                          ? "Unknown"
-                          : formatPKR(
-                              Math.max(
-                                0,
-                                selectedPartner.agreed_contribution - selectedPartner.contributed,
-                              ),
-                            )}
-                      </strong>
-                    </div>
-                  </div>
-                  {selectedPartner.agreed_contribution !== null ? (
-                    <div className="partner-card-progress">
-                      <div
-                        className="partner-funding-track"
-                        role="img"
-                        aria-label={`${selectedPartner.name}: ${formatPKR(selectedPartner.contributed)} received, ${formatPKR(Math.max(0, selectedPartner.agreed_contribution - selectedPartner.contributed))} remaining`}
-                      >
-                        <div
-                          style={{
-                            width: `${selectedPartner.agreed_contribution > 0 ? Math.min(100, (selectedPartner.contributed / selectedPartner.agreed_contribution) * 100) : 100}%`,
-                          }}
-                        />
-                      </div>
-                      <span>
-                        {selectedPartner.contributed < selectedPartner.agreed_contribution
-                          ? `${formatPKR(selectedPartner.agreed_contribution - selectedPartner.contributed)} remaining`
-                          : selectedPartner.contributed > selectedPartner.agreed_contribution
-                            ? "Above agreed amount"
-                            : "Fully received"}
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="partner-no-agreement">
-                      No agreed amount was saved, so a remaining balance cannot be calculated.
-                    </p>
-                  )}
-                  {contributions.some((item) => item.partner_id === selectedPartner.partner_id) && (
-                    <div className="partner-modal-payments">
-                      <h3>Payments from {selectedPartner.name}</h3>
-                      {contributions
-                        .filter((item) => item.partner_id === selectedPartner.partner_id)
-                        .map((item) => (
-                          <div key={item.id} className="partner-modal-payment">
-                            <span>
-                              {formatDate(item.date)}
-                              <small>{item.description || "Partner payment"}</small>
-                              <PaymentDetailsView transaction={item} />
-                            </span>
-                            <strong>{formatPKR(item.amount)}</strong>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingPartner(selectedPartner);
-                        setSelectedPartnerId(null);
-                      }}
-                    >
-                      <Pencil className="size-4" />
-                      Edit Partner
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setPartnerDialog(selectedPartner);
-                        setSelectedPartnerId(null);
-                      }}
-                    >
-                      <Plus className="size-4" />
-                      Record Payment
-                    </Button>
-                  </DialogFooter>
-                </>
-              )}
-            </DialogContent>
-          </Dialog>
+          {selectedPartner && (
+            <ProjectPartnerManageDialog
+              key={selectedPartner.partner_id}
+              projectId={project.id}
+              partner={selectedPartner}
+              contributions={contributions}
+              remainingShareBp={10_000 - allocatedShareBp + selectedPartner.share_bp}
+              onClose={() => setSelectedPartnerId(null)}
+              onUpdate={savePartnerUpdate}
+              onContribution={saveContribution}
+            />
+          )}
           {(partnerDialog || editingPartner) && (
             <ProjectPartnerDialog
               projectId={project.id}

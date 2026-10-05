@@ -27,7 +27,7 @@ import {
   type BankEntry,
 } from "@/data/repositories/bankRepository";
 import { LandPaymentDetailsSchema } from "@/data/repositories/projectStageRepository";
-import { listLandPaymentReceipts, type DocumentRecord } from "@/data/repositories/documentsRepository";
+import { listBankPaymentReceipts, type DocumentRecord } from "@/data/repositories/documentsRepository";
 import { SavedImageGallery } from "@/features/documents/components/ImageGallery";
 
 type View = "overview" | "accounts" | "transactions" | "images";
@@ -114,7 +114,7 @@ export function BankPage() {
     setError("");
     try {
       setEntries(await listBankEntries());
-      setReceipts(await listLandPaymentReceipts());
+      setReceipts(await listBankPaymentReceipts());
     } catch {
       setError("Could not load accounts. Restart the updated desktop app, then refresh.");
     } finally {
@@ -140,7 +140,7 @@ export function BankPage() {
   }, []);
   useEffect(() => {
     let active = true;
-    listLandPaymentReceipts()
+    listBankPaymentReceipts()
       .then((rows) => { if (active) setReceipts(rows); })
       .catch(() => { if (active) setReceipts([]); });
     return () => { active = false; };
@@ -148,9 +148,9 @@ export function BankPage() {
   const scoped = entries.filter(
     (row) => account === "all" || (row.account_key ?? "unassigned") === account,
   );
-  const landEntries = new Map(scoped.filter((row) => row.source === "land").map((row) => [row.source_id, row]));
+  const paymentEntries = new Map(scoped.filter((row) => row.source === "land" || row.source === "transactions").map((row) => [row.source_id, row]));
   const visibleReceipts = receipts.filter((receipt) =>
-    receipt.owner_id && landEntries.has(receipt.owner_id) &&
+    receipt.owner_id && paymentEntries.has(receipt.owner_id) &&
     [receipt.title, receipt.project_name, receipt.notes].join(" ").toLowerCase().includes(imageSearch.trim().toLowerCase()),
   );
   const { visible, controls, search, setSearch, active, reset } = useRecordFilters(scoped, {
@@ -593,7 +593,7 @@ export function BankPage() {
                           {row.source === "land" && row.payment_details && (
                             <LandPaymentInfo raw={row.payment_details} />
                           )}
-                          {row.source === "land" && (
+                          {(row.source === "land" || row.source === "transactions") && (
                             <SavedImageGallery documents={receipts.filter((receipt) => receipt.owner_id === row.source_id)} />
                           )}
                         </td>
@@ -631,12 +631,12 @@ export function BankPage() {
           )}
           {view === "images" && (
             <section id="bank-panel-images" role="tabpanel" aria-labelledby="bank-tab-images" className="bank-panel">
-              <div className="bank-section-title"><div><h2>Payment images</h2><p>Receipts, cheque photos and payment proof saved with land purchases.</p></div><span>{visibleReceipts.length} images</span></div>
+              <div className="bank-section-title"><div><h2>Payment images</h2><p>Receipts, cheque photos and payment proof saved with projects and partners.</p></div><span>{visibleReceipts.length} images</span></div>
               <div className="bank-search-box"><Search size={19} /><input aria-label="Search payment images" placeholder="Search images or projects…" value={imageSearch} onChange={(event) => setImageSearch(event.target.value)} /></div>
               {visibleReceipts.length ? (
                 <div className="bank-images-grid">
                   {visibleReceipts.map((receipt) => {
-                    const entry = landEntries.get(receipt.owner_id || "");
+                    const entry = paymentEntries.get(receipt.owner_id || "");
                     return <article key={receipt.id} className="bank-image-card">
                       <div className="bank-image-card-icon"><Images size={23} /></div>
                       <strong>{receipt.title}</strong>

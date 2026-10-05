@@ -34,6 +34,11 @@ export async function listLandPaymentReceipts(): Promise<DocumentRecord[]> {
   return (await listDocuments()).filter((document) => document.doc_type === "land_payment_receipt");
 }
 
+export async function listBankPaymentReceipts(): Promise<DocumentRecord[]> {
+  const kinds = new Set(["land_payment_receipt", "project_cost_receipt", "construction_cost_receipt", "partner_contribution_receipt", "partner_payout_receipt"]);
+  return (await listDocuments()).filter((document) => document.doc_type && kinds.has(document.doc_type));
+}
+
 export async function listProjectSaleDocuments(projectId: string): Promise<DocumentRecord[]> {
   return query<DocumentRecord>(
     `SELECT d.id, d.title, d.doc_type, d.doc_date, d.notes, d.file_path, d.mime, d.size,
@@ -77,6 +82,19 @@ export async function listProjectCostDocuments(projectId: string): Promise<Docum
   );
 }
 
+export async function listPartnerPaymentDocuments(projectId: string, partnerId: string): Promise<DocumentRecord[]> {
+  return query<DocumentRecord>(
+    `SELECT d.id, d.title, d.doc_type, d.doc_date, COALESCE(d.notes, t.method) AS notes,
+       d.file_path, d.mime, d.size, d.owner_type, d.owner_id, p.name AS project_name, d.created_at
+     FROM documents d JOIN transactions t ON d.owner_type = 'transaction' AND t.id = d.owner_id
+     LEFT JOIN projects p ON p.id = t.project_id
+     WHERE d.archived = 0 AND t.archived = 0 AND t.project_id = ? AND t.partner_id = ?
+       AND d.doc_type IN ('partner_contribution_receipt', 'partner_payout_receipt')
+     ORDER BY d.created_at DESC`,
+    [projectId, partnerId],
+  );
+}
+
 export async function saveConstructionCostReceipt(transactionId: string, file: File, date: string, method: string): Promise<DocumentRecord> {
   return saveProjectCostAttachment(transactionId, file, date, "construction_cost_receipt", method);
 }
@@ -93,7 +111,15 @@ export async function saveActualCostBill(transactionId: string, file: File, date
   return saveProjectCostAttachment(transactionId, file, date, "project_cost_bill", null);
 }
 
-async function saveProjectCostAttachment(transactionId: string, file: File, date: string, type: "construction_cost_receipt" | "construction_supplier_bill" | "project_cost_receipt" | "project_cost_bill", method: string | null): Promise<DocumentRecord> {
+export async function savePartnerContributionReceipt(transactionId: string, file: File, date: string, method: string): Promise<DocumentRecord> {
+  return saveProjectCostAttachment(transactionId, file, date, "partner_contribution_receipt", method);
+}
+
+export async function savePartnerPayoutReceipt(transactionId: string, file: File, date: string, method: string): Promise<DocumentRecord> {
+  return saveProjectCostAttachment(transactionId, file, date, "partner_payout_receipt", method);
+}
+
+async function saveProjectCostAttachment(transactionId: string, file: File, date: string, type: "construction_cost_receipt" | "construction_supplier_bill" | "project_cost_receipt" | "project_cost_bill" | "partner_contribution_receipt" | "partner_payout_receipt", method: string | null): Promise<DocumentRecord> {
   if (!transactionId) throw new Error("Construction payment is missing");
   validateImage(file);
   const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));

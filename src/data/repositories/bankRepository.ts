@@ -21,7 +21,7 @@ export async function listBankEntries(): Promise<BankEntry[]> {
   return query<BankEntry>(`SELECT * FROM (
     SELECT 'transaction:' || t.id AS id, 'transactions' AS source, t.id AS source_id, t.account_key,
       t.date, t.amount, t.direction,
-      CASE t.type WHEN 'partner_contribution' THEN 'Partner contribution' WHEN 'construction_cost' THEN 'Construction payment' ELSE 'Project payment' END AS category,
+      CASE t.type WHEN 'partner_contribution' THEN 'Partner contribution' WHEN 'partner_payout' THEN 'Partner payout' WHEN 'construction_cost' THEN 'Construction payment' ELSE 'Project payment' END AS category,
       COALESCE(c.name, '') AS person, COALESCE(t.description, '') AS description, COALESCE(t.method, 'Not recorded') AS method,
       COALESCE(pr.name, '') AS project, t.project_id, NULL AS payment_details
     FROM transactions t LEFT JOIN contacts c ON c.id = t.contact_id LEFT JOIN projects pr ON pr.id = t.project_id WHERE t.archived = 0

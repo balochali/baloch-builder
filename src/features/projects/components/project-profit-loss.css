@@ -57,3 +57,48 @@
 @media (max-width: 1050px) { .project-profit-columns { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .project-profit-metrics { grid-template-columns: 1fr; } .project-profit-hero { align-items: flex-start; flex-wrap: wrap; } .project-profit-hero > b { margin-left: 0; } }
 @media (max-width: 450px) { .project-profit-card { padding: 16px; } .project-profit-partner { flex-wrap: wrap; } .project-profit-partner > strong { margin-left: 48px; } }
+.project-profit-totals, .project-profit-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.project-profit-totals > div { display: grid; gap: 5px; padding: 16px; border-radius: 12px; background: color-mix(in srgb, #7c3aed 7%, var(--card)); }
+.project-profit-totals small, .project-profit-detail-stats small, .project-profit-detail-result small { color: var(--muted-foreground); font-size: 11px; }
+.project-profit-totals strong { font-size: 18px; overflow-wrap: anywhere; }
+.project-profit-detail { display: grid; gap: 16px; min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.project-profit-detail-head { display: flex; align-items: center; gap: 10px; }
+.project-profit-detail-head > div { flex: 1; min-width: 0; }
+.project-profit-detail-head h4 { font-size: 15px; font-weight: 800; }
+.project-profit-detail-head small { color: var(--muted-foreground); font-size: 11px; }
+.project-profit-detail-head button, .project-profit-dialog-actions button:last-child { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 9px 12px; border: 0; border-radius: 9px; background: #6d28d9; color: white; font-weight: 700; cursor: pointer; }
+.project-profit-detail-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.project-profit-detail-stats > div, .project-profit-detail-result > div { display: grid; gap: 4px; padding: 10px; border-radius: 9px; background: var(--muted); min-width: 0; }
+.project-profit-detail-stats strong, .project-profit-detail-result strong { font-size: 13px; overflow-wrap: anywhere; }
+.project-profit-detail-result { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
+.project-profit-detail-result > div { background: color-mix(in srgb, #0d9488 8%, var(--card)); }
+.project-profit-history { border-top: 1px solid var(--border); padding-top: 12px; }
+.project-profit-history summary { cursor: pointer; font-size: 12px; font-weight: 750; color: #6d28d9; }
+.project-profit-history > div { margin-top: 10px; }
+.project-profit-history-row { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 11px; }
+.project-profit-history-row span { display: grid; gap: 2px; }
+.project-profit-history-row small { color: var(--muted-foreground); }
+.project-profit-history-row b { white-space: nowrap; color: #be123c; }
+.project-profit-history-row b.is-in { color: #047857; }
+.project-profit-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 18px; background: #101d2b99; }
+.project-profit-dialog { width: min(100%, 620px); max-height: min(90vh, 850px); overflow: auto; border: 1px solid var(--border); border-radius: 18px; background: var(--card); box-shadow: 0 25px 75px #0004; }
+.project-profit-dialog-head { display: flex; justify-content: space-between; gap: 12px; padding: 22px; background: color-mix(in srgb, #7c3aed 8%, var(--card)); }
+.project-profit-dialog-head small { color: #6d28d9; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.project-profit-dialog-head h3 { font-size: 22px; font-weight: 800; }
+.project-profit-dialog-head p, .project-profit-dialog-note { color: var(--muted-foreground); font-size: 12px; }
+.project-profit-dialog-head button { align-self: flex-start; border: 0; background: none; color: var(--foreground); cursor: pointer; }
+.project-profit-dialog-body { display: grid; gap: 15px; padding: 22px; }
+.project-profit-dialog-body fieldset { display: flex; flex-wrap: wrap; gap: 9px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; }
+.project-profit-dialog-body legend { padding: 0 5px; font-size: 12px; font-weight: 750; }
+.project-profit-dialog-body fieldset label { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.project-profit-dialog-body label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+.project-profit-dialog-body input:not([type="radio"]), .project-profit-dialog-body select, .project-profit-dialog-body textarea { width: 100%; min-height: 42px; padding: 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font: inherit; }
+.project-profit-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.project-profit-form-error { color: #be123c; font-size: 12px; }
+.project-profit-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 22px; border-top: 1px solid var(--border); }
+.project-profit-dialog-actions button:first-child { padding: 9px 13px; border: 1px solid var(--border); border-radius: 9px; background: var(--muted); color: var(--foreground); cursor: pointer; }
+.project-profit-dialog button:disabled { opacity: .6; cursor: default; }
+.dark .project-profit-history summary, .dark .project-profit-dialog-head small { color: #ccb3ff; }
+.dark .project-profit-history-row b { color: #ff9caf; }
+.dark .project-profit-history-row b.is-in { color: #77e7bb; }
+@media (max-width: 600px) { .project-profit-detail-head { flex-wrap: wrap; } .project-profit-detail-head button { width: 100%; } .project-profit-detail-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .project-profit-form-grid { grid-template-columns: 1fr; } }
