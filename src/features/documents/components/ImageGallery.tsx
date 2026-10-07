@@ -1,6 +1,7 @@
+import { usePagination } from "@/components/Pagination";
 import { useEffect, useState } from "react";
 import { Eye, FileImage, X } from "lucide-react";
-import { readDocumentImage, type DocumentRecord } from "@/data/repositories/documentsRepository";
+import { readDocumentImage, openDocument, type DocumentRecord } from "@/data/repositories/documentsRepository";
 import "./image-gallery.css";
 
 export function SelectedImagePreviews({ files }: { files: File[] }) {
@@ -27,7 +28,7 @@ export function SelectedImagePreviews({ files }: { files: File[] }) {
         const url = previews.find((item) => item.file === file)?.url;
         return (
           <div key={`${file.name}-${file.size}-${file.lastModified}`} className="selected-image-card">
-            {url ? <img src={url} alt={`Preview of ${file.name}`} /> : <FileImage aria-hidden="true" />}
+            {url && file.type !== "application/pdf" ? <img src={url} alt={`Preview of ${file.name}`} /> : <FileImage aria-hidden="true" />}
             <span><strong>{file.name}</strong><small>{(file.size / 1024 / 1024).toFixed(1)} MB</small></span>
             {url && <button type="button" onClick={() => setActiveFile(file)} aria-label={`Preview ${file.name}`}><Eye size={17} /> Preview</button>}
           </div>
@@ -37,7 +38,7 @@ export function SelectedImagePreviews({ files }: { files: File[] }) {
         <div className="image-viewer-backdrop" role="presentation" onClick={() => setActiveFile(null)}>
           <div className="image-viewer" role="dialog" aria-modal="true" aria-label={`Preview ${activeFile.name}`} onClick={(event) => event.stopPropagation()}>
             <div className="image-viewer-header"><strong>{activeFile.name}</strong><button type="button" onClick={() => setActiveFile(null)} aria-label="Close image preview"><X size={20} /></button></div>
-            <img src={previews.find(({ file }) => file === activeFile)?.url} alt={activeFile.name} />
+            {activeFile.type === "application/pdf" ? <iframe title={activeFile.name} src={previews.find(({ file }) => file === activeFile)?.url} style={{ width: "100%", height: "70vh", border: 0 }} /> : <img src={previews.find(({ file }) => file === activeFile)?.url} alt={activeFile.name} />}
           </div>
         </div>
       )}
@@ -65,15 +66,18 @@ export function SavedImageGallery({ documents }: { documents: DocumentRecord[] }
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [active]);
+  const pages = usePagination(documents, JSON.stringify(documents.map(row => row.id)), "attachments");
   if (!documents.length) return null;
   function openPreview(document: DocumentRecord) {
     setUrl("");
     setError("");
+    if (document.mime === "application/pdf" && document.file_path) { void openDocument(document.file_path).catch(() => setError("Could not open this PDF.")); return; }
     setActive(document);
   }
   return (
-    <div className="saved-image-gallery">
-      {documents.map((document) => (
+    <div className="saved-image-gallery">{pages.controls}
+      {error && !active && <p role="alert">{error}</p>}
+      {pages.items.map((document) => (
         <button type="button" key={document.id} onClick={() => openPreview(document)}>
           <FileImage size={19} aria-hidden="true" />
           <span>{document.title}</span>

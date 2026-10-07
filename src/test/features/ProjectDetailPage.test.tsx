@@ -307,7 +307,7 @@ describe("ProjectDetailPage", () => {
     for (const account of screen.queryAllByRole("radio", { name: "Builder Account" }))
       fireEvent.click(account);
     expect(screen.getByText("How was this land paid for?")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Bank transfer", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Bank transfer" }));
     fireEvent.change(screen.getByLabelText("Paid to *"), { target: { value: "Muhammad Murad" } });
     fireEvent.change(screen.getByLabelText("Bank name *"), { target: { value: "Meezan Bank" } });
     fireEvent.change(screen.getByLabelText("Transaction reference *"), {

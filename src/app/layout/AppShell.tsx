@@ -22,6 +22,7 @@ export function AppShell({ onLogout }: AppShellProps) {
           "/partners": "Partners",
           "/personal-expense": "Personal Expense",
           "/credit-udhaar": "Credit / Udhaar",
+          "/personal-deposit": "Personal Deposit / Amanat",
           "/bank": "Bank",
           "/settings": "Settings",
         } as Record<string, string>

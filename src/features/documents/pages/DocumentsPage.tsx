@@ -1,3 +1,4 @@
+import { usePagination } from "@/components/Pagination";
 import { useEffect, useState } from "react";
 import { Building2, CalendarDays, FileImage, FolderOpen, HardHat, Landmark, ReceiptText, Search, Store } from "lucide-react";
 import { listDocuments, openDocument, type DocumentRecord } from "@/data/repositories/documentsRepository";
@@ -22,6 +23,7 @@ const paymentMethodLabels: Record<string, string> = {
 };
 
 function categoryOf(document: DocumentRecord): DocumentTab {
+ if (document.doc_type?.startsWith("amanat_")) return "bank";
   if (document.doc_type === "project_sale_document") return "sales";
   if (document.doc_type === "land_payment_receipt" || document.doc_type === "project_cost_receipt" || document.doc_type === "partner_contribution_receipt" || document.doc_type === "partner_payout_receipt") return "bank";
   if (document.doc_type === "construction_supplier_bill" || document.doc_type === "project_cost_bill") return "construction";
@@ -31,8 +33,9 @@ function categoryOf(document: DocumentRecord): DocumentTab {
 }
 
 function descriptionOf(document: DocumentRecord): string {
+ if (document.doc_type?.startsWith("amanat_")) return `Amanat ${document.doc_type === "amanat_return_receipt" ? "return" : "deposit"} · ${paymentMethodLabels[document.notes || ""] || "Payment proof"}`;
   if (document.doc_type === "project_sale_document") return "Sale document";
-  if (document.doc_type === "land_image") return "Land image";
+  if (document.doc_type === "land_image") return "Land document";
   if (document.doc_type === "land_payment_receipt")
     return paymentMethodLabels[document.notes || ""] || "Land payment receipt";
   if (document.doc_type === "construction_cost_receipt")
@@ -72,6 +75,7 @@ export function DocumentsPage() {
       .includes(search.trim().toLowerCase()),
   );
 
+  const pages = usePagination(visible, JSON.stringify([tab, search, visible.map(row => row.id)]), "documents");
   return (
     <main className="documents-page">
       <header className="documents-heading">
@@ -105,6 +109,7 @@ export function DocumentsPage() {
           <Search size={18} />
           <input aria-label={`Search ${selectedTab.title.toLowerCase()}`} placeholder="Search files, projects or payment types…" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
+        {pages.controls}
         {openError && <p className="documents-open-error" role="alert">{openError}</p>}
         {loading ? (
           <p className="documents-state">Loading documents…</p>
@@ -112,18 +117,18 @@ export function DocumentsPage() {
           <p className="documents-state" role="alert">{error}</p>
         ) : visible.length ? (
           <div className="documents-grid">
-            {visible.map((document) => (
+            {pages.items.map((document) => (
               <article className={`documents-card is-${tab}`} key={document.id}>
                 <div className="documents-card-top"><span className="documents-card-icon"><FileImage size={23} /></span><span className="documents-card-kind">{descriptionOf(document)}</span></div>
                 <h3>{document.title}</h3>
-                <span className="documents-card-source">{document.doc_type === "project_sale_document" ? "Flat or shop sale" : document.doc_type === "construction_cost_receipt" ? "Construction payment" : document.doc_type === "construction_supplier_bill" ? "Construction supplier" : document.doc_type === "project_cost_receipt" ? "Project payment" : document.doc_type === "project_cost_bill" ? "Project supplier" : document.doc_type === "land_payment_receipt" ? "Land purchase payment" : document.doc_type === "partner_contribution_receipt" ? "Partner contribution" : document.doc_type === "partner_payout_receipt" ? "Partner profit payout" : "Land record"}</span>
+                <span className="documents-card-source">{document.doc_type?.startsWith("amanat_") ? "Personal Deposit / Amanat" : document.doc_type === "project_sale_document" ? "Flat or shop sale" : document.doc_type === "construction_cost_receipt" ? "Construction payment" : document.doc_type === "construction_supplier_bill" ? "Construction supplier" : document.doc_type === "project_cost_receipt" ? "Project payment" : document.doc_type === "project_cost_bill" ? "Project supplier" : document.doc_type === "land_payment_receipt" ? "Land purchase payment" : document.doc_type === "partner_contribution_receipt" ? "Partner contribution" : document.doc_type === "partner_payout_receipt" ? "Partner profit payout" : "Land record"}</span>
                 <div className="documents-card-project"><Building2 size={16} /><span><small>PROJECT</small><strong>{document.project_name || "Project not linked"}</strong></span></div>
                 <div className="documents-card-date"><CalendarDays size={15} />{document.doc_date ? formatDate(document.doc_date) : "No date"}</div>
                 <button type="button" disabled={!document.file_path} onClick={async () => {
                   if (!document.file_path) return;
                   try { await openDocument(document.file_path); }
                   catch { setOpenError("Could not open this image. Check that the attachments folder is available."); }
-                }}>Open image →</button>
+                }}>Open file →</button>
               </article>
             ))}
           </div>

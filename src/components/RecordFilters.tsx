@@ -1,9 +1,11 @@
 import { useId, useState, type ReactNode } from "react";
 import { Search, SlidersHorizontal, RotateCcw } from "lucide-react";
+import { usePagination } from "./Pagination";
 
 type Facet<T> = { label: string; value: (record: T) => string | null | undefined };
 type Config<T> = {
   label: string;
+  paginate?: boolean;
   sortable?: boolean;
   showSearch?: boolean;
   searchText: (record: T) => string;
@@ -64,6 +66,20 @@ export function useRecordFilters<T>(records: T[], config: Config<T>) {
     maximum ||
     sort !== "original" ||
     Object.values(selected).some(Boolean),
+  );
+  const pagination = usePagination(
+    visible,
+    JSON.stringify([
+      search,
+      selected,
+      from,
+      to,
+      minimum,
+      maximum,
+      sort,
+      records.map((record) => (record as { id?: string }).id),
+    ]),
+    config.label,
   );
   function reset() {
     setSearch("");
@@ -197,7 +213,7 @@ export function useRecordFilters<T>(records: T[], config: Config<T>) {
         <span>
           {valid ? (
             <>
-              <strong>{visible.length}</strong> of {records.length} records shown
+              <strong>{visible.length}</strong> of {records.length} records match
               {active && " · Filters applied"}
             </>
           ) : (
@@ -207,7 +223,16 @@ export function useRecordFilters<T>(records: T[], config: Config<T>) {
       </div>
     </section>
   );
-  return { visible, controls, search, setSearch, active, reset };
+  return {
+    pagination: config.paginate === false ? null : pagination.controls,
+    visible,
+    pageItems: pagination.items,
+    controls,
+    search,
+    setSearch,
+    active,
+    reset,
+  };
 }
 
 function FilterField({

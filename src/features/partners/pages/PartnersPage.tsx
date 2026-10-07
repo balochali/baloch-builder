@@ -62,7 +62,7 @@ export function PartnersPage() {
     };
   }, []);
 
-  const { visible, controls, search, setSearch, active, reset } = useRecordFilters(partners, {
+  const { visible, pageItems, pagination, controls, search, setSearch, active, reset } = useRecordFilters(partners, {
     label: "partners",
     showSearch: false,
     searchText: (partner) =>
@@ -367,7 +367,7 @@ export function PartnersPage() {
                   </span>
                 </summary>
                 {controls}
-              </details>
+              </details>{pagination}
               {active && (
                 <div className="partners-active-filter">
                   <span>{visible.length} partners match your filters.</span>
@@ -391,7 +391,7 @@ export function PartnersPage() {
                 </p>
               ) : (
                 <div className="partners-cards">
-                  {visible.map((partner) => {
+                  {pageItems.map((partner) => {
                     const payments = contributions.filter(
                       (item) =>
                         item.project_id === partner.project_id &&
@@ -555,7 +555,7 @@ export function PartnersPage() {
                   </span>
                 </summary>
                 {paymentFilter.controls}
-              </details>
+              </details>{paymentFilter.pagination}
               {paymentFilter.active && (
                 <div className="partners-active-filter">
                   <span>{paymentFilter.visible.length} payments match your filters.</span>
@@ -568,7 +568,7 @@ export function PartnersPage() {
                 <p className="filter-empty">No contributions match these filters.</p>
               ) : (
                 <div className="partners-payment-list">
-                  {paymentFilter.visible.map((payment) => {
+                  {paymentFilter.pageItems.map((payment) => {
                     const partner = partners.find(
                       (item) =>
                         item.partner_id === payment.partner_id &&

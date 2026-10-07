@@ -3421,7 +3421,7 @@ body {
   font-size: 12px;
 }
 
-.home-activity-visual svg {
+.home-activity-visual .viz-plot > svg {
   width: 100%;
   height: 240px;
   overflow: visible;

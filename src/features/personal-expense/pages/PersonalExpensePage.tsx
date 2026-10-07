@@ -291,11 +291,14 @@ export function PersonalExpensePage() {
     : [];
   const {
     visible,
+    pageItems,
+    pagination,
     controls,
     active: filtersActive,
     reset: resetFilters,
   } = useRecordFilters(periodRecords, {
     label: "purchases",
+    paginate: view !== "overview",
     searchText: (record) =>
       [record.item_name, record.notes, paymentSummary(JSON.stringify(record.payment_details ?? {}))]
         .filter(Boolean)
@@ -503,7 +506,7 @@ export function PersonalExpensePage() {
               </span>
             </summary>
             {controls}
-          </details>
+          </details>{pagination}
           {filtersActive && (
             <div className="expense-active-filter-note">
               <span>
@@ -801,7 +804,7 @@ export function PersonalExpensePage() {
                     </div>
                     <div className="expense-payment-list">
                       {visible.length ? (
-                        visible.map((record) => (
+                        pageItems.map((record) => (
                           <article key={record.id} className="expense-payment-card">
                             <div className="expense-payment-meta">
                               <strong>{record.item_name}</strong>
@@ -874,7 +877,7 @@ export function PersonalExpensePage() {
                       </p>
                     ) : (
                       <div className="expense-list">
-                        {visible.map((record) => {
+                        {pageItems.map((record) => {
                           const category = categoryInfo(record.category);
                           const Icon = category.icon;
                           return (

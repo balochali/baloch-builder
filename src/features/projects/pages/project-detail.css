@@ -168,9 +168,15 @@
 .project-detail-page .project-detail-tabs #project-tab-estimate svg {
   color: #059669;
 }
-.project-detail-page .project-detail-tabs #project-tab-costs svg { color: #db2777; }
-.project-detail-page .project-detail-tabs #project-tab-sales svg { color: #e08616; }
-.project-detail-page .project-detail-tabs #project-tab-profit svg { color: #0d9488; }
+.project-detail-page .project-detail-tabs #project-tab-costs svg {
+  color: #db2777;
+}
+.project-detail-page .project-detail-tabs #project-tab-sales svg {
+  color: #e08616;
+}
+.project-detail-page .project-detail-tabs #project-tab-profit svg {
+  color: #0d9488;
+}
 .project-detail-page .project-detail-tabs #project-tab-dashboard[aria-selected="true"] svg,
 .project-detail-page .project-detail-tabs #project-tab-building[aria-selected="true"] svg,
 .project-detail-page .project-detail-tabs #project-tab-partners[aria-selected="true"] svg,
@@ -304,13 +310,39 @@
   color: var(--foreground);
   cursor: pointer;
 }
-.project-stage-redesign .project-image-upload-payment { border-color: #24a888; background: color-mix(in srgb, #059669 5%, var(--card)); }
-.project-stage-redesign .project-image-upload-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 10px; background: #7c3aed; color: white; }
-.project-stage-redesign .project-image-upload-payment .project-image-upload-icon { background: #059669; }
-.project-stage-redesign .project-image-upload > span:last-child { display: grid; gap: 3px; min-width: 0; }
-.project-stage-redesign .project-image-upload strong { font-size: 13px; }
-.project-stage-redesign .project-image-upload small { color: var(--muted-foreground); font-size: 11px; }
-.project-stage-redesign .project-image-file-input:focus-visible + .project-image-upload { outline: 3px solid #7c3aed65; outline-offset: 2px; }
+.project-stage-redesign .project-image-upload-payment {
+  border-color: #24a888;
+  background: color-mix(in srgb, #059669 5%, var(--card));
+}
+.project-stage-redesign .project-image-upload-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #7c3aed;
+  color: white;
+}
+.project-stage-redesign .project-image-upload-payment .project-image-upload-icon {
+  background: #059669;
+}
+.project-stage-redesign .project-image-upload > span:last-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.project-stage-redesign .project-image-upload strong {
+  font-size: 13px;
+}
+.project-stage-redesign .project-image-upload small {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.project-stage-redesign .project-image-file-input:focus-visible + .project-image-upload {
+  outline: 3px solid #7c3aed65;
+  outline-offset: 2px;
+}
 .project-stage-redesign .project-payment-images ul {
   display: grid;
   gap: 4px;
@@ -1589,4 +1621,140 @@
   .project-stage-redesign .project-stage-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* The architectural hero keeps its own contrast in either workspace theme. */
+.project-detail-page .project-heading-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #142b38;
+  border-color: #7894a34d;
+  color: #f5f8fc;
+}
+.project-detail-page .project-heading-card::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    linear-gradient(90deg, #102633f5 0%, #102633df 36%, #10263370 100%),
+    url("../../../assets/auth/residential-towers.png") center 45% / cover;
+  pointer-events: none;
+}
+.project-detail-page .project-heading-card .project-heading-top > div:first-child {
+  min-width: 0;
+}
+.project-detail-page .project-heading-card .project-heading-top h1,
+.project-detail-page .project-heading-card .project-status-heading h2 {
+  color: #f5f8fc;
+}
+.project-detail-page .project-heading-card .project-heading-back,
+.project-detail-page .project-heading-card .project-detail-title small {
+  color: #e1ccff;
+}
+.project-detail-page .project-heading-card .project-detail-location,
+.project-detail-page .project-heading-card .project-status-heading p {
+  color: #cfdeea;
+}
+.project-detail-page .project-heading-card .project-detail-location svg {
+  color: #90c8ff;
+}
+.project-detail-page .project-heading-card .project-heading-actions button {
+  color: #f0e5ff;
+  background: #26384e;
+  border-color: #9c8ac1;
+  box-shadow: 0 3px 12px #0002;
+}
+.project-detail-page .project-heading-card .project-heading-actions button:hover {
+  background: #394963;
+  border-color: #c7b4ee;
+}
+.project-detail-page .project-heading-card .project-status-progress {
+  background: transparent;
+  border-top-color: #ffffff30;
+  color: #f5f8fc;
+}
+.project-detail-page .project-heading-card .project-status-steps > div {
+  background: #253b4e;
+  color: #d0deeb;
+  border-top-color: #668198;
+}
+.project-detail-page .project-heading-card .project-status-steps > div .project-status-step-mark {
+  background: #3b5368;
+  color: #e5eef6;
+}
+.project-detail-page .project-heading-card .project-status-steps > div.is-done {
+  background: #193f3b;
+  color: #b7f0dc;
+  border-top-color: #4ec5a3;
+}
+.project-detail-page
+  .project-heading-card
+  .project-status-steps
+  > div.is-done
+  .project-status-step-mark {
+  background: #247f68;
+  color: #fff;
+}
+.project-detail-page .project-heading-card .project-status-steps > div.is-current {
+  background: #4a3b22;
+  color: #ffe2a6;
+  border-top-color: #efbb4f;
+}
+.project-detail-page
+  .project-heading-card
+  .project-status-steps
+  > div.is-current
+  .project-status-step-mark {
+  background: #efbb4f;
+  color: #283543;
+}
+.project-detail-page .project-heading-card .project-status-current {
+  background: #293f52;
+  color: #d8eaff;
+  border: 1px solid #789ab7;
+}
+.project-detail-page .project-heading-card .project-status-current.is-paused {
+  background: #4b3541;
+  color: #ffd3df;
+  border-color: #ac7088;
+}
+/* Every metric uses the theme surface, including the nth-child accent cards. */
+.project-detail-page .project-dashboard-metrics > div:nth-child(n) {
+  --metric-accent: #317eaf;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--metric-accent) 9%, var(--card)),
+    var(--card) 75%
+  );
+  border-top-color: var(--metric-accent);
+}
+.project-detail-page .project-dashboard-metrics > div:nth-child(2) {
+  --metric-accent: #dca637;
+}
+.project-detail-page .project-dashboard-metrics > div:nth-child(3) {
+  --metric-accent: #3da88d;
+}
+.project-detail-page .project-dashboard-metrics > div:nth-child(4) {
+  --metric-accent: #9a80cf;
+}
+.project-detail-page .project-dashboard-metrics > div:nth-child(n) .project-dashboard-metric-icon {
+  background: color-mix(in srgb, var(--metric-accent) 16%, var(--card));
+  color: color-mix(in srgb, var(--metric-accent) 75%, var(--foreground));
+}
+.project-detail-page .project-dashboard-metrics strong {
+  color: var(--foreground);
+}
+.project-detail-page .project-dashboard-metrics small,
+.project-detail-page .project-dashboard-metrics p {
+  color: var(--muted-foreground);
+}
+.dark .project-detail-page .project-dashboard-stage {
+  background: #203e52;
+  color: #b9def8;
+  border: 1px solid #456a83;
+}
+.dark .project-detail-page .project-dashboard-bar-track {
+  background: #304757;
 }

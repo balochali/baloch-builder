@@ -1,0 +1,120 @@
+/* Architectural identity shared by the signed-in workspace. */
+.home-dashboard .home-hero,
+.projects-page.projects-page .projects-overview-heading {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 224px;
+  padding: 32px;
+  border: 1px solid #d2ad6533;
+  border-radius: 16px;
+  background: #152b37;
+  color: #fff;
+}
+.home-dashboard .home-hero::before,
+.projects-page.projects-page .projects-overview-heading::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, #102732 0%, #102732eb 34%, #10273255 75%, #10273230),
+    url("../assets/auth/residential-towers.png") center 47% / cover;
+  pointer-events: none;
+}
+.home-dashboard .home-hero > div,
+.projects-page.projects-page .projects-overview-heading > div {
+  max-width: 510px;
+}
+.home-dashboard .home-hero h1,
+.projects-page.projects-page .projects-overview-heading h1 {
+  color: #fff;
+  border: 0;
+  padding: 0;
+  font-size: clamp(26px, 2.8vw, 38px);
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+  margin-block: 12px;
+}
+.home-dashboard .home-hero p,
+.projects-page.projects-page .projects-overview-heading p:last-child {
+  color: #e0e8e9;
+  max-width: 390px;
+}
+.home-dashboard .home-hero .home-eyebrow,
+.projects-page.projects-page .projects-eyebrow {
+  color: #f3d293;
+}
+.home-dashboard .home-hero-action,
+.projects-page.projects-page .projects-overview-heading [data-slot="button"] {
+  background: #f0ce8f;
+  color: #152b37;
+  flex-shrink: 0;
+  font-weight: 750;
+  box-shadow: 0 4px 20px #0002;
+}
+.home-dashboard .home-hero-action:hover,
+.projects-page.projects-page .projects-overview-heading [data-slot="button"]:hover {
+  background: #ffe1a7;
+  color: #152b37;
+}
+.app-sidebar.app-sidebar .workspace-logo {
+  color: #f0ce8f;
+  background: #d2ad6517;
+  border: 1px solid #d2ad6555;
+  border-radius: 9px;
+  box-shadow: none;
+}
+.sidebar-building-scene {
+  margin: auto 16px 16px;
+  padding-top: 20px;
+  pointer-events: none;
+}
+.sidebar-building-scene img {
+  display: block;
+  width: 100%;
+  opacity: 0.7;
+}
+.sidebar-building-scene span {
+  display: block;
+  margin-top: 8px;
+  color: #cbb789;
+  font-size: 9px;
+  letter-spacing: 0.17em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.app-main .page-header {
+  background-image: url("../assets/building-elevation.svg");
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  background-size: 240px auto;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.app-main .page-header > * {
+  position: relative;
+  background: var(--background);
+  border-radius: 6px;
+}
+@media (max-width: 1000px) {
+  .home-dashboard .home-hero,
+  .projects-page.projects-page .projects-overview-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+}
+@media (max-width: 760px) {
+  .sidebar-building-scene { display: none; }
+  .home-dashboard .home-hero,
+  .projects-page.projects-page .projects-overview-heading {
+    padding: 24px;
+    min-height: 240px;
+  }
+  .home-dashboard .home-hero::before,
+  .projects-page.projects-page .projects-overview-heading::before {
+    background-image: linear-gradient(90deg, #102732f5, #102732a6),
+      url("../assets/auth/residential-towers.png");
+  }
+  .app-main .page-header { background-size: 140px auto; }
+}

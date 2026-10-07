@@ -19,6 +19,9 @@ vi.mock("@/data/repositories/projectsRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/data/repositories/projectsRepository")>()),
   listProjects: vi.fn(),
 }));
+vi.mock("@/data/repositories/bankRepository", () => ({
+  listBankEntries: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("@/data/repositories/contactsRepository", () => ({ listContacts: vi.fn() }));
 vi.mock("@/data/repositories/projectPartnersRepository", () => ({
   listAllProjectPartners: vi.fn(),
@@ -71,27 +74,24 @@ describe("DashboardPage", () => {
       await screen.findByRole("heading", { name: "Your business at a glance" }),
     ).toBeInTheDocument();
     expect((await screen.findAllByText("Rs 5 lakh")).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Rs 2 lakh").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Rs 70,000").length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("img", { name: "Rs 30,000 paid back out of Rs 100,000 lent" }),
-    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Baloch Residency/ })).toHaveAttribute(
       "href",
       "/projects/project-1",
     );
     expect(
+      screen.queryByRole("heading", { name: "Money through the months" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Projects/ }));
+    expect(
       screen.getByRole("heading", { name: "Partner payments by project" }),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Udhaar/ }));
     expect(
-      screen.getByRole("img", {
-        name: /Line chart.*Aug 26: partner payments Rs 0, personal purchases Rs 200,000.*Sep 26: partner payments Rs 500,000, personal purchases Rs 0/,
-      }),
+      screen.getByRole("img", { name: "Rs 30,000 paid back out of Rs 100,000 lent" }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show bar chart" }));
-    expect(
-      screen.getByRole("img", { name: /Bar chart.*Sep 26: partner payments Rs 500,000/ }),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Money/ }));
+    expect(await screen.findByText("No payments in this selection")).toBeInTheDocument();
   });
 
   it("does not display a failed section as a real zero", async () => {
@@ -102,6 +102,71 @@ describe("DashboardPage", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("Credit / Udhaar");
+    fireEvent.click(screen.getByRole("tab", { name: /Udhaar/ }));
     expect(screen.getByText("Udhaar chart unavailable right now.")).toBeInTheDocument();
+  });
+
+  it("includes projects without a status in the stage breakdown", async () => {
+    vi.mocked(listProjects).mockResolvedValue([
+      { id: "planned", name: "Planned building", status: "planning" } as Project,
+      { id: "unclassified", name: "New building", status: null } as Project,
+    ]);
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    await screen.findByRole("heading", { name: "Your business at a glance" });
+    fireEvent.click(screen.getByRole("tab", { name: /Projects/ }));
+    expect(
+      screen.getByRole("img", {
+        name: /Planning: 1;.*Other status: 1/,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows helpful empty states in each dashboard view", async () => {
+    vi.mocked(listProjects).mockResolvedValue([]);
+    vi.mocked(listContacts).mockResolvedValue([]);
+    vi.mocked(listAllProjectPartners).mockResolvedValue([]);
+    vi.mocked(listAllPartnerContributions).mockResolvedValue([]);
+    vi.mocked(listPersonalExpenses).mockResolvedValue([]);
+    vi.mocked(listUdhaars).mockResolvedValue([]);
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByText("Your projects will appear here after you add them."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Projects/ }));
+    expect(screen.getByRole("link", { name: "Add your first project" })).toHaveAttribute(
+      "href",
+      "/projects",
+    );
+    fireEvent.click(screen.getByRole("tab", { name: /Money/ }));
+    expect(await screen.findByText("No payments in this selection")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Udhaar/ }));
+    expect(screen.getByText("No outstanding Udhaar balances.")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("supports keyboard tab navigation and shows only the selected view", async () => {
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    await screen.findByRole("heading", { name: "Your business at a glance" });
+    const overviewTab = screen.getByRole("tab", { name: /Overview/ });
+    fireEvent.keyDown(overviewTab, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: /Projects/ })).toHaveFocus();
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("id", "dashboard-panel-projects");
+    expect(screen.queryByRole("heading", { name: "Recent projects" })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("tab", { name: /Projects/ }), { key: "End" });
+    expect(screen.getByRole("tab", { name: /Udhaar/ })).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(screen.getByRole("tab", { name: /Udhaar/ }), { key: "Home" });
+    expect(overviewTab).toHaveAttribute("aria-selected", "true");
   });
 });

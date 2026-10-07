@@ -26,7 +26,7 @@ describe("ProjectPartnerDialog payment methods", () => {
     fireEvent.change(screen.getByLabelText("Amount received (Rs)"), {
       target: { value: "100000" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Bank transfer", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Bank transfer" }));
     expect(screen.getByLabelText("Sender bank *")).toBeInTheDocument();
     expect(screen.queryByLabelText("Cheque number *")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Transfer reference / transaction ID *"), {
@@ -75,7 +75,7 @@ describe("ProjectPartnerDialog payment methods", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs)"), { target: { value: "15000" } });
     fireEvent.click(screen.getByRole("radio", { name: "Builder Account" }));
-    fireEvent.click(screen.getByRole("button", { name: "Digital wallet", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Digital wallet" }));
     fireEvent.change(screen.getByLabelText("Transfer reference / transaction ID *"), {
       target: { value: "TX-8" },
     });
@@ -115,7 +115,7 @@ describe("ProjectPartnerDialog payment methods", () => {
         }}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Cheque", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Cheque" }));
     expect(screen.getByLabelText("Cheque number *")).toBeInTheDocument();
     expect(screen.getByLabelText("Cheque date *")).toBeInTheDocument();
     expect(screen.getByLabelText("Payable to *")).toBeInTheDocument();

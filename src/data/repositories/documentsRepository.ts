@@ -35,7 +35,7 @@ export async function listLandPaymentReceipts(): Promise<DocumentRecord[]> {
 }
 
 export async function listBankPaymentReceipts(): Promise<DocumentRecord[]> {
-  const kinds = new Set(["land_payment_receipt", "project_cost_receipt", "construction_cost_receipt", "partner_contribution_receipt", "partner_payout_receipt"]);
+  const kinds = new Set(["amanat_deposit_receipt", "amanat_return_receipt", "land_payment_receipt", "project_cost_receipt", "construction_cost_receipt", "partner_contribution_receipt", "partner_payout_receipt"]);
   return (await listDocuments()).filter((document) => document.doc_type && kinds.has(document.doc_type));
 }
 
@@ -181,7 +181,8 @@ async function saveLandAttachment(
   notes: string | null,
 ): Promise<void> {
   if (!landId) throw new Error("Land record is missing");
-  validateImage(file);
+  if (file.type !== "application/pdf") validateImage(file);
+  if (!file.size || file.size > 10 * 1024 * 1024) throw new Error("File must be smaller than 10 MB");
   const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
   const path = await invoke<string>("save_image_attachment", { bytes, mime: file.type });
   const timestamp = now();
@@ -202,4 +203,18 @@ function validateImage(file: File): void {
 
 export async function openDocument(path: string): Promise<void> {
   await invoke("open_file", { path });
+}
+
+export async function listAmanatReceipts(ownerId: string): Promise<DocumentRecord[]> {
+ return query<DocumentRecord>("SELECT *, NULL AS project_name FROM documents WHERE owner_id = ? AND owner_type IN ('personal_deposit', 'deposit_return') AND archived = 0 ORDER BY created_at", [ownerId]);
+}
+export async function saveAmanatReceipt(ownerId: string, ownerType: "personal_deposit" | "deposit_return", file: File, date: string, method: string): Promise<void> {
+ validateImage(file);
+ const table = ownerType === "personal_deposit" ? "personal_deposits" : "deposit_returns";
+ if (!(await query<{id: string}>(`SELECT id FROM ${table} WHERE id = ?`, [ownerId])).length) throw new Error("Payment not found");
+ const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+ const path = await invoke<string>("save_image_attachment", { bytes, mime: file.type });
+ const timestamp = now();
+ await execute(`INSERT INTO documents (id, title, doc_type, doc_date, notes, file_path, mime, size, owner_type, owner_id, created_at, updated_at, archived, custom) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '{}')`,
+ [newId(), file.name, ownerType === "personal_deposit" ? "amanat_deposit_receipt" : "amanat_return_receipt", date, method, path, file.type, file.size, ownerType, ownerId, timestamp, timestamp]);
 }

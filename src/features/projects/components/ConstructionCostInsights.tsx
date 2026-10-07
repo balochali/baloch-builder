@@ -1,3 +1,4 @@
+import { usePagination } from "@/components/Pagination";
 import { TimeSeriesChart, chartColors } from "@/components/charts/TimeSeriesChart";
 import { useState } from "react";
 import {
@@ -144,6 +145,7 @@ export function ConstructionCostInsights({ costs, receipts = [] }: { costs: Tran
     ? costs.filter((cost) => (!start || cost.date >= start) && (!end || cost.date <= end))
     : [];
   const { visible: periodCosts, controls } = useRecordFilters(datedCosts, {
+    paginate: false,
     label: "construction payments",
     searchText: (cost) => [cost.description, cost.reference].filter(Boolean).join(" "),
     amount: (cost) => cost.amount,
@@ -169,6 +171,7 @@ export function ConstructionCostInsights({ costs, receipts = [] }: { costs: Tran
     activeItem === "all"
       ? "All construction items"
       : (items.find((item) => item.key === activeItem)?.label ?? "All construction items");
+  const paymentPages = usePagination(shownCosts, JSON.stringify([activeItem, shownCosts.map(row => row.id)]), "construction payments");
   const periodTotal = periodCosts.reduce((total, cost) => total + cost.amount, 0);
 
   return (
@@ -341,8 +344,8 @@ export function ConstructionCostInsights({ costs, receipts = [] }: { costs: Tran
                   </h3>
                   <p>These are the payments included in the selected line.</p>
                 </div>
-                <div className="construction-payment-cards">
-                  {shownCosts.map((cost) => (
+                {paymentPages.controls}<div className="construction-payment-cards">
+                  {paymentPages.items.map((cost) => (
                     <article key={cost.id} className="construction-payment-card">
                       <span className="construction-payment-icon"><HardHat size={19} /></span>
                       <div><strong>{itemName(cost)}</strong><span>{formatDate(cost.date)} · {cost.method || "Method not set"}</span>{cost.reference && <small>Ref: {cost.reference}</small>}<PaymentDetailsView transaction={cost} /><SavedImageGallery documents={receipts.filter((receipt) => receipt.owner_id === cost.id)} /></div>

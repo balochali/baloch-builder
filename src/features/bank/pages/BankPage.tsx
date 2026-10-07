@@ -1,3 +1,5 @@
+import { paymentSummary } from "@/domain/udhaarPaymentDetails";
+import { usePagination } from "@/components/Pagination";
 import "./bank-page.css";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -53,6 +55,7 @@ function totalsOf(rows: BankEntry[]) {
   );
 }
 function sourceLink(row: BankEntry) {
+  if (row.source === "personal_deposits" || row.source === "deposit_returns") return "/personal-deposit";
   if (row.project_id) return `/projects/${row.project_id}`;
   if (row.source === "personal_expenses") return "/personal-expense";
   if (row.source === "land") return "/land";
@@ -148,12 +151,13 @@ export function BankPage() {
   const scoped = entries.filter(
     (row) => account === "all" || (row.account_key ?? "unassigned") === account,
   );
-  const paymentEntries = new Map(scoped.filter((row) => row.source === "land" || row.source === "transactions").map((row) => [row.source_id, row]));
+  const paymentEntries = new Map(scoped.filter((row) => row.source === "land" || row.source === "transactions" || row.source === "personal_deposits" || row.source === "deposit_returns").map((row) => [row.source_id, row]));
   const visibleReceipts = receipts.filter((receipt) =>
     receipt.owner_id && paymentEntries.has(receipt.owner_id) &&
     [receipt.title, receipt.project_name, receipt.notes].join(" ").toLowerCase().includes(imageSearch.trim().toLowerCase()),
   );
-  const { visible, controls, search, setSearch, active, reset } = useRecordFilters(scoped, {
+  const receiptPages = usePagination(visibleReceipts, JSON.stringify([imageSearch, visibleReceipts.map(row => row.id)]), "payment images");
+  const { visible, pageItems, pagination, controls, search, setSearch, active, reset } = useRecordFilters(scoped, {
     label: "bank transactions",
     showSearch: false,
     searchText: (row) =>
@@ -537,7 +541,7 @@ export function BankPage() {
                   </span>
                 </summary>
                 {controls}
-              </details>
+              </details>{pagination}
               {active && (
                 <div className="bank-filter-active">
                   <span>{visible.length} transactions match your filters.</span>
@@ -577,7 +581,7 @@ export function BankPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {visible.map((row) => (
+                    {pageItems.map((row) => (
                       <tr key={row.id + row.account_key}>
                         <td>{formatDate(row.date)}</td>
                         <td>
@@ -590,6 +594,7 @@ export function BankPage() {
                             {row.category} <ArrowRight size={13} />
                           </Link>
                           <p>{row.project}</p>
+                          {(row.source === "personal_deposits" || row.source === "deposit_returns") && row.payment_details && <p>{paymentSummary(row.payment_details)}</p>}
                           {row.source === "land" && row.payment_details && (
                             <LandPaymentInfo raw={row.payment_details} />
                           )}
@@ -631,16 +636,17 @@ export function BankPage() {
           )}
           {view === "images" && (
             <section id="bank-panel-images" role="tabpanel" aria-labelledby="bank-tab-images" className="bank-panel">
-              <div className="bank-section-title"><div><h2>Payment images</h2><p>Receipts, cheque photos and payment proof saved with projects and partners.</p></div><span>{visibleReceipts.length} images</span></div>
+              <div className="bank-section-title"><div><h2>Payment images</h2><p>Receipts, cheque photos and payment proof saved with projects, partners and Amanat payments.</p></div><span>{visibleReceipts.length} images</span></div>
               <div className="bank-search-box"><Search size={19} /><input aria-label="Search payment images" placeholder="Search images or projects…" value={imageSearch} onChange={(event) => setImageSearch(event.target.value)} /></div>
+              {receiptPages.controls}
               {visibleReceipts.length ? (
                 <div className="bank-images-grid">
-                  {visibleReceipts.map((receipt) => {
+                  {receiptPages.items.map((receipt) => {
                     const entry = paymentEntries.get(receipt.owner_id || "");
                     return <article key={receipt.id} className="bank-image-card">
                       <div className="bank-image-card-icon"><Images size={23} /></div>
                       <strong>{receipt.title}</strong>
-                      <span>{receipt.project_name || "Land purchase"} · {entry ? formatDate(entry.date) : ""}</span>
+                      <span>{receipt.project_name || (receipt.doc_type?.startsWith("amanat_") ? `Amanat · ${entry?.person || "Personal deposit"}` : "Land purchase")} · {entry ? formatDate(entry.date) : ""}</span>
                       <small>{receipt.notes === "bank" ? "Bank transfer" : receipt.notes === "cheque" ? "Cheque" : receipt.notes === "cash" ? "Cash" : receipt.notes === "digital" ? "Digital payment" : "Payment proof"}</small>
                       <SavedImageGallery documents={[receipt]} />
                       {entry?.project_id && <Link to={`/projects/${entry.project_id}`}>Open project <ArrowRight size={14} /></Link>}

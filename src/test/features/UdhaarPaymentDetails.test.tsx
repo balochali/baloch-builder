@@ -8,9 +8,9 @@ it("reveals only relevant fields and clears hidden method details", () => {
   render(<Form />);
   expect(screen.queryByLabelText("Bank name *")).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
-  fireEvent.click(screen.getByRole("button", { name: "Digital wallet", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Digital wallet" }));
   fireEvent.change(screen.getByLabelText("Wallet / app name *"), { target: { value: "JazzCash" } });
-  fireEvent.click(screen.getByRole("button", { name: "Bank transfer", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Bank transfer" }));
   expect(screen.getByLabelText("Bank name *")).toHaveValue("");
   expect(screen.getByLabelText("Received by *")).toHaveValue("Ali");
   expect(PaymentDetailsSchema.safeParse({ ...emptyPaymentDetails, received_by: "Ali", method: "bank" }).success).toBe(false);

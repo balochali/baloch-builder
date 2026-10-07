@@ -1,3 +1,4 @@
+import { ProjectPrintButton } from "@/features/projects/components/ProjectPrintButton";
 import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
 import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { listProjectCostDocuments, saveActualCostBill, saveActualCostReceipt, saveConstructionCostReceipt, saveConstructionSupplierBill, saveLandImage, saveLandPaymentReceipt, type DocumentRecord } from "@/data/repositories/documentsRepository";
@@ -599,6 +600,8 @@ export function ProjectDetailPage() {
                   {project.location || "No address"}
                 </p>
               </div>
+              <div className="project-heading-actions">
+              <ProjectPrintButton data={{project, building: buildingDetails, land: landDetails, partners, contributions, estimates, costs: allActualCosts}} />
               <Button
                 variant="outline"
                 onClick={() => {
@@ -632,6 +635,7 @@ export function ProjectDetailPage() {
                 <Pencil className="size-4" />
                 Change Status
               </Button>
+              </div>
             </div>
             <ProjectStatusProgress status={project.status} />
             {project.status === "land acquired" && !landDetails && (
@@ -859,7 +863,7 @@ export function ProjectDetailPage() {
                   </span>
                 </summary>
                 {partnerFilter.controls}
-              </details>
+              </details>{partnerFilter.pagination}
               {partnerFilter.active && (
                 <div className="project-partner-active-filters">
                   <span>{partnerFilter.visible.length} partners match your filters.</span>
@@ -884,7 +888,7 @@ export function ProjectDetailPage() {
                 </div>
               ) : (
                 <div className="partner-cards">
-                  {partnerFilter.visible.map((partner) => {
+                  {partnerFilter.pageItems.map((partner) => {
                     const agreed = partner.agreed_contribution;
                     const remaining =
                       agreed === null ? null : Math.max(0, agreed - partner.contributed);
@@ -1008,9 +1012,9 @@ export function ProjectDetailPage() {
                       <ChevronDown size={16} />
                     </span>
                   </summary>
-                  {paymentFilter.controls}
+                  {paymentFilter.controls}{paymentFilter.pagination}
                   <div className="partner-payment-list">
-                    {paymentFilter.visible.map((item) => (
+                    {paymentFilter.pageItems.map((item) => (
                       <article key={item.id} className="partner-payment">
                         <span className="partner-payment-dot" aria-hidden="true" />
                         <div className="partner-payment-main">
@@ -1189,10 +1193,10 @@ export function ProjectDetailPage() {
               </div>
               <section className="project-actual-history">
                 <div className="project-actual-section-title"><div><h3>Cost history</h3><p>Review every recorded project payment</p></div><span>{actualFilter.visible.length} of {allActualCosts.length} shown</span></div>
-                <details className="project-actual-filter"><summary><span><SlidersHorizontal size={18} /> Search & filter costs</span><span>{actualFilter.active ? "Filters applied" : "All costs"} <ChevronDown size={16} /></span></summary>{actualFilter.controls}</details>
+                <details className="project-actual-filter"><summary><span><SlidersHorizontal size={18} /> Search & filter costs</span><span>{actualFilter.active ? "Filters applied" : "All costs"} <ChevronDown size={16} /></span></summary>{actualFilter.controls}</details>{actualFilter.pagination}
                 {actualFilter.active && <p className="project-actual-filter-summary">Matching total: <strong>{formatPKR(sum(actualFilter.visible.map((item) => item.amount)))}</strong> · Summary cards above include all costs.</p>}
                 {actualFilter.visible.length === 0 ? <div className="project-actual-empty"><Wallet size={25} /><strong>{allActualCosts.length ? "No costs match these filters" : "No actual costs recorded yet"}</strong><p>{allActualCosts.length ? "Adjust your search or filters to see more records." : "Add a cost, or record a land or construction payment."}</p></div> :
-                  <div className="project-actual-records">{actualFilter.visible.map((item) => { const source = item.type === "land_purchase" ? "land" : item.type === "construction_cost" ? "construction" : "other"; const Icon = source === "land" ? Landmark : source === "construction" ? HardHat : Wallet; return <article key={item.id} className={`project-actual-record is-${source}`}><span className="project-actual-record-icon"><Icon size={20} /></span><div className="project-actual-record-main"><strong>{item.description}</strong><span>{formatDate(item.date)} · {source === "land" ? "Land acquired" : source === "construction" ? "Construction Cost" : "Added here"}{item.method ? ` · ${item.method}` : ""}</span>{item.reference && <small>Ref: {item.reference}</small>}{source !== "land" && <><PaymentDetailsView transaction={item} /><SavedImageGallery documents={costDocuments.filter((receipt) => receipt.owner_id === item.id)} /></>}</div><b>{formatPKR(item.amount)}</b></article>; })}</div>}
+                  <div className="project-actual-records">{actualFilter.pageItems.map((item) => { const source = item.type === "land_purchase" ? "land" : item.type === "construction_cost" ? "construction" : "other"; const Icon = source === "land" ? Landmark : source === "construction" ? HardHat : Wallet; return <article key={item.id} className={`project-actual-record is-${source}`}><span className="project-actual-record-icon"><Icon size={20} /></span><div className="project-actual-record-main"><strong>{item.description}</strong><span>{formatDate(item.date)} · {source === "land" ? "Land acquired" : source === "construction" ? "Construction Cost" : "Added here"}{item.method ? ` · ${item.method}` : ""}</span>{item.reference && <small>Ref: {item.reference}</small>}{source !== "land" && <><PaymentDetailsView transaction={item} /><SavedImageGallery documents={costDocuments.filter((receipt) => receipt.owner_id === item.id)} /></>}</div><b>{formatPKR(item.amount)}</b></article>; })}</div>}
               </section>
               <details className="project-actual-construction-details" onToggle={(event) => setConstructionDetailsOpen(event.currentTarget.open)}><summary><span><HardHat size={20} /> Construction spending detail</span><ChevronDown size={18} /></summary>{constructionDetailsOpen && <ConstructionCostInsights costs={constructionCosts} receipts={costDocuments} />}</details>
             </div>
@@ -1201,7 +1205,7 @@ export function ProjectDetailPage() {
             <ProjectSalesPanel projectId={project.id} buildingDetails={buildingDetails} />
           )}
           {tab === "profit" && (
-            <ProjectProfitLossPanel projectId={project.id} costs={allActualCosts} partners={partners} contributions={contributions} />
+            <ProjectProfitLossPanel projectId={project.id} costs={allActualCosts} partners={partners} contributions={contributions} onManagePartner={(partner) => setSelectedPartnerId(partner.partnership_id)} refreshKey={selectedPartnerId} />
           )}
           {dialog && (
             <ProjectEntryDialog
@@ -1264,7 +1268,7 @@ export function ProjectDetailPage() {
               {statusDraft === "land acquired" && (
                 <div className="project-stage-fields">
                   <div className="project-land-steps" aria-label="Land acquisition steps">
-                    {["Land details", "Payment", "Images"].map((label, index) => (
+                    {["Land details", "Payment details", "Land documents"].map((label, index) => (
                       <span
                         key={label}
                         className={
@@ -1563,17 +1567,17 @@ export function ProjectDetailPage() {
                                     id="stage-land-payment-images"
                                     className="project-image-file-input"
                                     type="file"
-                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
                                     multiple
                                     onChange={(event) => {
                                       const files = Array.from(event.target.files ?? []);
                                       const invalid = files.find(
                                         (file) =>
-                                          !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) ||
+                                          !["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"].includes(file.type) ||
                                           !file.size || file.size > 10 * 1024 * 1024,
                                       );
                                       if (invalid) {
-                                        setStatusError("Choose JPEG, PNG, WebP or GIF images smaller than 10 MB each.");
+                                        setStatusError("Choose JPG, PNG or PDF files (also WebP/GIF), up to 10 MB each.");
                                         event.target.value = "";
                                         return;
                                       }
@@ -1583,7 +1587,7 @@ export function ProjectDetailPage() {
                                   />
                                   <label className="project-image-upload project-image-upload-payment" htmlFor="stage-land-payment-images">
                                     <span className="project-image-upload-icon"><Upload size={21} aria-hidden="true" /></span>
-                                    <span><strong>Upload payment images</strong><small>{landPaymentImages.length ? `${landPaymentImages.length} selected · choose again to replace` : "Choose one or more images"}</small></span>
+                                    <span><strong>Upload payment receipts</strong><small>{landPaymentImages.length ? `${landPaymentImages.length} selected · choose again to replace` : "Choose images or PDF files"}</small></span>
                                   </label>
                                   <SelectedImagePreviews files={landPaymentImages} />
                                 </div>
@@ -1604,22 +1608,22 @@ export function ProjectDetailPage() {
                       <div className="project-stage-intro">
                         <FolderOpen size={20} />
                         <div>
-                          <strong>Add land images</strong>
-                          <p>Optional images are saved in Documents and linked to this land.</p>
+                          <strong>Add land documents</strong>
+                          <p>Optional JPG, PNG and PDF files are saved in Documents and linked to this land.</p>
                         </div>
                       </div>
-                      <Label htmlFor="stage-land-images">Land photos, receipts or maps</Label>
+                      <Label htmlFor="stage-land-images">Land ownership papers, agreements, photos or maps</Label>
                       <input
                         id="stage-land-images"
                         className="project-image-file-input"
                         type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
                         multiple
                         onChange={(event) => {
                           const files = Array.from(event.target.files ?? []);
                           const invalid = files.find(
                             (file) =>
-                              !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
+                              !["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"].includes(
                                 file.type,
                               ) ||
                               !file.size ||
@@ -1627,7 +1631,7 @@ export function ProjectDetailPage() {
                           );
                           if (invalid) {
                             setStatusError(
-                              "Choose JPEG, PNG, WebP or GIF images smaller than 10 MB each.",
+                              "Choose JPG, PNG or PDF files (also WebP/GIF), up to 10 MB each.",
                             );
                             event.target.value = "";
                             return;
@@ -1638,9 +1642,9 @@ export function ProjectDetailPage() {
                       />
                       <label className="project-image-upload" htmlFor="stage-land-images">
                         <span className="project-image-upload-icon"><Upload size={21} aria-hidden="true" /></span>
-                        <span><strong>Upload land images</strong><small>{landImages.length ? `${landImages.length} selected · choose again to replace` : "Choose one or more images"}</small></span>
+                        <span><strong>Upload land documents</strong><small>{landImages.length ? `${landImages.length} selected · choose again to replace` : "Choose images or PDF files"}</small></span>
                       </label>
-                      <p>Up to 10 MB per image. You can select more than one.</p>
+                      <p>JPG, PNG or PDF · up to 10 MB per file. You can select more than one.</p>
                       <SelectedImagePreviews files={landImages} />
                     </div>
                   )}
@@ -1785,7 +1789,7 @@ function EstimateSection({
   onEdit: (item: ProjectEstimate) => void;
   onDelete: (item: ProjectEstimate) => void;
 }) {
-  const { visible, controls, active, reset } = useRecordFilters(items, {
+  const { visible, pageItems, pagination, controls, active, reset } = useRecordFilters(items, {
     label: title.toLowerCase(),
     searchText: (item) => [item.title, item.details].filter(Boolean).join(" "),
     amount: (item) => item.maximum_amount,
@@ -1799,7 +1803,7 @@ function EstimateSection({
       <details className="project-estimate-filter">
         <summary><span><SlidersHorizontal size={18} /> Search & filter {title.toLowerCase()}</span><span>{active ? "Filters applied" : "All items"} <ChevronDown size={16} /></span></summary>
         {controls}
-      </details>
+      </details>{pagination}
       {active && <div className="project-estimate-filter-results"><span>{visible.length} of {items.length} shown</span><button type="button" onClick={reset}>Clear filters</button></div>}
       {items.length > 0 && visible.length === 0 && (
         <p className="filter-empty">No estimate items match these filters.</p>
@@ -1808,7 +1812,7 @@ function EstimateSection({
         <div className="project-estimate-empty-list"><Calculator size={23} /><strong>No items added yet</strong><p>Use the button above to start this part of the plan.</p></div>
       ) : (
         <div className="project-estimate-items">
-              {visible.map((item) => {
+              {pageItems.map((item) => {
                 const flatLines = flatRecoveryLines(item);
                 const link = recoveryLink(item);
                 const floorCount = new Set(flatLines.map((line) => line.floor_index)).size;

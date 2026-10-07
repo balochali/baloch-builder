@@ -74,6 +74,8 @@ export function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const {
     visible: visibleProjects,
+    pageItems,
+    pagination,
     controls,
     active: filtersActive,
     reset: resetFilters,
@@ -202,7 +204,7 @@ export function ProjectsPage() {
           </span>
         </summary>
         {controls}
-      </details>
+      </details>{pagination}
       {filtersActive && (
         <div className="projects-active-filters">
           <span>{visibleProjects.length} projects match your filters.</span>
@@ -240,7 +242,7 @@ export function ProjectsPage() {
       )}
       {!loading && !error && visibleProjects.length > 0 && (
         <div className="projects-grid">
-          {visibleProjects.map((project) => {
+          {pageItems.map((project) => {
             const stage =
               project.status === "on hold"
                 ? pausedStage

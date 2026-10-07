@@ -10,6 +10,7 @@ import {
   type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
+import { usePagination } from "./Pagination";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -40,6 +41,11 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
   });
 
+  const pagination = usePagination(
+    table.getRowModel().rows,
+    JSON.stringify([sorting, columnFilters, globalFilter, data]),
+    "table records",
+  );
   return (
     <div className={cn("data-table w-full overflow-auto rounded-md border", className)}>
       <table className="w-full text-sm">
@@ -79,7 +85,7 @@ export function DataTable<TData, TValue>({
         </thead>
         <tbody>
           {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
+            pagination.items.map((row) => (
               <tr
                 key={row.id}
                 className="border-b transition-colors hover:bg-muted/30 last:border-0"
@@ -100,6 +106,7 @@ export function DataTable<TData, TValue>({
           )}
         </tbody>
       </table>
+      {pagination.controls}
     </div>
   );
 }

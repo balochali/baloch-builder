@@ -3,7 +3,7 @@ import { createPersonalExpense, updatePersonalExpense } from "@/data/repositorie
 import { addConstructionCost } from "@/data/repositories/projectFinanceRepository";
 // @vitest-environment node
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import {
   addPersonUdhaarPayment,
@@ -29,8 +29,8 @@ const input = {
 beforeEach(() => {
   database = new DatabaseSync(":memory:");
   database.exec("PRAGMA foreign_keys = ON");
-  for (const file of ["001_init", "006_udhaars", "007_personal_expenses", "008_udhaar_contacts", "009_udhaar_delete", "010_udhaar_payment_guard", "011_bank_accounts", "013_expense_payment_details"]) {
-    database.exec(readFileSync(`src-tauri/migrations/${file}.sql`, "utf8"));
+  for (const file of readdirSync("src-tauri/migrations").filter((file) => file.endsWith(".sql")).sort()) {
+    database.exec(readFileSync(`src-tauri/migrations/${file}`, "utf8"));
   }
   vi.mocked(query).mockImplementation(
     async (sql, params = []) =>
