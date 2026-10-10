@@ -1,6 +1,12 @@
 import { ResetBusinessData } from "../components/ResetBusinessData";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { clearAllUdhaarData } from "@/data/repositories/udhaarRepository";
+import { BackupSection } from "../components/BackupSection";
+import { CurrentSettings } from "../components/CurrentSettings";
+import { PasswordSection } from "../components/PasswordSection";
+import { ProfileSection } from "../components/ProfileSection";
+import { settingsApi, type BackupStatus, type DataLocations, type Profile } from "../api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +29,43 @@ export function SettingsPage() {
   const [clearing, setClearing] = useState(false);
   const [clearError, setClearError] = useState("");
   const [cleared, setCleared] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [backup, setBackup] = useState<BackupStatus | null>(null);
+  const [locations, setLocations] = useState<DataLocations | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.allSettled([
+      settingsApi.getProfile(),
+      settingsApi.getBackupStatus(),
+      settingsApi.getDataLocations(),
+    ]).then(([profileResult, backupResult, locationsResult]) => {
+      if (!active) return;
+      if (profileResult.status === "fulfilled") setProfile(profileResult.value ?? null);
+      if (backupResult.status === "fulfilled") setBackup(backupResult.value ?? null);
+      if (locationsResult.status === "fulfilled") setLocations(locationsResult.value ?? null);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // An automatic backup can finish while this page is open; keep the status current.
+  useEffect(() => {
+    let active = true;
+    let stopListening: (() => void) | undefined;
+    listen<BackupStatus>("backup-finished", (event) => setBackup(event.payload))
+      .then((stop) => {
+        if (active) stopListening = stop;
+        else stop();
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+      stopListening?.();
+    };
+  }, []);
+
   async function clearUdhaar() {
     if (confirmation !== "DELETE" || clearing) return;
     setClearing(true);
@@ -46,6 +89,10 @@ export function SettingsPage() {
         title="Settings"
         description="Make your workspace comfortable and understand where your records live."
       />
+      <CurrentSettings theme={theme} profile={profile} backup={backup} locations={locations} />
+      {profile && <ProfileSection profile={profile} onSaved={setProfile} />}
+      <PasswordSection />
+      {backup && <BackupSection status={backup} onStatus={setBackup} />}
       <section className="settings-section">
         <h2>Appearance</h2>
         <p>Choose a theme. Your preference is saved on this device.</p>
@@ -155,8 +202,8 @@ export function SettingsPage() {
             files are stored in the attachments folder.
           </p>
           <p>
-            Keep a copy of both the database and attachments when making a backup. Automatic backups
-            are not available yet.
+            Use &quot;Backup to Google Drive&quot; above to keep a safe copy of both the database
+            and the attachments, manually or on a schedule.
           </p>
         </section>
         <section className="settings-section">
@@ -166,7 +213,10 @@ export function SettingsPage() {
             Your local account protects access to the desktop workspace. Keep your password
             somewhere safe.
           </p>
-          <p>Password reset and account recovery are not available in the app yet.</p>
+          <p>
+            You can change your password above. Password recovery is not available, so a forgotten
+            password cannot be reset.
+          </p>
         </section>
       </div>
     </div>
