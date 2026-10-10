@@ -1,3 +1,4 @@
+import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { useEffect, useState, type FormEvent } from "react";
 import { format } from "date-fns";
 import { ShieldCheck, Plus, ArrowDownLeft, Pencil, Wallet, History, UserRound } from "lucide-react";
@@ -42,10 +43,7 @@ import {
   saveAmanatReceipt,
   type DocumentRecord,
 } from "@/data/repositories/documentsRepository";
-import {
-  SelectedImagePreviews,
-  SavedImageGallery,
-} from "@/features/documents/components/ImageGallery";
+import { SavedImageGallery } from "@/components/attachments/ImageGallery";
 function initialDetails(raw?: string | null) {
   try {
     return PaymentDetailsSchema.parse(JSON.parse(raw || ""));
@@ -786,50 +784,13 @@ async function uploadReceipts(
     );
 }
 function ReceiptPicker({ files, onChange }: { files: File[]; onChange: (files: File[]) => void }) {
-  const [error, setError] = useState("");
   return (
-    <section className="amanat-receipts">
-      <label>
-        Payment receipt images (optional)
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          multiple
-          onChange={(event) => {
-            const selected = Array.from(event.target.files || []);
-            if (
-              selected.some(
-                (file) =>
-                  !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) ||
-                  !file.size ||
-                  file.size > 10 * 1024 * 1024,
-              )
-            )
-              setError("Choose JPG, PNG, WebP or GIF images up to 10 MB each.");
-            else {
-              onChange([...files, ...selected]);
-              setError("");
-            }
-            event.target.value = "";
-          }}
-        />
-      </label>
-      <p>
-        Attach a cash receipt, transfer screenshot, wallet confirmation or cheque image. Up to 10 MB
-        per image.
-      </p>
-      {error && <p role="alert">{error}</p>}
-      <SelectedImagePreviews files={files} />
-      {files.map((file, index) => (
-        <button
-          type="button"
-          key={index}
-          onClick={() => onChange(files.filter((_, i) => i !== index))}
-        >
-          Remove {file.name}
-        </button>
-      ))}
-    </section>
+    <AttachmentUpload
+      files={files}
+      onChange={onChange}
+      mode="append"
+      title="Payment receipt images (optional)"
+    />
   );
 }
 function AmanatReceipts({ ownerId }: { ownerId: string }) {

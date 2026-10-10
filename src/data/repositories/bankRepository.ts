@@ -47,6 +47,11 @@ export async function listBankEntries(): Promise<BankEntry[]> {
       json_extract(l.custom, '$.payment_details')
     FROM land l LEFT JOIN projects pr ON pr.id = l.project_id WHERE l.archived = 0 AND l.price > 0
     UNION ALL
+    SELECT 'sale:' || s.id, 'project_sales', s.id, json_extract(s.custom, '$.account_key'), s.sale_date,
+      json_extract(s.custom, '$.received'), 'in', 'Land sale', s.buyer_name, COALESCE(s.notes, ''),
+      COALESCE(json_extract(s.custom, '$.method'), 'Not recorded'), pr.name, s.project_id, json_extract(s.custom, '$.payment_details')
+    FROM project_sales s JOIN projects pr ON pr.id = s.project_id WHERE s.archived = 0 AND s.kind = 'land' AND json_extract(s.custom, '$.received') > 0
+    UNION ALL
     SELECT 'deposit:' || d.id, 'personal_deposits', d.id, d.account_key, d.deposit_date, d.amount, 'out', 'Amanat deposit',
       d.holder_name, d.reason, d.method, '', NULL, d.payment_details FROM personal_deposits d
     UNION ALL

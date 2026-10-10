@@ -84,6 +84,7 @@ pub fn run() {
         Migration { version: 16, description: "016_sales_business_reset", sql: include_str!("../migrations/016_sales_business_reset.sql"), kind: MigrationKind::Up },
         Migration { version: 17, description: "017_personal_deposits", sql: include_str!("../migrations/017_personal_deposits.sql"), kind: MigrationKind::Up },
         Migration { version: 18, description: "018_deposit_payment_details", sql: include_str!("../migrations/018_deposit_payment_details.sql"), kind: MigrationKind::Up },
+        Migration { version: 19, description: "019_land_sales", sql: include_str!("../migrations/019_land_sales.sql"), kind: MigrationKind::Up },
     ];
 
     tauri::Builder::default()

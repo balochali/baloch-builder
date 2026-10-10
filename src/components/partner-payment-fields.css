@@ -1,0 +1,31 @@
+.shared-partner-payment-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.shared-partner-payment-fields > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.shared-partner-payment-fields label {
+  font-size: 14px;
+  font-weight: 650;
+}
+.shared-partner-payment-fields input {
+  min-height: 48px;
+  border-radius: 11px;
+  background: var(--card);
+}
+.shared-payment-reference {
+  grid-column: 1/-1;
+}
+@media (max-width: 600px) {
+  .shared-partner-payment-fields {
+    grid-template-columns: 1fr;
+  }
+}

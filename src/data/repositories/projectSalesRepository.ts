@@ -4,7 +4,7 @@ import { newId, now } from "@/data/ids";
 
 export const ProjectSaleSchema = z.object({
   project_id: z.string().uuid(),
-  kind: z.enum(["flat", "shop"]),
+  kind: z.enum(["flat", "shop", "land"]),
   floor_index: z.number().int().min(0).max(100),
   unit_number: z.string().trim().min(1, "Enter the flat or shop number").max(80),
   rooms: z.number().int().min(1).max(20).nullable(),
@@ -37,6 +37,7 @@ export async function listProjectSales(projectId: string): Promise<ProjectSale[]
 
 export async function addProjectSale(input: ProjectSaleInput): Promise<ProjectSale> {
   const value = ProjectSaleSchema.parse(input);
+  if (value.kind === "land") throw new Error("Record land sales from Change project status");
   const id = newId();
   const timestamp = now();
   try {

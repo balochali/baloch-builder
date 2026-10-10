@@ -10,9 +10,9 @@ vi.mock("@/data/repositories/bankRepository", () => ({
 }));
 vi.mock("@/data/repositories/documentsRepository", () => ({
   listBankPaymentReceipts: vi.fn().mockResolvedValue([]),
-  readDocumentImage: vi.fn(),
+  readDocumentImage: vi.fn().mockRejectedValue(new Error("Preview unavailable in test")),
 }));
-it("shows bank insights, searches transactions, and saves a historical payment account", async () => {
+it("shows bank insights and read-only transaction accounts", async () => {
   const base = {
     source: "udhaars",
     date: "2026-09-30",
@@ -46,15 +46,13 @@ it("shows bank insights, searches transactions, and saves a historical payment a
   });
   fireEvent.click(screen.getByRole("button", { name: /Unassigned/ }));
   expect(screen.getAllByRole("row")).toHaveLength(2);
-  fireEvent.change(screen.getByLabelText("Account for Ali on 2026-09-30"), {
-    target: { value: "personal" },
-  });
-  await waitFor(() =>
-    expect(assignBankAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ source_id: "1" }),
-      "personal",
-    ),
-  );
+  expect(screen.queryByLabelText("Account for Ali on 2026-09-30")).not.toBeInTheDocument();
+  expect(assignBankAccount).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", {name:"Print statement"}));
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  expect(screen.getByRole("checkbox", {name:"Personal"})).toBeChecked();
+  fireEvent.click(screen.getByRole("button", {name:"Preview statement"}));
+  expect(screen.getByTitle("Bank statement preview")).toHaveAttribute("srcdoc",expect.stringContaining("Bank & accounts statement"));
 });
 
 it("shows saved land purchase payment details in transaction history", async () => {
@@ -97,7 +95,7 @@ it("shows saved land purchase payment details in transaction history", async () 
   expect(screen.getAllByText("Muhammad Murad").length).toBeGreaterThan(0);
 });
 
-it("shows land payment receipts in the Bank Images tab", async () => {
+it("shows receipt previews alongside Bank transactions", async () => {
   vi.mocked(listBankEntries).mockResolvedValue([{
     id: "land:1", source: "land", source_id: "1", account_key: "builder",
     date: "2026-10-03", amount: 5000, direction: "out", category: "Land acquisition",
@@ -112,7 +110,9 @@ it("shows land payment receipts in the Bank Images tab", async () => {
   }]);
   render(<MemoryRouter><BankPage /></MemoryRouter>);
   await screen.findByRole("heading", { name: "Money flow over time" });
-  fireEvent.click(screen.getByRole("tab", { name: "Images" }));
+  expect(screen.queryByRole("tab", { name: "Images" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: /Transactions/ }));
   await waitFor(() => expect(screen.getAllByText("cash-receipt.png").length).toBeGreaterThan(0));
   expect(screen.getByRole("button", { name: /cash-receipt.png/ })).toBeInTheDocument();
 });
+

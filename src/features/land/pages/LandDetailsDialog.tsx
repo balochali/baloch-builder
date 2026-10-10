@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listLandDocuments, type DocumentRecord } from "@/data/repositories/documentsRepository";
 import type { ProjectLand } from "@/data/repositories/projectStageRepository";
-import { SavedImageGallery } from "@/features/documents/components/ImageGallery";
+import { SavedImageGallery } from "@/components/attachments/ImageGallery";
 import { formatPKR } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 
@@ -66,8 +66,8 @@ export function LandDetailsDialog({
   };
   const files = documents.filter((doc) =>
     tab === "payment"
-      ? doc.doc_type === "land_payment_receipt"
-      : doc.doc_type !== "land_payment_receipt",
+      ? doc.doc_type === "land_payment_receipt" && !doc.mime?.startsWith("image/")
+      : doc.doc_type !== "land_payment_receipt" && !doc.mime?.startsWith("image/"),
   );
   return (
     <Dialog
@@ -126,78 +126,94 @@ export function LandDetailsDialog({
             {land.notes && <p>{land.notes}</p>}
           </div>
         ) : (
-          <div className="land-detail-body">
-            {tab === "payment" && (
-              <>
-                <h3>Payment details</h3>
-                <dl>
-                  <div>
-                    <dt>Paid from</dt>
-                    <dd>
-                      {land.account_key === "builder"
-                        ? "Builder Account"
-                        : land.account_key === "personal"
-                          ? "Personal Account"
-                          : "Not recorded"}
-                    </dd>
+          <div className="land-detail-body land-payment-overview">
+            <LandPhotoSlider
+              key="receipts"
+              landId={land.id}
+              title={`${land.title} receipts`}
+              documentType="land_payment_receipt"
+            />
+            <div className="land-payment-summary">
+              {tab === "payment" && (
+                <>
+                  <div className="land-payment-highlight">
+                    <small>Purchase payment</small>
+                    <strong>{land.price === null ? "Not recorded" : formatPKR(land.price)}</strong>
+                    <span>{payment ? methods[payment.method] : "Method not recorded"}</span>
                   </div>
-                  <div>
-                    <dt>Payment method</dt>
-                    <dd>{payment ? methods[payment.method] : "Not recorded"}</dd>
-                  </div>
-                  {payment &&
-                    Object.entries({
-                      "Paid to": payment.paid_to,
-                      "Bank / provider": payment.provider,
-                      "Account name": payment.account_name,
-                      "Account / IBAN": payment.account_no,
-                      "Reference / cheque number": payment.reference,
-                      "Cheque date": payment.cheque_date,
-                    })
-                      .filter(([, value]) => value)
-                      .map(([label, value]) => (
-                        <div key={label}>
-                          <dt>{label}</dt>
-                          <dd>{value}</dd>
-                        </div>
-                      ))}
-                </dl>
-              </>
-            )}
+                  <dl>
+                    <div>
+                      <dt>Paid from</dt>
+                      <dd>
+                        {land.account_key === "builder"
+                          ? "Builder Account"
+                          : land.account_key === "personal"
+                            ? "Personal Account"
+                            : "Not recorded"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Payment method</dt>
+                      <dd>{payment ? methods[payment.method] : "Not recorded"}</dd>
+                    </div>
+                    {payment &&
+                      Object.entries({
+                        "Paid to": payment.paid_to,
+                        "Bank / provider": payment.provider,
+                        "Account name": payment.account_name,
+                        "Account / IBAN": payment.account_no,
+                        "Reference / cheque number": payment.reference,
+                        "Cheque date": payment.cheque_date,
+                      })
+                        .filter(([, value]) => value)
+                        .map(([label, value]) => (
+                          <div key={label}>
+                            <dt>{label}</dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
+                  </dl>
+                </>
+              )}
+            </div>
           </div>
         )}
-        <section className="land-modal-documents">
-          <h3>
-            {tab === "payment"
-              ? `${payment ? methods[payment.method] : "Payment"} receipts`
-              : "Land documents"}
-          </h3>
-          <p>Images open in preview. PDFs open in your PDF viewer.</p>
-          {loading ? (
-            <p role="status">Loading documents…</p>
-          ) : error ? (
-            <p role="alert">{error}</p>
-          ) : files.length ? (
-            <>
-              <SavedImageGallery documents={files} />
-              <div className="land-download-actions">
-                {files.map((doc) => (
-                  <button
-                    type="button"
-                    key={doc.id}
-                    disabled={!!downloading || !doc.file_path}
-                    onClick={() => void download(doc)}
-                  >
-                    <Download size={16} />
-                    <span>{downloading === doc.id ? "Downloading…" : `Download ${doc.title}`}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p>No {tab === "payment" ? "payment receipts" : "land documents"} saved yet.</p>
-          )}
-        </section>
+        {(files.length > 0 || error) && (
+          <section className="land-modal-documents">
+            <h3>
+              {tab === "payment"
+                ? `${payment ? methods[payment.method] : "Payment"} receipts`
+                : "Land documents"}
+            </h3>
+            <p>Images open in preview. PDFs open in your PDF viewer.</p>
+            {loading ? (
+              <p role="status">Loading documents…</p>
+            ) : error ? (
+              <p role="alert">{error}</p>
+            ) : files.length ? (
+              <>
+                <SavedImageGallery documents={files} />
+                <div className="land-download-actions">
+                  {files.map((doc) => (
+                    <button
+                      type="button"
+                      key={doc.id}
+                      disabled={!!downloading || !doc.file_path}
+                      onClick={() => void download(doc)}
+                    >
+                      <Download size={16} />
+                      <span>
+                        {downloading === doc.id ? "Downloading…" : `Download ${doc.title}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p>No {tab === "payment" ? "payment receipts" : "land documents"} saved yet.</p>
+            )}
+          </section>
+        )}
         <footer className="land-modal-actions">
           <button type="button" onClick={() => setPrinting(true)}>
             <Printer size={18} /> Print / Save details as PDF

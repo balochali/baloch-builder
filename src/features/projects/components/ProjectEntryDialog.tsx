@@ -1,7 +1,20 @@
+import { PaymentMethodOptions } from "@/components/PaymentChoices";
+import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { useState, type FormEvent } from "react";
 import { format } from "date-fns";
-import { Banknote, Building2, Calculator, CircleDollarSign, ClipboardList, Coins, CreditCard, ImagePlus, Landmark, ReceiptText, TrendingUp, Wallet } from "lucide-react";
-import { SelectedImagePreviews } from "@/features/documents/components/ImageGallery";
+import {
+  Building2,
+  Calculator,
+  CircleDollarSign,
+  ClipboardList,
+  Coins,
+  CreditCard,
+  ImagePlus,
+  ReceiptText,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
+
 import "./project-entry-dialog.css";
 import {
   ActualCostInputSchema,
@@ -10,7 +23,10 @@ import {
   type EstimateInput,
 } from "@/data/repositories/projectFinanceRepository";
 import type { ProjectBuildingDetails, ProjectEstimate } from "@/domain/types";
-import { emptyPaymentDetails, type PaymentDetails } from "@/data/repositories/projectPartnersRepository";
+import {
+  emptyPaymentDetails,
+  type PaymentDetails,
+} from "@/data/repositories/projectPartnersRepository";
 import {
   flatRecoveryLines,
   plannedFlatGroups,
@@ -52,7 +68,10 @@ interface Props {
   recoveryEstimates?: ProjectEstimate[];
   onOpenChange: (open: boolean) => void;
   onEstimate: (value: EstimateInput) => Promise<void>;
-  onActual: (value: ActualCostInput, documents?: { transactionReceipts: File[]; supplierBills: File[] }) => Promise<void>;
+  onActual: (
+    value: ActualCostInput,
+    documents?: { transactionReceipts: File[]; supplierBills: File[] },
+  ) => Promise<void>;
   actualTitle?: string;
   costKind?: "project" | "construction";
 }
@@ -139,7 +158,9 @@ export function ProjectEntryDialog({
   const [customizeFlatPrices, setCustomizeFlatPrices] = useState(savedFlatLines.length > 0);
   const [commonFlatPrice, setCommonFlatPrice] = useState("");
   const [commonFlatMaximum, setCommonFlatMaximum] = useState("");
-  const floorSteps = [...new Set(flatGroups.map((group) => group.floor_index))].sort((a, b) => a - b);
+  const floorSteps = [...new Set(flatGroups.map((group) => group.floor_index))].sort(
+    (a, b) => a - b,
+  );
   const [floorStep, setFloorStep] = useState(0);
   const activeFloor = floorSteps[floorStep];
   const flatAvailable = (floorIndex: number, rooms: number) => {
@@ -164,13 +185,14 @@ export function ProjectEntryDialog({
   );
   const flatCount = includedFlats.reduce((total, line) => total + line.quantity, 0);
   const invalidFlatLine = (line: (typeof flatDrafts)[number]) =>
-    (!Number.isInteger(line.quantity) ||
-      line.quantity < 0 ||
-      line.quantity > flatAvailable(line.floor_index, line.rooms) ||
-      (line.quantity > 0 && (wholeRupees(line.minimum) === null ||
+    !Number.isInteger(line.quantity) ||
+    line.quantity < 0 ||
+    line.quantity > flatAvailable(line.floor_index, line.rooms) ||
+    (line.quantity > 0 &&
+      (wholeRupees(line.minimum) === null ||
         wholeRupees(line.maximum) === null ||
-        wholeRupees(line.maximum)! < wholeRupees(line.minimum)!)));
-  const floorLabel = (floor: number) => floor === 0 ? "Ground floor" : `Floor ${floor}`;
+        wholeRupees(line.maximum)! < wholeRupees(line.minimum)!));
+  const floorLabel = (floor: number) => (floor === 0 ? "Ground floor" : `Floor ${floor}`);
   function nextFloor() {
     if (flatDrafts.some((line) => line.floor_index === activeFloor && invalidFlatLine(line))) {
       setError(`Check the quantities and prices on ${floorLabel(activeFloor)} before continuing.`);
@@ -202,7 +224,10 @@ export function ProjectEntryDialog({
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (guidedCostMode && constructionStep < 2) {
-      if (constructionStep === 0 && (!title.trim() || !date || !wholeRupees(amount) || wholeRupees(amount)! <= 0)) {
+      if (
+        constructionStep === 0 &&
+        (!title.trim() || !date || !wholeRupees(amount) || wholeRupees(amount)! <= 0)
+      ) {
         setError("Enter what was purchased, the payment date, and a valid amount.");
         return;
       }
@@ -210,15 +235,29 @@ export function ProjectEntryDialog({
         setError("Choose Personal or Builder Account before continuing.");
         return;
       }
-      if (constructionStep === 1 && method === "bank" && (!paymentDetails.from_bank.trim() || !paymentDetails.to_bank.trim() || !reference.trim())) {
+      if (
+        constructionStep === 1 &&
+        method === "bank" &&
+        (!paymentDetails.from_bank.trim() || !paymentDetails.to_bank.trim() || !reference.trim())
+      ) {
         setError("Enter the sending bank, receiving bank, and transfer reference.");
         return;
       }
-      if (constructionStep === 1 && method === "digital" && (!paymentDetails.from_bank.trim() || !reference.trim())) {
+      if (
+        constructionStep === 1 &&
+        method === "digital" &&
+        (!paymentDetails.from_bank.trim() || !reference.trim())
+      ) {
         setError("Enter the wallet or service and transaction ID.");
         return;
       }
-      if (constructionStep === 1 && method === "cheque" && (!paymentDetails.cheque_no.trim() || !paymentDetails.cheque_date || !paymentDetails.from_bank.trim())) {
+      if (
+        constructionStep === 1 &&
+        method === "cheque" &&
+        (!paymentDetails.cheque_no.trim() ||
+          !paymentDetails.cheque_date ||
+          !paymentDetails.from_bank.trim())
+      ) {
         setError("Enter the cheque number, date, and issuing bank.");
         return;
       }
@@ -310,15 +349,29 @@ export function ProjectEntryDialog({
         setError("Choose Personal or Builder Account before saving this payment.");
         return;
       }
-      if (guidedCostMode && method === "bank" && (!paymentDetails.from_bank.trim() || !paymentDetails.to_bank.trim() || !reference.trim())) {
+      if (
+        guidedCostMode &&
+        method === "bank" &&
+        (!paymentDetails.from_bank.trim() || !paymentDetails.to_bank.trim() || !reference.trim())
+      ) {
         setError("Enter the sending bank, receiving bank, and transfer reference.");
         return;
       }
-      if (guidedCostMode && method === "digital" && (!paymentDetails.from_bank.trim() || !reference.trim())) {
+      if (
+        guidedCostMode &&
+        method === "digital" &&
+        (!paymentDetails.from_bank.trim() || !reference.trim())
+      ) {
         setError("Enter the wallet or service and transaction ID.");
         return;
       }
-      if (guidedCostMode && method === "cheque" && (!paymentDetails.cheque_no.trim() || !paymentDetails.cheque_date || !paymentDetails.from_bank.trim())) {
+      if (
+        guidedCostMode &&
+        method === "cheque" &&
+        (!paymentDetails.cheque_no.trim() ||
+          !paymentDetails.cheque_date ||
+          !paymentDetails.from_bank.trim())
+      ) {
         setError("Enter the cheque number, date, and issuing bank.");
         return;
       }
@@ -342,7 +395,13 @@ export function ProjectEntryDialog({
     setPending(true);
     try {
       if (mode === "estimate") await onEstimate(value as EstimateInput);
-      else await onActual(value as ActualCostInput, guidedCostMode ? { transactionReceipts: receiptImages, supplierBills: billImages } : undefined);
+      else
+        await onActual(
+          value as ActualCostInput,
+          guidedCostMode
+            ? { transactionReceipts: receiptImages, supplierBills: billImages }
+            : undefined,
+        );
       onOpenChange(false);
     } catch (cause) {
       setError(`Could not save: ${String(cause)}`);
@@ -356,16 +415,34 @@ export function ProjectEntryDialog({
       <DialogContent
         className={`${mode === "estimate" ? `estimate-entry-dialog estimate-entry-${kind}` : ""} ${guidedCostMode ? `construction-entry-dialog ${costKind === "project" ? "actual-entry-dialog" : ""}` : ""} max-h-[90vh] overflow-y-auto ${detailedFlats || guidedCostMode ? "sm:max-w-2xl" : mode === "estimate" ? "sm:max-w-xl" : "sm:max-w-lg"}`}
       >
-        <DialogHeader className={mode === "estimate" ? "estimate-entry-header" : guidedCostMode ? "construction-entry-header" : ""}>
+        <DialogHeader
+          className={
+            mode === "estimate"
+              ? "estimate-entry-header"
+              : guidedCostMode
+                ? "construction-entry-header"
+                : ""
+          }
+        >
           {mode === "estimate" && (
             <span className="estimate-entry-icon" aria-hidden="true">
               {kind === "cost" ? <Calculator size={26} /> : <TrendingUp size={26} />}
             </span>
           )}
-          {guidedCostMode && <span className="construction-entry-icon" aria-hidden="true">{costKind === "construction" ? <Building2 size={27} /> : <Wallet size={27} />}</span>}
+          {guidedCostMode && (
+            <span className="construction-entry-icon" aria-hidden="true">
+              {costKind === "construction" ? <Building2 size={27} /> : <Wallet size={27} />}
+            </span>
+          )}
           <div>
-            {mode === "estimate" && <span className="estimate-entry-eyebrow">PROJECT ESTIMATE</span>}
-            {guidedCostMode && <span className="construction-entry-eyebrow">{costKind === "construction" ? "CONSTRUCTION PAYMENT" : "PROJECT PAYMENT"}</span>}
+            {mode === "estimate" && (
+              <span className="estimate-entry-eyebrow">PROJECT ESTIMATE</span>
+            )}
+            {guidedCostMode && (
+              <span className="construction-entry-eyebrow">
+                {costKind === "construction" ? "CONSTRUCTION PAYMENT" : "PROJECT PAYMENT"}
+              </span>
+            )}
             <DialogTitle>
               {estimate
                 ? `Edit ${kind === "cost" ? "Expected Cost" : "Expected Recovery"}`
@@ -380,27 +457,86 @@ export function ProjectEntryDialog({
                   : "Estimate what the planned spaces could earn."}
               </p>
             )}
-            {guidedCostMode && <p className="construction-entry-subtitle">Record what was paid and how the money reached the recipient.</p>}
+            {guidedCostMode && (
+              <p className="construction-entry-subtitle">
+                Record what was paid and how the money reached the recipient.
+              </p>
+            )}
           </div>
         </DialogHeader>
         <form id="project-entry-form" onSubmit={save} className="space-y-4">
-          {guidedCostMode && <div className="construction-stepper" aria-label="Cost entry steps">
-            {[
-              { label: "Cost", icon: ClipboardList },
-              { label: "Payment", icon: Wallet },
-              { label: "Documents", icon: ImagePlus },
-            ].map(({ label, icon: Icon }, index) => <button key={label} type="button" className={index === constructionStep ? "is-current" : index < constructionStep ? "is-complete" : ""} aria-current={index === constructionStep ? "step" : undefined} disabled={index > constructionStep} onClick={() => { setConstructionStep(index); setError(""); }}><span><Icon size={17} /></span><strong>{label}</strong></button>)}
-          </div>}
-          {guidedCostMode && <div className="construction-step-intro"><strong>{constructionStep === 0 ? "What did you pay for?" : constructionStep === 1 ? "How did you pay?" : "Keep both proofs together"}</strong><span>{constructionStep === 0 ? "Enter the cost, date and amount." : constructionStep === 1 ? "Choose the account and payment method." : "Upload the transaction receipt and the supplier's bill separately."}</span></div>}
+          {guidedCostMode && (
+            <div className="construction-stepper" aria-label="Cost entry steps">
+              {[
+                { label: "Cost", icon: ClipboardList },
+                { label: "Payment", icon: Wallet },
+                { label: "Documents", icon: ImagePlus },
+              ].map(({ label, icon: Icon }, index) => (
+                <button
+                  key={label}
+                  type="button"
+                  className={
+                    index === constructionStep
+                      ? "is-current"
+                      : index < constructionStep
+                        ? "is-complete"
+                        : ""
+                  }
+                  aria-current={index === constructionStep ? "step" : undefined}
+                  disabled={index > constructionStep}
+                  onClick={() => {
+                    setConstructionStep(index);
+                    setError("");
+                  }}
+                >
+                  <span>
+                    <Icon size={17} />
+                  </span>
+                  <strong>{label}</strong>
+                </button>
+              ))}
+            </div>
+          )}
+          {guidedCostMode && (
+            <div className="construction-step-intro">
+              <strong>
+                {constructionStep === 0
+                  ? "What did you pay for?"
+                  : constructionStep === 1
+                    ? "How did you pay?"
+                    : "Keep both proofs together"}
+              </strong>
+              <span>
+                {constructionStep === 0
+                  ? "Enter the cost, date and amount."
+                  : constructionStep === 1
+                    ? "Choose the account and payment method."
+                    : "Upload the transaction receipt and the supplier's bill separately."}
+              </span>
+            </div>
+          )}
           {guidedCostMode && constructionStep === 1 && (
             <fieldset className="construction-entry-section">
-              <legend><Wallet size={18} /> Pay from account *</legend>
+              <legend>
+                <Wallet size={18} /> Pay from account *
+              </legend>
               <div className="construction-account-options">
                 {(["personal", "builder"] as const).map((account) => (
                   <label key={account} className={accountKey === account ? "is-selected" : ""}>
-                    <input type="radio" name="construction-account" value={account} checked={accountKey === account} onChange={() => setAccountKey(account)} required />
-                    <span>{account === "personal" ? <Wallet size={21} /> : <Building2 size={21} />}</span>
-                    <strong>{account === "personal" ? "Personal Account" : "Builder Account"}</strong>
+                    <input
+                      type="radio"
+                      name="construction-account"
+                      value={account}
+                      checked={accountKey === account}
+                      onChange={() => setAccountKey(account)}
+                      required
+                    />
+                    <span>
+                      {account === "personal" ? <Wallet size={21} /> : <Building2 size={21} />}
+                    </span>
+                    <strong>
+                      {account === "personal" ? "Personal Account" : "Builder Account"}
+                    </strong>
                   </label>
                 ))}
               </div>
@@ -409,7 +545,10 @@ export function ProjectEntryDialog({
           )}
           {mode === "estimate" && kind === "cost" && (
             <div className="estimate-entry-section space-y-1.5">
-              <div className="estimate-entry-section-heading"><ClipboardList size={19} /><span>What are you planning for?</span></div>
+              <div className="estimate-entry-section-heading">
+                <ClipboardList size={19} />
+                <span>What are you planning for?</span>
+              </div>
               <Label htmlFor="entry-cost-choice">Cost item *</Label>
               <select
                 id="entry-cost-choice"
@@ -436,7 +575,10 @@ export function ProjectEntryDialog({
           )}
           {mode === "estimate" && kind === "revenue" && !legacyRecovery && (
             <div className="estimate-entry-section space-y-2">
-              <div className="estimate-entry-section-heading"><Coins size={19} /><span>What will be sold?</span></div>
+              <div className="estimate-entry-section-heading">
+                <Coins size={19} />
+                <span>What will be sold?</span>
+              </div>
               <Label htmlFor="entry-recovery-space">Space to sell *</Label>
               {inventory.length > 0 ? (
                 <>
@@ -492,41 +634,64 @@ export function ProjectEntryDialog({
               )}
             </div>
           )}
-          {(mode !== "estimate" ||
-            legacyRecovery ||
-            (kind === "cost" && costChoice === "other")) && (!guidedCostMode || constructionStep === 0) && (
-            <div className="space-y-1.5">
-              <Label htmlFor="entry-title">
-                {mode === "actual"
-                  ? "Cost description"
-                  : kind === "cost"
-                    ? "Other cost name"
-                    : "Recovery item name"}{" "}
-                *
-              </Label>
-              <Input
-                id="entry-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder={
-                  mode === "actual"
-                    ? "e.g. Cement payment"
+          {(mode !== "estimate" || legacyRecovery || (kind === "cost" && costChoice === "other")) &&
+            (!guidedCostMode || constructionStep === 0) && (
+              <div className="space-y-1.5">
+                <Label htmlFor="entry-title">
+                  {mode === "actual"
+                    ? "Cost description"
                     : kind === "cost"
-                      ? "e.g. Transport Cost"
-                      : "e.g. Flat sales"
-                }
-                required
-              />
-            </div>
-          )}
+                      ? "Other cost name"
+                      : "Recovery item name"}{" "}
+                  *
+                </Label>
+                <Input
+                  id="entry-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder={
+                    mode === "actual"
+                      ? "e.g. Cement payment"
+                      : kind === "cost"
+                        ? "e.g. Transport Cost"
+                        : "e.g. Flat sales"
+                  }
+                  required
+                />
+              </div>
+            )}
           {mode === "estimate" && kind === "revenue" && !legacyRecovery && detailedFlats ? (
             <>
               <div className="estimate-recovery-intro">
-                <div className="estimate-entry-section-heading"><CircleDollarSign size={19} /><span>Set selling prices</span></div>
-                <p>{flatCount} available flats are included. Enter one price for all, or customize by floor and size.</p>
-                <div className="estimate-recovery-modes" role="group" aria-label="Flat pricing method">
-                  <Button type="button" variant={!customizeFlatPrices ? "default" : "outline"} className={!customizeFlatPrices ? "is-active" : ""} onClick={() => setCustomizeFlatPrices(false)}>One price for all</Button>
-                  <Button type="button" variant={customizeFlatPrices ? "default" : "outline"} className={customizeFlatPrices ? "is-active" : ""} onClick={() => setCustomizeFlatPrices(true)}>Customize by floor</Button>
+                <div className="estimate-entry-section-heading">
+                  <CircleDollarSign size={19} />
+                  <span>Set selling prices</span>
+                </div>
+                <p>
+                  {flatCount} available flats are included. Enter one price for all, or customize by
+                  floor and size.
+                </p>
+                <div
+                  className="estimate-recovery-modes"
+                  role="group"
+                  aria-label="Flat pricing method"
+                >
+                  <Button
+                    type="button"
+                    variant={!customizeFlatPrices ? "default" : "outline"}
+                    className={!customizeFlatPrices ? "is-active" : ""}
+                    onClick={() => setCustomizeFlatPrices(false)}
+                  >
+                    One price for all
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={customizeFlatPrices ? "default" : "outline"}
+                    className={customizeFlatPrices ? "is-active" : ""}
+                    onClick={() => setCustomizeFlatPrices(true)}
+                  >
+                    Customize by floor
+                  </Button>
                 </div>
               </div>
               {!customizeFlatPrices && (
@@ -534,111 +699,173 @@ export function ProjectEntryDialog({
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label htmlFor="flat-common-price">Expected price per flat (Rs) *</Label>
-                      <Input id="flat-common-price" inputMode="numeric" placeholder="e.g. 5,000,000" value={commonFlatPrice} required
+                      <Input
+                        id="flat-common-price"
+                        inputMode="numeric"
+                        placeholder="e.g. 5,000,000"
+                        value={commonFlatPrice}
+                        required
                         onChange={(event) => {
                           const price = event.target.value;
                           setCommonFlatPrice(price);
-                          setFlatDrafts((current) => current.map((line) => ({ ...line, minimum: price, maximum: commonFlatMaximum || price })));
-                        }} />
+                          setFlatDrafts((current) =>
+                            current.map((line) => ({
+                              ...line,
+                              minimum: price,
+                              maximum: commonFlatMaximum || price,
+                            })),
+                          );
+                        }}
+                      />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="flat-common-maximum">Highest price per flat (Rs) · optional</Label>
-                      <Input id="flat-common-maximum" inputMode="numeric" placeholder="Same as expected price" value={commonFlatMaximum}
+                      <Label htmlFor="flat-common-maximum">
+                        Highest price per flat (Rs) · optional
+                      </Label>
+                      <Input
+                        id="flat-common-maximum"
+                        inputMode="numeric"
+                        placeholder="Same as expected price"
+                        value={commonFlatMaximum}
                         onChange={(event) => {
                           const price = event.target.value;
                           setCommonFlatMaximum(price);
-                          setFlatDrafts((current) => current.map((line) => ({ ...line, maximum: price || commonFlatPrice })));
-                        }} />
+                          setFlatDrafts((current) =>
+                            current.map((line) => ({ ...line, maximum: price || commonFlatPrice })),
+                          );
+                        }}
+                      />
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">Leave the highest price blank for a single-price estimate.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Leave the highest price blank for a single-price estimate.
+                  </p>
                 </div>
               )}
-              {customizeFlatPrices && <div className="estimate-recovery-floor-step">
-                <div className="estimate-recovery-floor-heading">
-                  <div><small>FLOOR {floorStep + 1} OF {floorSteps.length}</small><h3>{floorLabel(activeFloor)}</h3><p>Set the number of flats and price range for each size on this floor.</p></div>
-                  <span>{flatDrafts.filter((line) => line.floor_index === activeFloor).reduce((sum, line) => sum + line.quantity, 0)} flats</span>
-                </div>
-                <div className="estimate-recovery-floor-progress" aria-label={`Floor ${floorStep + 1} of ${floorSteps.length}`}>
-                  {floorSteps.map((floor, index) => <i key={floor} className={index <= floorStep ? "is-current" : ""} />)}
-                </div>
-                <div className="flat-recovery-groups">
-                {flatDrafts.map((line, index) => {
-                  if (line.floor_index !== activeFloor) return null;
-                  const available = flatAvailable(line.floor_index, line.rooms);
-                  return (
-                    <div className="flat-recovery-row" key={`${line.floor_index}-${line.rooms}`}>
-                      <div className="flat-recovery-label">
-                        <strong>
-                          {line.rooms}-room flats
-                        </strong>
-                        <span>{available} available</span>
-                      </div>
-                      <div>
-                        <Label htmlFor={`flat-quantity-${index}`}>Flats to sell</Label>
-                        <Input
-                          id={`flat-quantity-${index}`}
-                          type="number"
-                          min={0}
-                          max={available}
-                          value={line.quantity}
-                          onChange={(event) =>
-                            setFlatDrafts((current) =>
-                              current.map((row, rowIndex) =>
-                                rowIndex === index
-                                  ? { ...row, quantity: Number(event.target.value) }
-                                  : row,
-                              ),
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`flat-min-${index}`}>Lowest price per flat (Rs)</Label>
-                        <Input
-                          id={`flat-min-${index}`}
-                          inputMode="numeric"
-                          value={line.minimum}
-                          onChange={(event) =>
-                            setFlatDrafts((current) =>
-                              current.map((row, rowIndex) =>
-                                rowIndex === index ? { ...row, minimum: event.target.value } : row,
-                              ),
-                            )
-                          }
-                          disabled={line.quantity === 0}
-                          required={line.quantity > 0}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`flat-max-${index}`}>Highest price per flat (Rs)</Label>
-                        <Input
-                          id={`flat-max-${index}`}
-                          inputMode="numeric"
-                          value={line.maximum}
-                          onChange={(event) =>
-                            setFlatDrafts((current) =>
-                              current.map((row, rowIndex) =>
-                                rowIndex === index ? { ...row, maximum: event.target.value } : row,
-                              ),
-                            )
-                          }
-                          disabled={line.quantity === 0}
-                          required={line.quantity > 0}
-                        />
-                      </div>
+              {customizeFlatPrices && (
+                <div className="estimate-recovery-floor-step">
+                  <div className="estimate-recovery-floor-heading">
+                    <div>
+                      <small>
+                        FLOOR {floorStep + 1} OF {floorSteps.length}
+                      </small>
+                      <h3>{floorLabel(activeFloor)}</h3>
+                      <p>Set the number of flats and price range for each size on this floor.</p>
                     </div>
-                  );
-                })}
+                    <span>
+                      {flatDrafts
+                        .filter((line) => line.floor_index === activeFloor)
+                        .reduce((sum, line) => sum + line.quantity, 0)}{" "}
+                      flats
+                    </span>
+                  </div>
+                  <div
+                    className="estimate-recovery-floor-progress"
+                    aria-label={`Floor ${floorStep + 1} of ${floorSteps.length}`}
+                  >
+                    {floorSteps.map((floor, index) => (
+                      <i key={floor} className={index <= floorStep ? "is-current" : ""} />
+                    ))}
+                  </div>
+                  <div className="flat-recovery-groups">
+                    {flatDrafts.map((line, index) => {
+                      if (line.floor_index !== activeFloor) return null;
+                      const available = flatAvailable(line.floor_index, line.rooms);
+                      return (
+                        <div
+                          className="flat-recovery-row"
+                          key={`${line.floor_index}-${line.rooms}`}
+                        >
+                          <div className="flat-recovery-label">
+                            <strong>{line.rooms}-room flats</strong>
+                            <span>{available} available</span>
+                          </div>
+                          <div>
+                            <Label htmlFor={`flat-quantity-${index}`}>Flats to sell</Label>
+                            <Input
+                              id={`flat-quantity-${index}`}
+                              type="number"
+                              min={0}
+                              max={available}
+                              value={line.quantity}
+                              onChange={(event) =>
+                                setFlatDrafts((current) =>
+                                  current.map((row, rowIndex) =>
+                                    rowIndex === index
+                                      ? { ...row, quantity: Number(event.target.value) }
+                                      : row,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`flat-min-${index}`}>Lowest price per flat (Rs)</Label>
+                            <Input
+                              id={`flat-min-${index}`}
+                              inputMode="numeric"
+                              value={line.minimum}
+                              onChange={(event) =>
+                                setFlatDrafts((current) =>
+                                  current.map((row, rowIndex) =>
+                                    rowIndex === index
+                                      ? { ...row, minimum: event.target.value }
+                                      : row,
+                                  ),
+                                )
+                              }
+                              disabled={line.quantity === 0}
+                              required={line.quantity > 0}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`flat-max-${index}`}>Highest price per flat (Rs)</Label>
+                            <Input
+                              id={`flat-max-${index}`}
+                              inputMode="numeric"
+                              value={line.maximum}
+                              onChange={(event) =>
+                                setFlatDrafts((current) =>
+                                  current.map((row, rowIndex) =>
+                                    rowIndex === index
+                                      ? { ...row, maximum: event.target.value }
+                                      : row,
+                                  ),
+                                )
+                              }
+                              disabled={line.quantity === 0}
+                              required={line.quantity > 0}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="estimate-recovery-floor-navigation">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={floorStep === 0}
+                      onClick={() => {
+                        setError("");
+                        setFloorStep((current) => current - 1);
+                      }}
+                    >
+                      Previous floor
+                    </Button>
+                    {floorStep < floorSteps.length - 1 && (
+                      <Button type="button" onClick={nextFloor}>
+                        Next floor
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="estimate-recovery-floor-navigation">
-                  <Button type="button" variant="outline" disabled={floorStep === 0} onClick={() => { setError(""); setFloorStep((current) => current - 1); }}>Previous floor</Button>
-                  {floorStep < floorSteps.length - 1 && <Button type="button" onClick={nextFloor}>Next floor</Button>}
-                </div>
-              </div>}
+              )}
               <p className="estimate-recovery-total rounded-md bg-muted p-3 text-sm">
                 <span>{flatCount} flats included · total expected recovery</span>
-                <strong>Rs {flatMinTotal.toLocaleString()} – Rs {flatMaxTotal.toLocaleString()}</strong>
+                <strong>
+                  Rs {flatMinTotal.toLocaleString()} – Rs {flatMaxTotal.toLocaleString()}
+                </strong>
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor="entry-details">Notes (optional)</Label>
@@ -702,7 +929,10 @@ export function ProjectEntryDialog({
             </>
           ) : mode === "estimate" ? (
             <>
-              <div className="estimate-entry-section-heading estimate-entry-amount-heading"><CircleDollarSign size={19} /><span>Estimated amount</span></div>
+              <div className="estimate-entry-section-heading estimate-entry-amount-heading">
+                <CircleDollarSign size={19} />
+                <span>Estimated amount</span>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="entry-minimum">Minimum estimate (Rs) *</Label>
@@ -739,100 +969,260 @@ export function ProjectEntryDialog({
             </>
           ) : (
             <>
-              {(!guidedCostMode || constructionStep === 0) && <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="entry-date">Payment date *</Label>
-                  <Input
-                    id="entry-date"
-                    type="date"
-                    value={date}
-                    onChange={(event) => setDate(event.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="entry-amount">Amount paid (Rs) *</Label>
-                  <Input
-                    id="entry-amount"
-                    inputMode="numeric"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    placeholder="e.g. 50,000"
-                    required
-                  />
-                </div>
-              </div>}
-              {guidedCostMode ? constructionStep === 1 && (
-                <div className="construction-entry-section construction-payment-section">
-                  <div className="construction-entry-section-title"><CreditCard size={19} /><span>How was it paid?</span></div>
-                  <div className="construction-method-options" role="group" aria-label="Payment method">
-                    {([
-                      { key: "cash", label: "Cash", icon: Banknote },
-                      { key: "bank", label: "Bank transfer", icon: Landmark },
-                      { key: "digital", label: "Digital wallet", icon: Wallet },
-                      { key: "cheque", label: "Cheque", icon: ReceiptText },
-                      { key: "other", label: "Other", icon: CircleDollarSign },
-                    ] as const).map(({ key, label, icon: Icon }) => (
-                      <button key={key} type="button" className={method === key ? "is-selected" : ""} aria-pressed={method === key} onClick={() => { setMethod(key); setReference(""); setPaymentDetails({ ...emptyPaymentDetails }); }}><Icon size={19} /><span>{label}</span></button>
-                    ))}
+              {(!guidedCostMode || constructionStep === 0) && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="entry-date">Payment date *</Label>
+                    <Input
+                      id="entry-date"
+                      type="date"
+                      value={date}
+                      onChange={(event) => setDate(event.target.value)}
+                      required
+                    />
                   </div>
-                  <div className="construction-method-fields">
-                    {method === "cash" && <div><Label htmlFor="construction-receipt">Receipt number (optional)</Label><Input id="construction-receipt" value={paymentDetails.receipt_no} onChange={(event) => updatePaymentDetail("receipt_no", event.target.value)} placeholder="If you have a cash receipt" /></div>}
-                    {method === "bank" && <><div><Label htmlFor="construction-from-bank">Sending bank *</Label><Input id="construction-from-bank" value={paymentDetails.from_bank} onChange={(event) => updatePaymentDetail("from_bank", event.target.value)} placeholder="e.g. Meezan Bank" required /></div><div><Label htmlFor="construction-to-bank">Receiving bank *</Label><Input id="construction-to-bank" value={paymentDetails.to_bank} onChange={(event) => updatePaymentDetail("to_bank", event.target.value)} placeholder="Recipient's bank" required /></div><div><Label htmlFor="construction-from-account">Sender account / IBAN</Label><Input id="construction-from-account" value={paymentDetails.from_account_no} onChange={(event) => updatePaymentDetail("from_account_no", event.target.value)} /></div><div><Label htmlFor="construction-to-account">Recipient account / IBAN</Label><Input id="construction-to-account" value={paymentDetails.to_account_no} onChange={(event) => updatePaymentDetail("to_account_no", event.target.value)} /></div></>}
-                    {method === "digital" && <><div><Label htmlFor="construction-wallet">Wallet or service *</Label><Input id="construction-wallet" value={paymentDetails.from_bank} onChange={(event) => updatePaymentDetail("from_bank", event.target.value)} placeholder="e.g. Easypaisa" required /></div><div><Label htmlFor="construction-wallet-account">Recipient wallet / number</Label><Input id="construction-wallet-account" value={paymentDetails.to_account_no} onChange={(event) => updatePaymentDetail("to_account_no", event.target.value)} /></div></>}
-                    {method === "cheque" && <><div><Label htmlFor="construction-cheque-bank">Issuing bank *</Label><Input id="construction-cheque-bank" value={paymentDetails.from_bank} onChange={(event) => updatePaymentDetail("from_bank", event.target.value)} required /></div><div><Label htmlFor="construction-cheque-no">Cheque number *</Label><Input id="construction-cheque-no" value={paymentDetails.cheque_no} onChange={(event) => updatePaymentDetail("cheque_no", event.target.value)} required /></div><div><Label htmlFor="construction-cheque-date">Cheque date *</Label><Input id="construction-cheque-date" type="date" value={paymentDetails.cheque_date} onChange={(event) => updatePaymentDetail("cheque_date", event.target.value)} required /></div><div><Label htmlFor="construction-cheque-payee">Payable to</Label><Input id="construction-cheque-payee" value={paymentDetails.cheque_payee} onChange={(event) => updatePaymentDetail("cheque_payee", event.target.value)} /></div></>}
-                    {(method === "bank" || method === "digital" || method === "cheque" || method === "other") && <div className="construction-reference"><Label htmlFor="entry-reference">{method === "bank" ? "Transfer reference *" : method === "digital" ? "Transaction ID *" : method === "cheque" ? "Deposit reference (optional)" : "Reference (optional)"}</Label><Input id="entry-reference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder={method === "bank" || method === "digital" ? "Enter the payment reference" : "Optional reference"} required={method === "bank" || method === "digital"} /></div>}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="entry-amount">Amount paid (Rs) *</Label>
+                    <Input
+                      id="entry-amount"
+                      inputMode="numeric"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      placeholder="e.g. 50,000"
+                      required
+                    />
                   </div>
                 </div>
+              )}
+              {guidedCostMode ? (
+                constructionStep === 1 && (
+                  <div className="construction-entry-section construction-payment-section">
+                    <div className="construction-entry-section-title">
+                      <CreditCard size={19} />
+                      <span>How was it paid?</span>
+                    </div>
+                    <PaymentMethodOptions
+                      value={method}
+                      onChange={(key) => {
+                        setMethod(key);
+                        setReference("");
+                        setPaymentDetails({ ...emptyPaymentDetails });
+                      }}
+                    />
+                    <div className="construction-method-fields">
+                      {method === "cash" && (
+                        <div>
+                          <Label htmlFor="construction-receipt">Receipt number (optional)</Label>
+                          <Input
+                            id="construction-receipt"
+                            value={paymentDetails.receipt_no}
+                            onChange={(event) =>
+                              updatePaymentDetail("receipt_no", event.target.value)
+                            }
+                            placeholder="If you have a cash receipt"
+                          />
+                        </div>
+                      )}
+                      {method === "bank" && (
+                        <>
+                          <div>
+                            <Label htmlFor="construction-from-bank">Sending bank *</Label>
+                            <Input
+                              id="construction-from-bank"
+                              value={paymentDetails.from_bank}
+                              onChange={(event) =>
+                                updatePaymentDetail("from_bank", event.target.value)
+                              }
+                              placeholder="e.g. Meezan Bank"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="construction-to-bank">Receiving bank *</Label>
+                            <Input
+                              id="construction-to-bank"
+                              value={paymentDetails.to_bank}
+                              onChange={(event) =>
+                                updatePaymentDetail("to_bank", event.target.value)
+                              }
+                              placeholder="Recipient's bank"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="construction-from-account">Sender account / IBAN</Label>
+                            <Input
+                              id="construction-from-account"
+                              value={paymentDetails.from_account_no}
+                              onChange={(event) =>
+                                updatePaymentDetail("from_account_no", event.target.value)
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="construction-to-account">
+                              Recipient account / IBAN
+                            </Label>
+                            <Input
+                              id="construction-to-account"
+                              value={paymentDetails.to_account_no}
+                              onChange={(event) =>
+                                updatePaymentDetail("to_account_no", event.target.value)
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+                      {method === "digital" && (
+                        <>
+                          <div>
+                            <Label htmlFor="construction-wallet">Wallet or service *</Label>
+                            <Input
+                              id="construction-wallet"
+                              value={paymentDetails.from_bank}
+                              onChange={(event) =>
+                                updatePaymentDetail("from_bank", event.target.value)
+                              }
+                              placeholder="e.g. Easypaisa"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="construction-wallet-account">
+                              Recipient wallet / number
+                            </Label>
+                            <Input
+                              id="construction-wallet-account"
+                              value={paymentDetails.to_account_no}
+                              onChange={(event) =>
+                                updatePaymentDetail("to_account_no", event.target.value)
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+                      {method === "cheque" && (
+                        <>
+                          <div>
+                            <Label htmlFor="construction-cheque-bank">Issuing bank *</Label>
+                            <Input
+                              id="construction-cheque-bank"
+                              value={paymentDetails.from_bank}
+                              onChange={(event) =>
+                                updatePaymentDetail("from_bank", event.target.value)
+                              }
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="construction-cheque-no">Cheque number *</Label>
+                            <Input
+                              id="construction-cheque-no"
+                              value={paymentDetails.cheque_no}
+                              onChange={(event) =>
+                                updatePaymentDetail("cheque_no", event.target.value)
+                              }
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="construction-cheque-date">Cheque date *</Label>
+                            <Input
+                              id="construction-cheque-date"
+                              type="date"
+                              value={paymentDetails.cheque_date}
+                              onChange={(event) =>
+                                updatePaymentDetail("cheque_date", event.target.value)
+                              }
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="construction-cheque-payee">Payable to</Label>
+                            <Input
+                              id="construction-cheque-payee"
+                              value={paymentDetails.cheque_payee}
+                              onChange={(event) =>
+                                updatePaymentDetail("cheque_payee", event.target.value)
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+                      {(method === "bank" ||
+                        method === "digital" ||
+                        method === "cheque" ||
+                        method === "other") && (
+                        <div className="construction-reference">
+                          <Label htmlFor="entry-reference">
+                            {method === "bank"
+                              ? "Transfer reference *"
+                              : method === "digital"
+                                ? "Transaction ID *"
+                                : method === "cheque"
+                                  ? "Deposit reference (optional)"
+                                  : "Reference (optional)"}
+                          </Label>
+                          <Input
+                            id="entry-reference"
+                            value={reference}
+                            onChange={(event) => setReference(event.target.value)}
+                            placeholder={
+                              method === "bank" || method === "digital"
+                                ? "Enter the payment reference"
+                                : "Optional reference"
+                            }
+                            required={method === "bank" || method === "digital"}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5"><Label htmlFor="entry-method">Payment method</Label><select id="entry-method" value={method} onChange={(event) => setMethod(event.target.value as typeof method)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="cash">Cash</option><option value="bank">Bank</option><option value="cheque">Cheque</option><option value="other">Other</option></select></div>
-                  <div className="space-y-1.5"><Label htmlFor="entry-reference">Reference</Label><Input id="entry-reference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Optional receipt or transfer ID" /></div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="entry-method">Payment method</Label>
+                    <select
+                      id="entry-method"
+                      value={method}
+                      onChange={(event) => setMethod(event.target.value as typeof method)}
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="entry-reference">Reference</Label>
+                    <Input
+                      id="entry-reference"
+                      value={reference}
+                      onChange={(event) => setReference(event.target.value)}
+                      placeholder="Optional receipt or transfer ID"
+                    />
+                  </div>
                 </div>
               )}
               {guidedCostMode && constructionStep === 2 && (
-                <section className="construction-receipts">
-                  <div className="construction-entry-section-title"><ImagePlus size={19} /><span>Transaction receipt (optional)</span></div>
-                  <p>Upload proof that the payment was made: a cash receipt, transfer screenshot, or cheque image.</p>
-                  <input id="construction-receipt-images" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="construction-receipt-input" onChange={(event) => {
-                    const files = Array.from(event.target.files ?? []);
-                    if (files.some((file) => !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024)) {
-                      setError("Choose JPEG, PNG, WebP or GIF images smaller than 10 MB each.");
-                      event.target.value = "";
-                      return;
-                    }
-                    setError("");
-                    setReceiptImages(files);
-                  }} />
-                  <label htmlFor="construction-receipt-images" className="construction-receipt-upload">
-                    <span><ImagePlus size={26} aria-hidden="true" /></span>
-                    <strong>{receiptImages.length ? `${receiptImages.length} transaction image${receiptImages.length === 1 ? "" : "s"} selected` : "Add transaction receipt"}</strong>
-                    <small>Choose images or tap here to upload · up to 10 MB each</small>
-                  </label>
-                  <SelectedImagePreviews files={receiptImages} />
-                </section>
+                <AttachmentUpload
+                  files={receiptImages}
+                  onChange={setReceiptImages}
+                  onError={setError}
+                />
               )}
               {guidedCostMode && constructionStep === 2 && (
-                <section className="construction-receipts construction-bills">
-                  <div className="construction-entry-section-title"><ReceiptText size={19} /><span>Supplier bill (optional)</span></div>
-                  <p>Upload the company or supplier's bill showing the materials, labour, or items purchased.</p>
-                  <input id="construction-bill-images" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="construction-receipt-input" onChange={(event) => {
-                    const files = Array.from(event.target.files ?? []);
-                    if (files.some((file) => !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024)) {
-                      setError("Choose JPEG, PNG, WebP or GIF images smaller than 10 MB each.");
-                      event.target.value = "";
-                      return;
-                    }
-                    setError("");
-                    setBillImages(files);
-                  }} />
-                  <label htmlFor="construction-bill-images" className="construction-receipt-upload">
-                    <span><ReceiptText size={26} aria-hidden="true" /></span>
-                    <strong>{billImages.length ? `${billImages.length} bill image${billImages.length === 1 ? "" : "s"} selected` : "Add supplier bill"}</strong>
-                    <small>Choose images or tap here to upload · up to 10 MB each</small>
-                  </label>
-                  <SelectedImagePreviews files={billImages} />
-                </section>
+                <AttachmentUpload
+                  files={billImages}
+                  onChange={setBillImages}
+                  title="Supplier bill (optional)"
+                  label="Add supplier bill"
+                  description="Upload the supplier bill showing materials, labour or items purchased."
+                  icon={ReceiptText}
+                  onError={setError}
+                />
               )}
               <p className="text-xs text-muted-foreground">
                 This payment will also appear in the project ledger.
@@ -846,7 +1236,18 @@ export function ProjectEntryDialog({
           )}
         </form>
         <DialogFooter className={mode === "estimate" ? "estimate-entry-footer" : ""}>
-          {guidedCostMode && constructionStep > 0 && <Button type="button" variant="outline" onClick={() => { setConstructionStep((current) => current - 1); setError(""); }}>Back</Button>}
+          {guidedCostMode && constructionStep > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setConstructionStep((current) => current - 1);
+                setError("");
+              }}
+            >
+              Back
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
@@ -854,7 +1255,11 @@ export function ProjectEntryDialog({
             className={mode === "estimate" ? "estimate-entry-save" : ""}
             type="submit"
             form="project-entry-form"
-            style={detailedFlats && customizeFlatPrices && floorStep < floorSteps.length - 1 ? { display: "none" } : undefined}
+            style={
+              detailedFlats && customizeFlatPrices && floorStep < floorSteps.length - 1
+                ? { display: "none" }
+                : undefined
+            }
             disabled={
               pending ||
               (mode === "estimate" &&
@@ -863,7 +1268,15 @@ export function ProjectEntryDialog({
                 inventory.length === 0)
             }
           >
-            {pending ? "Saving…" : guidedCostMode && constructionStep < 2 ? "Next" : guidedCostMode ? costKind === "construction" ? "Save construction cost" : "Save actual cost" : "Save"}
+            {pending
+              ? "Saving…"
+              : guidedCostMode && constructionStep < 2
+                ? "Next"
+                : guidedCostMode
+                  ? costKind === "construction"
+                    ? "Save construction cost"
+                    : "Save actual cost"
+                  : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

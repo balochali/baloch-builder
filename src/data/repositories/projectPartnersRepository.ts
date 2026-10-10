@@ -50,7 +50,7 @@ export function readPaymentDetails(custom: string): PaymentDetails | null {
   }
 }
 
-function validateMethod(
+export function validateMethod(
   method: "cash" | "bank" | "digital" | "cheque" | "other",
   reference: string,
   details: PaymentDetails,
@@ -60,19 +60,16 @@ function validateMethod(
     method === "bank"
       ? [
           ["from_bank", "Sender bank is required"],
-          ["from_account_name", "Sender account name is required"],
           ["to_bank", "Receiving bank is required"],
-          ["to_account_name", "Receiving account name is required"],
         ]
       : method === "cheque"
         ? [
             ["cheque_no", "Cheque number is required"],
             ["from_bank", "Issuing bank is required"],
-            ["from_account_name", "Account holder is required"],
             ["cheque_date", "Cheque date is required"],
             ["cheque_payee", "Cheque payee is required"],
           ]
-        : [];
+        : method === "digital" ? [["from_bank", "Wallet or service is required"]] : [];
   for (const [key, message] of required) {
     if (!details[key]) ctx.addIssue({ code: "custom", path: ["payment_details", key], message });
   }

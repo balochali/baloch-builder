@@ -59,6 +59,7 @@ const projectStages = [
     icon: CircleCheck,
   },
 ];
+const soldStage = { status: "land sold", label: "Land Sold", short: "Sold", color: "#0d9488", icon: CircleCheck };
 const pausedStage = {
   status: "on hold",
   label: "On hold",
@@ -93,7 +94,7 @@ export function ProjectsPage() {
     ],
   });
   const activeCount = projects.filter(
-    (project) => project.status !== "completed" && project.status !== "on hold",
+    (project) => project.status !== "completed" && project.status !== "on hold" && project.status !== "land sold",
   ).length;
   const completedCount = projects.filter((project) => project.status === "completed").length;
   const onHoldCount = projects.filter((project) => project.status === "on hold").length;
@@ -246,7 +247,7 @@ export function ProjectsPage() {
             const stage =
               project.status === "on hold"
                 ? pausedStage
-                : (projectStages.find((item) => item.status === project.status) ??
+                : project.status === "land sold" ? soldStage : (projectStages.find((item) => item.status === project.status) ??
                   projectStages[0]);
             const StageIcon = stage.icon;
             const currentIndex = Math.max(
@@ -300,10 +301,12 @@ export function ProjectsPage() {
                     <strong>
                       {project.status === "on hold"
                         ? "Paused"
-                        : "Stage " + (currentIndex + 1) + " of 4"}
+                        : project.status === "land sold" ? "Land Sold" : "Stage " + (currentIndex + 1) + " of 4"}
                     </strong>
                   </div>
-                  {project.status === "on hold" ? (
+                  {project.status === "land sold" ? (
+                    <p className="projects-paused-note"><CircleCheck size={18} />Land acquired and sold.</p>
+                  ) : project.status === "on hold" ? (
                     <p className="projects-paused-note">
                       <Pause size={18} aria-hidden="true" />
                       Work is paused. Open the project to review its status.

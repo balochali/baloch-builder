@@ -17,7 +17,7 @@ import type { Transaction } from "@/domain/types";
 import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
-import { SavedImageGallery } from "@/features/documents/components/ImageGallery";
+import { SavedImageGallery } from "@/components/attachments/ImageGallery";
 import type { DocumentRecord } from "@/data/repositories/documentsRepository";
 
 type Period = "all" | "daily" | "weekly" | "monthly" | "yearly" | "custom";

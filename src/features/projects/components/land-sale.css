@@ -1,0 +1,61 @@
+.land-sale-form {
+  display: grid;
+  gap: 22px;
+  margin-top: 24px;
+}
+.land-sale-form h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.land-sale-form > p,
+.land-sale-form > div > p {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+.land-sale-form > fieldset {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+.land-sale-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.land-sale-fields .is-wide {
+  grid-column: 1/-1;
+}
+.land-sale-fields label,
+.land-sale-form > fieldset > label {
+  display: grid;
+  gap: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.land-sale-fields input,
+.land-sale-form textarea {
+  min-width: 0;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--foreground);
+}
+.land-sale-balance {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--muted);
+  display: grid;
+  gap: 6px;
+}
+.land-sale-form [role="alert"] {
+  color: var(--destructive);
+}
+@media (max-width: 600px) {
+  .land-sale-fields {
+    grid-template-columns: 1fr;
+  }
+}

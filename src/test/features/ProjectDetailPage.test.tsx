@@ -130,10 +130,21 @@ describe("ProjectDetailPage", () => {
       "Dashboard", "Building", "Partners", "Estimate", "Costs", "Sales", "Profit & Loss",
     ]);
     fireEvent.click(screen.getByRole("tab", { name: "Sales" }));
-    expect(screen.getByRole("heading", { name: "Flat & shop sales" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Project sales" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Record sale" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Profit & Loss" }));
     expect(screen.getByRole("heading", { name: "Profit & Loss" })).toBeInTheDocument();
+  });
+
+  it("requires acquired land before allowing Land Sold", async () => {
+    render(<MemoryRouter initialEntries={["/projects/11111111-1111-4111-8111-111111111111"]}><Routes><Route path="/projects/:projectId" element={<ProjectDetailPage />} /></Routes></MemoryRouter>);
+    await screen.findByRole("heading", { name: "Baloch Residency" });
+    fireEvent.click(screen.getByRole("button", { name: "Change Status" }));
+    fireEvent.change(screen.getByLabelText("Project status"), { target: { value: "land sold" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Acquire the land first");
+    expect(screen.queryByRole("button", { name: "Save status" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save sale & mark Land Sold" })).not.toBeInTheDocument();
+    expect(updateProjectStatus).not.toHaveBeenCalled();
   });
 
   it("changes the project status and shows the saved stage", async () => {
@@ -313,15 +324,15 @@ describe("ProjectDetailPage", () => {
     fireEvent.change(screen.getByLabelText("Transaction reference *"), {
       target: { value: "TRX-42" },
     });
-    expect(screen.getByLabelText("Bank transfer receipt (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Upload payment receipts/)).toBeInTheDocument();
     const receipt = new File(["image"], "transfer.png", { type: "image/png" });
-    fireEvent.change(screen.getByLabelText("Bank transfer receipt (optional)"), {
+    fireEvent.change(screen.getByLabelText(/Upload payment receipts/), {
       target: { files: [receipt] },
     });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByLabelText("Land photos, receipts or maps")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Land ownership papers, agreements, photos or maps/)).toBeInTheDocument();
     const photo = new File(["image"], "plot.png", { type: "image/png" });
-    fireEvent.change(screen.getByLabelText("Land photos, receipts or maps"), {
+    fireEvent.change(screen.getByLabelText(/Land ownership papers, agreements, photos or maps/), {
       target: { files: [photo] },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save land and status" }));
@@ -495,8 +506,8 @@ describe("ProjectDetailPage", () => {
     const bill = new File(["bill"], "bill.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText(/Add transaction receipt/), { target: { files: [receipt] } });
     fireEvent.change(screen.getByLabelText(/Add supplier bill/), { target: { files: [bill] } });
-    expect(screen.getByText("1 transaction image selected")).toBeInTheDocument();
-    expect(screen.getByText("1 bill image selected")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name:"Remove receipt.png"})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name:"Remove bill.png"})).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save construction cost" }));
     await waitFor(() =>
       expect(addConstructionCost).toHaveBeenCalledWith(
@@ -1052,10 +1063,10 @@ describe("ProjectDetailPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Record a payment from this partner")).toBeInTheDocument();
-    expect(screen.getByText("Add payment images (optional)")).toBeInTheDocument();
+    expect(screen.getByText("Add transaction receipt")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Amount (Rs) *"), { target: { value: "50000" } });
     fireEvent.click(screen.getByRole("radio", { name: "Builder Account" }));
-    const contributionUpload = screen.getByText("Add payment images (optional)").closest("label")?.querySelector('input[type="file"]');
+    const contributionUpload = screen.getByText("Add transaction receipt").closest("label")?.querySelector('input[type="file"]');
     expect(contributionUpload).toBeTruthy();
     fireEvent.change(contributionUpload!, { target: { files: [new File(["proof"], "contribution.png", { type: "image/png" })] } });
     fireEvent.click(screen.getByRole("button", { name: "Save payment" }));
@@ -1063,10 +1074,10 @@ describe("ProjectDetailPage", () => {
     await waitFor(() => expect(savePartnerContributionReceipt).toHaveBeenCalledWith("contribution-1", expect.objectContaining({ name: "contribution.png" }), expect.any(String), "cash"));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Record profit given to this partner")).toBeInTheDocument();
-    expect(screen.getByText("Add profit payment images (optional)")).toBeInTheDocument();
+    expect(screen.getByText("Add transaction receipt")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Amount (Rs) *"), { target: { value: "12000" } });
     fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
-    const payoutUpload = screen.getByText("Add profit payment images (optional)").closest("label")?.querySelector('input[type="file"]');
+    const payoutUpload = screen.getByText("Add transaction receipt").closest("label")?.querySelector('input[type="file"]');
     fireEvent.change(payoutUpload!, { target: { files: [new File(["proof"], "payout.png", { type: "image/png" })] } });
     fireEvent.click(screen.getByRole("button", { name: "Save profit payout" }));
     await waitFor(() => expect(addPartnerPayout).toHaveBeenCalledWith(expect.objectContaining({ amount: 12_000, account_key: "personal", purpose: "profit" })));

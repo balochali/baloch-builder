@@ -1,72 +1,57 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { DocumentsPage } from "@/features/documents/pages/DocumentsPage";
-import { listDocuments, openDocument } from "@/data/repositories/documentsRepository";
-
-vi.mock("@/data/repositories/documentsRepository", () => ({
-  listDocuments: vi.fn(),
-  openDocument: vi.fn(),
-}));
-
-it("lists saved land images and opens the attachment", async () => {
-  vi.mocked(listDocuments).mockResolvedValue([
-    {
-      id: "doc-1",
-      title: "plot.png",
-      doc_type: "land_image",
-      doc_date: "2026-10-03",
-      notes: null,
-      file_path: "C:/app/attachments/plot.png",
-      mime: "image/png",
-      size: 3,
-      owner_type: "land",
-      owner_id: "land-1",
-      project_name: "Baloch Residency",
-      created_at: "2026-10-03",
-    },
-  ]);
-  vi.mocked(openDocument).mockResolvedValue();
-  render(<DocumentsPage />);
-  fireEvent.click(screen.getByRole("tab", { name: /Land documents/ }));
-  expect(await screen.findByRole("heading", { name: "plot.png" })).toBeInTheDocument();
-  expect(screen.getByText(/Baloch Residency/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Open image/ }));
-  await waitFor(() => expect(openDocument).toHaveBeenCalledWith("C:/app/attachments/plot.png"));
+import { groupDocuments, documentScope } from "@/features/documents/pages/documentGroups";
+import { listDocuments, type DocumentRecord } from "@/data/repositories/documentsRepository";
+vi.mock("@/data/repositories/documentsRepository",()=>({listDocuments:vi.fn(),openDocument:vi.fn(),readDocumentImage:vi.fn().mockResolvedValue("blob:preview")}));
+URL.revokeObjectURL = vi.fn();
+const doc=(id:string,type:string,project="p1"):DocumentRecord=>({id,title:id+".png",doc_type:type,doc_date:null,notes:null,file_path:id,mime:"image/png",size:10,owner_type:"transaction",owner_id:id,project_id:project,project_name:project?"Residency":null,created_at:"2026-10-03"});
+it("opens project collections and separates construction, land, partners and sales",async()=>{
+ vi.mocked(listDocuments).mockResolvedValue([doc("plot","land_image"),doc("bill","construction_supplier_bill"),doc("partner","partner_contribution_receipt"),doc("sale","project_sale_document")]);
+ render(<DocumentsPage/>);
+ fireEvent.click(await screen.findByRole("button",{name:/Open Residency documents/}));
+ const dialog=screen.getByRole("dialog");
+ expect(within(dialog).getByText("plot.png")).toBeInTheDocument();
+ fireEvent.click(within(dialog).getByRole("button",{name:/^Construction/}));
+ expect(within(dialog).getByText("bill.png")).toBeInTheDocument();
+ expect(within(dialog).queryByText("plot.png")).not.toBeInTheDocument();
+ fireEvent.click(within(dialog).getByRole("button",{name:/^Partners/}));
+ expect(within(dialog).getByText("partner.png")).toBeInTheDocument();
+ fireEvent.click(within(dialog).getByRole("button",{name:/^Sales/}));
+ expect(within(dialog).getByText("sale.png")).toBeInTheDocument();
+});
+it("keeps same-name projects separate and personal files out of project collections",()=>{
+ const rows=[doc("a","land_image","p1"),doc("b","land_image","p2"),doc("c","amanat_deposit_receipt","")];
+ const groups=groupDocuments(rows);expect(groups).toHaveLength(3);
+ expect(groups.filter(g=>g.scope==="Projects").every(g=>g.documents.length===1)).toBe(true);
+ expect(documentScope({...doc("d","receipt",""),owner_type:"udhaar_payment"})).toBe("Udhaar");
+ expect(documentScope({...doc("e","receipt",""),owner_type:"personal_expense"})).toBe("Personal Expense");
+});
+it("starts at All and filters personal deposits using the main navigation",async()=>{
+ vi.mocked(listDocuments).mockResolvedValue([doc("plot","land_image"),doc("deposit","amanat_deposit_receipt","")]);
+ render(<DocumentsPage/>);
+ await screen.findByRole("button",{name:/Open Residency documents/});
+ expect(screen.getByRole("button",{name:/^All/})).toHaveAttribute("aria-pressed","true");
+ fireEvent.click(screen.getByRole("button",{name:/^Personal Deposit/}));
+ expect(screen.queryByRole("button",{name:/Open Residency documents/})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:/Open Personal Deposit documents/}));
+ expect(within(screen.getByRole("dialog")).getByText("deposit.png")).toBeInTheDocument();
+});
+it("finds projects by filenames and preserves unlinked documents",async()=>{
+ vi.mocked(listDocuments).mockResolvedValue([doc("plot","land_image"),doc("misc","unknown","")]);
+ render(<DocumentsPage/>);
+ await screen.findByRole("button",{name:/Other documents/});
+ fireEvent.change(screen.getByLabelText("Search document collections"),{target:{value:"plot.png"}});
+ expect(screen.getByRole("button",{name:/Open Residency documents/})).toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:/Other documents/})).not.toBeInTheDocument();
 });
 
-it("groups transfer and cheque proof under Bank receipts while keeping construction cash receipts separate", async () => {
-  vi.mocked(listDocuments).mockResolvedValue([
-    { id: "bank-1", title: "transfer.png", doc_type: "land_payment_receipt", doc_date: "2026-10-03", notes: "bank", file_path: "transfer.png", mime: "image/png", size: 3, owner_type: "land", owner_id: "land-1", project_name: "Baloch Residency", created_at: "2026-10-03" },
-    { id: "cheque-1", title: "cheque.png", doc_type: "construction_cost_receipt", doc_date: "2026-10-03", notes: "cheque", file_path: "cheque.png", mime: "image/png", size: 3, owner_type: "transaction", owner_id: "cost-1", project_name: "Baloch Residency", created_at: "2026-10-03" },
-    { id: "cash-1", title: "cash.png", doc_type: "construction_cost_receipt", doc_date: "2026-10-03", notes: "cash", file_path: "cash.png", mime: "image/png", size: 3, owner_type: "transaction", owner_id: "cost-2", project_name: "Another Project", created_at: "2026-10-03" },
-    { id: "bill-1", title: "supplier-bill.png", doc_type: "construction_supplier_bill", doc_date: "2026-10-03", notes: null, file_path: "supplier-bill.png", mime: "image/png", size: 3, owner_type: "transaction", owner_id: "cost-1", project_name: "Baloch Residency", created_at: "2026-10-03" },
-    { id: "actual-receipt", title: "survey-transfer.png", doc_type: "project_cost_receipt", doc_date: "2026-10-03", notes: "bank", file_path: "survey-transfer.png", mime: "image/png", size: 3, owner_type: "transaction", owner_id: "actual-1", project_name: "Baloch Residency", created_at: "2026-10-03" },
-    { id: "actual-bill", title: "survey-bill.png", doc_type: "project_cost_bill", doc_date: "2026-10-03", notes: null, file_path: "survey-bill.png", mime: "image/png", size: 3, owner_type: "transaction", owner_id: "actual-1", project_name: "Baloch Residency", created_at: "2026-10-03" },
-  ]);
-  render(<DocumentsPage />);
-  expect(await screen.findByRole("heading", { name: "transfer.png" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "cheque.png" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "survey-transfer.png" })).toBeInTheDocument();
-  expect(screen.queryByRole("heading", { name: "cash.png" })).not.toBeInTheDocument();
-  expect(screen.getAllByText("Baloch Residency")).toHaveLength(3);
-  fireEvent.click(screen.getByRole("tab", { name: /Construction receipts/ }));
-  expect(screen.getByRole("heading", { name: "cash.png" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "supplier-bill.png" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "survey-bill.png" })).toBeInTheDocument();
-  expect(screen.getByText("Supplier bill")).toBeInTheDocument();
-  expect(screen.getByText("Another Project")).toBeInTheDocument();
-  expect(screen.queryByRole("heading", { name: "cheque.png" })).not.toBeInTheDocument();
-});
-
-it("shows flat and shop sale images in their own project-linked category", async () => {
-  vi.mocked(listDocuments).mockResolvedValue([{
-    id: "sale-doc-1", title: "agreement.png", doc_type: "project_sale_document",
-    doc_date: "2026-10-04", notes: null, file_path: "agreement.png", mime: "image/png", size: 10,
-    owner_type: "project_sale", owner_id: "sale-1", project_name: "Baloch Residency", created_at: "2026-10-04",
-  }]);
-  render(<DocumentsPage />);
-  fireEvent.click(screen.getByRole("tab", { name: /Sales documents/ }));
-  expect(await screen.findByRole("heading", { name: "agreement.png" })).toBeInTheDocument();
-  expect(screen.getByText("Baloch Residency")).toBeInTheDocument();
-  expect(screen.getByText("Flat or shop sale")).toBeInTheDocument();
+it("shows image previews with source names and opens the full image",async()=>{
+ vi.mocked(listDocuments).mockResolvedValue([{...doc("agreement","project_sale_document"),source_name:"Ahmed · flat A-2"}]);
+ render(<DocumentsPage/>);
+ fireEvent.click(await screen.findByRole("button",{name:"Open Residency documents"}));
+ expect(await screen.findByAltText("agreement.png")).toHaveAttribute("src","blob:preview");
+ expect(screen.getByText("Ahmed · flat A-2")).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"Open agreement.png"}));
+ expect(screen.getByRole("dialog",{name:"agreement.png"})).toBeInTheDocument();
 });

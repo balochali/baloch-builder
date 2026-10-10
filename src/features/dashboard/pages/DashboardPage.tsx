@@ -61,6 +61,7 @@ const statusLabels: Record<string, string> = {
   "under construction": "Under construction",
   completed: "Completed",
   "on hold": "On hold",
+  "land sold": "Land Sold",
 };
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 const stageColors = ["#7089a5", "#ba9556", "#d68b36", "#329582", "#b76b70", "#85818f"];

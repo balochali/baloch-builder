@@ -1,0 +1,92 @@
+.attachment-upload {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, #2563eb 28%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, #2563eb 4%, var(--card));
+  min-width: 0;
+}
+.attachment-upload-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #7c3aed;
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+.attachment-upload p,
+.attachment-upload small {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.attachment-upload-picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 172px;
+  padding: 24px 16px;
+  text-align: center;
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px dashed #93b4ff;
+  border-radius: 16px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.attachment-upload-icon {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 18px;
+  background: color-mix(in srgb, #2563eb 16%, var(--card));
+  color: #2563eb;
+}
+.attachment-upload-picker > strong {
+  font-size: 17px;
+}
+.attachment-upload-picker input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  cursor: pointer;
+}
+.attachment-upload-picker:focus-within {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+.attachment-upload-picker:has(input:disabled) {
+  opacity: 0.6;
+  cursor: default;
+}
+.attachment-upload-files {
+  display: grid;
+  gap: 8px;
+}
+.attachment-upload-files li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+}
+.attachment-upload-files li span {
+  overflow-wrap: anywhere;
+}
+.attachment-upload-files button {
+  color: var(--destructive);
+  cursor: pointer;
+}
+.attachment-upload-files button:disabled {
+  opacity: 0.5;
+}
+.dark .attachment-upload-title {
+  color: #c4b5fd;
+}
+.dark .attachment-upload-icon {
+  color: #93c5fd;
+}

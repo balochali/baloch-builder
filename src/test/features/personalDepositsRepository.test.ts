@@ -134,5 +134,5 @@ it("stores receipt images against the correct deposit and return", async () => {
  expect((await listAmanatReceipts(id))[0].doc_type).toBe("amanat_deposit_receipt");
  expect((await listAmanatReceipts(returnId))[0].doc_type).toBe("amanat_return_receipt");
  expect(await listBankPaymentReceipts()).toHaveLength(2);
- await expect(saveAmanatReceipt(id, "personal_deposit", new File(["bad"], "bad.exe", {type: "application/octet-stream"}), input.deposit_date, "cash")).rejects.toThrow("Choose a JPEG");
+ await expect(saveAmanatReceipt(id, "personal_deposit", new File(["bad"], "bad.exe", {type: "application/octet-stream"}), input.deposit_date, "cash")).rejects.toThrow("JPEG");
 });

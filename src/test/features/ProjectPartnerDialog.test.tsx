@@ -27,18 +27,17 @@ describe("ProjectPartnerDialog payment methods", () => {
       target: { value: "100000" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Bank transfer" }));
-    expect(screen.getByLabelText("Sender bank *")).toBeInTheDocument();
+    expect(screen.getByLabelText("Sending bank *")).toBeInTheDocument();
     expect(screen.queryByLabelText("Cheque number *")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Transfer reference / transaction ID *"), {
+    fireEvent.change(screen.getByLabelText("Transfer reference *"), {
       target: { value: "TRX-9" },
     });
-    fireEvent.change(screen.getByLabelText("Sender bank *"), { target: { value: "HBL" } });
-    fireEvent.change(screen.getByLabelText("Sender account name *"), { target: { value: "Ali" } });
+    fireEvent.change(screen.getByLabelText("Sending bank *"), { target: { value: "HBL" } });
+    fireEvent.change(screen.getByLabelText("Sender account number"), { target: { value: "1234" } });
     fireEvent.change(screen.getByLabelText("Receiving bank *"), { target: { value: "Meezan" } });
-    fireEvent.change(screen.getByLabelText("Receiving account name *"), {
-      target: { value: "Project" },
+    fireEvent.change(screen.getByLabelText("Receiver account number"), {
+      target: { value: "5678" },
     });
-    fireEvent.change(screen.getByLabelText("Receipt number"), { target: { value: "R-9" } });
     for (const account of screen.queryAllByRole("radio", { name: "Builder Account" }))
       fireEvent.click(account);
     fireEvent.click(screen.getByRole("button", { name: "Add Partner" }));
@@ -48,7 +47,8 @@ describe("ProjectPartnerDialog payment methods", () => {
           initial_method: "bank",
           initial_reference: "TRX-9",
           initial_payment_details: expect.objectContaining({
-            receipt_no: "R-9",
+            from_account_no: "1234",
+            to_account_no: "5678",
             from_bank: "HBL",
             to_bank: "Meezan",
           }),
@@ -76,10 +76,10 @@ describe("ProjectPartnerDialog payment methods", () => {
     fireEvent.change(screen.getByLabelText("Amount received (Rs)"), { target: { value: "15000" } });
     fireEvent.click(screen.getByRole("radio", { name: "Builder Account" }));
     fireEvent.click(screen.getByRole("button", { name: "Digital wallet" }));
-    fireEvent.change(screen.getByLabelText("Transfer reference / transaction ID *"), {
+    fireEvent.change(screen.getByLabelText("Transaction ID *"), {
       target: { value: "TX-8" },
     });
-    fireEvent.change(screen.getByLabelText("Wallet or service"), {
+    fireEvent.change(screen.getByLabelText("Wallet or service *"), {
       target: { value: "Easypaisa" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Partner" }));
@@ -119,7 +119,7 @@ describe("ProjectPartnerDialog payment methods", () => {
     expect(screen.getByLabelText("Cheque number *")).toBeInTheDocument();
     expect(screen.getByLabelText("Cheque date *")).toBeInTheDocument();
     expect(screen.getByLabelText("Payable to *")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Sender bank *")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Sending bank *")).not.toBeInTheDocument();
   });
 
   it("edits an existing partner's share and promised amount", async () => {

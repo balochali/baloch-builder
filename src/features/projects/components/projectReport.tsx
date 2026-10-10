@@ -256,13 +256,13 @@ export function buildProjectReport(
     sales: (
       <>
         <p>
-          {sales.length} unit sales have been recorded with a combined agreed value of {money(sold)}
-          . These amounts represent sale agreements, not collections.
+          {sales.length} sales have been recorded with a combined agreed value of {money(sold)}.
+          These amounts represent sale agreements, not collections.
         </p>
         <Table
           headers={["Date / unit", "Buyer", "Contact / address", "Agreed price", "Notes"]}
           rows={sales.map((s) => [
-            `${formatDate(s.sale_date)} · ${s.kind} ${s.unit_number}, ${s.floor_index === 0 ? "ground" : `floor ${s.floor_index}`}${s.rooms ? `, ${s.rooms} rooms` : ""}`,
+            `${formatDate(s.sale_date)} · ${s.kind === "land" ? "Land" : `${s.kind} ${s.unit_number}, ${s.floor_index === 0 ? "ground" : `floor ${s.floor_index}`}`}${s.rooms ? `, ${s.rooms} rooms` : ""}`,
             s.buyer_name,
             [s.buyer_phone, s.buyer_address].filter(Boolean).join(" · "),
             money(s.price),
@@ -375,4 +375,3 @@ const reportStyles = `
 header { display:flex; justify-content:space-between; gap:20px; border-bottom:3px solid #b89046; padding:0 0 12px; font-size:9pt; letter-spacing:.06em; } h1 { font-size:26pt; margin:24px 0 8px; } h2 { font-size:18pt; border-bottom:1px solid #b89046; padding-bottom:10px; margin:24px 0 15px; } h3 { font-size:12pt; margin:20px 0 8px; } p { white-space:pre-wrap; overflow-wrap:anywhere; } .meta,footer { color:#526574; font-size:9pt; }.contents { padding:12px; border:1px solid #cbd5dc; font-size:10pt; } table { border-collapse:collapse; width:100%; table-layout:fixed; font-size:9pt; margin:12px 0 20px; } th,td { text-align:left; vertical-align:top; border:1px solid #cbd5dc; padding:9px; overflow-wrap:anywhere; white-space:pre-wrap; } th { background:#edf1f4; font-weight:700; } thead { display:table-header-group; } tr { break-inside:avoid; } h2,h3 { break-after:avoid; } p { orphans:3; widows:3; } footer { border-top:1px solid #cbd5dc; margin-top:25px; padding-top:12px; } section + section { break-before:page; } .empty { color:#526574; font-style:italic; }
 @media screen { html { background:#e9edf2; padding:24px; } body { padding:20mm 15mm; max-width:210mm; box-shadow:0 3px 20px #0001; } section + section { margin-top:55px; border-top:2px dashed #cbd5dc; padding-top:15px; } }
 `;
-

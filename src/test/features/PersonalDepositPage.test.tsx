@@ -106,7 +106,7 @@ it("retries failed images without recording a second return", async () => {
  await screen.findByRole("heading", {name: "Ahmed"});
  fireEvent.click(screen.getByRole("button", {name: "Record return"}));
  fireEvent.change(screen.getByLabelText("Received by *"), {target: {value: "Myself"}});
- fireEvent.change(screen.getByLabelText("Payment receipt images (optional)"), {target: {files: [new File(["image"], "receipt.png", {type: "image/png"})]}});
+ fireEvent.change(screen.getByLabelText(/Add transaction receipt/), {target: {files: [new File(["image"], "receipt.png", {type: "image/png"})]}});
  fireEvent.click(screen.getByRole("button", {name: "Save return"}));
  await screen.findByText(/these images could not be saved/);
  fireEvent.click(screen.getByRole("button", {name: "Retry images"}));

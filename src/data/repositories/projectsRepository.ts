@@ -3,7 +3,7 @@ import { execute, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
 import type { Project } from "@/domain/types";
 
-export const ProjectStatuses = ["planning", "land acquired", "under construction", "completed", "on hold"] as const;
+export const ProjectStatuses = ["planning", "land acquired", "under construction", "completed", "land sold", "on hold"] as const;
 export type ProjectStatus = typeof ProjectStatuses[number];
 
 export const CreateProjectSchema = z.object({

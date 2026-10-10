@@ -1,8 +1,19 @@
+import { LandSaleForm } from "../components/LandSaleForm";
+import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { ProjectPrintButton } from "@/features/projects/components/ProjectPrintButton";
 import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
 import { BankAccountSelect } from "@/components/BankAccountSelect";
-import { listProjectCostDocuments, saveActualCostBill, saveActualCostReceipt, saveConstructionCostReceipt, saveConstructionSupplierBill, saveLandImage, saveLandPaymentReceipt, type DocumentRecord } from "@/data/repositories/documentsRepository";
-import { SavedImageGallery, SelectedImagePreviews } from "@/features/documents/components/ImageGallery";
+import {
+  listProjectCostDocuments,
+  saveActualCostBill,
+  saveActualCostReceipt,
+  saveConstructionCostReceipt,
+  saveConstructionSupplierBill,
+  saveLandImage,
+  saveLandPaymentReceipt,
+  type DocumentRecord,
+} from "@/data/repositories/documentsRepository";
+import { SavedImageGallery } from "@/components/attachments/ImageGallery";
 import "./project-detail.css";
 import "./project-estimate.css";
 import "./project-actual.css";
@@ -35,7 +46,6 @@ import {
   Clock3,
   HandCoins,
   FolderOpen,
-  Upload,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -211,7 +221,9 @@ export function ProjectDetailPage() {
   const [constructionCosts, setConstructionCosts] = useState<Transaction[]>([]);
   const [constructionDetailsOpen, setConstructionDetailsOpen] = useState(false);
   const [costDocuments, setCostDocuments] = useState<DocumentRecord[]>([]);
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [requestedTab, setTab] = useState<Tab>("dashboard");
+  const isLandSold = project?.status === "land sold";
+  const tab = isLandSold && requestedTab === "building" ? "dashboard" : requestedTab;
   const [buildingTab, setBuildingTab] = useState<BuildingTab>("overview");
   const [dialog, setDialog] = useState<EntryMode | null>(null);
   const [estimateKind, setEstimateKind] = useState<"cost" | "revenue">("cost");
@@ -283,39 +295,63 @@ export function ProjectDetailPage() {
     }
   }
 
-  async function saveActual(value: ActualCostInput, documents: { transactionReceipts: File[]; supplierBills: File[] } = { transactionReceipts: [], supplierBills: [] }) {
+  async function saveActual(
+    value: ActualCostInput,
+    documents: { transactionReceipts: File[]; supplierBills: File[] } = {
+      transactionReceipts: [],
+      supplierBills: [],
+    },
+  ) {
     const row = await addActualProjectCost(value);
     setActualCosts((current) => [row, ...current]);
     toast.success("Actual cost recorded");
     const uploads = [
-      ...documents.transactionReceipts.map((file) => saveActualCostReceipt(row.id, file, value.date, value.method)),
+      ...documents.transactionReceipts.map((file) =>
+        saveActualCostReceipt(row.id, file, value.date, value.method),
+      ),
       ...documents.supplierBills.map((file) => saveActualCostBill(row.id, file, value.date)),
     ];
     if (uploads.length) {
       const results = await Promise.allSettled(uploads);
-      const saved = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      const saved = results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      );
       setCostDocuments((current) => [...saved, ...current]);
       const failures = results.length - saved.length;
-      if (failures) toast.error(`${failures} document image${failures === 1 ? "" : "s"} could not be saved.`);
+      if (failures)
+        toast.error(`${failures} document image${failures === 1 ? "" : "s"} could not be saved.`);
       else toast.success(`${saved.length} document image${saved.length === 1 ? "" : "s"} saved`);
     }
   }
 
-  async function saveConstruction(value: ActualCostInput, documents: { transactionReceipts: File[]; supplierBills: File[] } = { transactionReceipts: [], supplierBills: [] }) {
+  async function saveConstruction(
+    value: ActualCostInput,
+    documents: { transactionReceipts: File[]; supplierBills: File[] } = {
+      transactionReceipts: [],
+      supplierBills: [],
+    },
+  ) {
     const row = await addConstructionCost(value);
     setConstructionCosts((current) => [row, ...current]);
     setActualCosts((current) => [row, ...current]);
     toast.success("Construction cost recorded");
     const uploads = [
-      ...documents.transactionReceipts.map((file) => saveConstructionCostReceipt(row.id, file, value.date, value.method)),
-      ...documents.supplierBills.map((file) => saveConstructionSupplierBill(row.id, file, value.date)),
+      ...documents.transactionReceipts.map((file) =>
+        saveConstructionCostReceipt(row.id, file, value.date, value.method),
+      ),
+      ...documents.supplierBills.map((file) =>
+        saveConstructionSupplierBill(row.id, file, value.date),
+      ),
     ];
     if (uploads.length) {
       const results = await Promise.allSettled(uploads);
-      const saved = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      const saved = results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      );
       setCostDocuments((current) => [...saved, ...current]);
       const failures = results.length - saved.length;
-      if (failures) toast.error(`${failures} document image${failures === 1 ? "" : "s"} could not be saved.`);
+      if (failures)
+        toast.error(`${failures} document image${failures === 1 ? "" : "s"} could not be saved.`);
       else toast.success(`${saved.length} document image${saved.length === 1 ? "" : "s"} saved`);
     }
   }
@@ -364,6 +400,10 @@ export function ProjectDetailPage() {
 
   async function saveStatus() {
     if (!project) return;
+    if (statusDraft === "land sold") {
+      setStatusError("Complete the land sale form first.");
+      return;
+    }
     const land =
       statusDraft === "land acquired" ? LandAcquisitionSchema.safeParse(landDraft()) : null;
     if (land && !land.success) {
@@ -384,7 +424,11 @@ export function ProjectDetailPage() {
         } catch {
           /* Status is already saved. */
         }
-        setLandDetails({ ...land.data, id: savedLand?.id ?? landDetails?.id ?? "" });
+        setLandDetails({
+          ...land.data,
+          status: "acquired",
+          id: savedLand?.id ?? landDetails?.id ?? "",
+        });
         setBuildingDetails(
           (current) =>
             current && {
@@ -554,11 +598,36 @@ export function ProjectDetailPage() {
   });
   const actualTotal = sum(allActualCosts.map((item) => item.amount));
   const actualSources = [
-    { key: "land", label: "Land purchase", icon: Landmark, amount: sum(allActualCosts.filter((item) => item.type === "land_purchase").map((item) => item.amount)) },
-    { key: "construction", label: "Construction", icon: HardHat, amount: sum(allActualCosts.filter((item) => item.type === "construction_cost").map((item) => item.amount)) },
-    { key: "other", label: "Other project costs", icon: Wallet, amount: sum(allActualCosts.filter((item) => item.type !== "land_purchase" && item.type !== "construction_cost").map((item) => item.amount)) },
+    {
+      key: "land",
+      label: "Land purchase",
+      icon: Landmark,
+      amount: sum(
+        allActualCosts.filter((item) => item.type === "land_purchase").map((item) => item.amount),
+      ),
+    },
+    {
+      key: "construction",
+      label: "Construction",
+      icon: HardHat,
+      amount: sum(
+        allActualCosts
+          .filter((item) => item.type === "construction_cost")
+          .map((item) => item.amount),
+      ),
+    },
+    {
+      key: "other",
+      label: "Other project costs",
+      icon: Wallet,
+      amount: sum(
+        allActualCosts
+          .filter((item) => item.type !== "land_purchase" && item.type !== "construction_cost")
+          .map((item) => item.amount),
+      ),
+    },
   ];
-  const visibleProjectTabs = projectTabs;
+  const visibleProjectTabs = projectTabs.filter((item) => !isLandSold || item.id !== "building");
   const allocatedShareBp = sum(partners.map((item) => item.share_bp));
   const selectedPartner =
     partners.find((item) => item.partnership_id === selectedPartnerId) ?? null;
@@ -601,40 +670,50 @@ export function ProjectDetailPage() {
                 </p>
               </div>
               <div className="project-heading-actions">
-              <ProjectPrintButton data={{project, building: buildingDetails, land: landDetails, partners, contributions, estimates, costs: allActualCosts}} />
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setStatusDraft(
-                    ProjectStatuses.includes(project.status as ProjectStatus)
-                      ? (project.status as ProjectStatus)
-                      : "planning",
-                  );
-                  setStatusError("");
-                  setLandTitle(landDetails?.title ?? project.name);
-                  setLandLocation(landDetails?.location ?? project.location ?? "");
-                  setLandDate(landDetails?.purchase_date ?? format(new Date(), "yyyy-MM-dd"));
-                  setLandArea(landDetails?.area_value?.toString() ?? "");
-                  setLandAreaUnit(landDetails?.area_unit ?? "sqyd");
-                  setLandSeller(landDetails?.seller_name ?? "");
-                  setLandPrice(landDetails?.price?.toString() ?? "");
-                  setLandNotes(landDetails?.notes ?? "");
-                  setLandAccount(landDetails?.account_key ?? "");
-                  setLandPaymentDetails(
-                    landDetails?.payment_details ?? {
-                      ...emptyLandPaymentDetails,
-                      paid_to: landDetails?.seller_name ?? "",
-                    },
-                  );
-                  setLandStep(0);
-                  setLandImages([]);
-                  setLandPaymentImages([]);
-                  setStatusDialogOpen(true);
-                }}
-              >
-                <Pencil className="size-4" />
-                Change Status
-              </Button>
+                <ProjectPrintButton
+                  data={{
+                    project,
+                    building: buildingDetails,
+                    land: landDetails,
+                    partners,
+                    contributions,
+                    estimates,
+                    costs: allActualCosts,
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStatusDraft(
+                      ProjectStatuses.includes(project.status as ProjectStatus)
+                        ? (project.status as ProjectStatus)
+                        : "planning",
+                    );
+                    setStatusError("");
+                    setLandTitle(landDetails?.title ?? project.name);
+                    setLandLocation(landDetails?.location ?? project.location ?? "");
+                    setLandDate(landDetails?.purchase_date ?? format(new Date(), "yyyy-MM-dd"));
+                    setLandArea(landDetails?.area_value?.toString() ?? "");
+                    setLandAreaUnit(landDetails?.area_unit ?? "sqyd");
+                    setLandSeller(landDetails?.seller_name ?? "");
+                    setLandPrice(landDetails?.price?.toString() ?? "");
+                    setLandNotes(landDetails?.notes ?? "");
+                    setLandAccount(landDetails?.account_key ?? "");
+                    setLandPaymentDetails(
+                      landDetails?.payment_details ?? {
+                        ...emptyLandPaymentDetails,
+                        paid_to: landDetails?.seller_name ?? "",
+                      },
+                    );
+                    setLandStep(0);
+                    setLandImages([]);
+                    setLandPaymentImages([]);
+                    setStatusDialogOpen(true);
+                  }}
+                >
+                  <Pencil className="size-4" />
+                  Change Status
+                </Button>
               </div>
             </div>
             <ProjectStatusProgress status={project.status} />
@@ -863,7 +942,8 @@ export function ProjectDetailPage() {
                   </span>
                 </summary>
                 {partnerFilter.controls}
-              </details>{partnerFilter.pagination}
+              </details>
+              {partnerFilter.pagination}
               {partnerFilter.active && (
                 <div className="project-partner-active-filters">
                   <span>{partnerFilter.visible.length} partners match your filters.</span>
@@ -1012,7 +1092,8 @@ export function ProjectDetailPage() {
                       <ChevronDown size={16} />
                     </span>
                   </summary>
-                  {paymentFilter.controls}{paymentFilter.pagination}
+                  {paymentFilter.controls}
+                  {paymentFilter.pagination}
                   <div className="partner-payment-list">
                     {paymentFilter.pageItems.map((item) => (
                       <article key={item.id} className="partner-payment">
@@ -1056,10 +1137,17 @@ export function ProjectDetailPage() {
           )}
 
           {tab === "estimate" && (
-            <div id="project-panel-estimate" role="tabpanel" aria-labelledby="project-tab-estimate" className="project-estimate-panel">
+            <div
+              id="project-panel-estimate"
+              role="tabpanel"
+              aria-labelledby="project-tab-estimate"
+              className="project-estimate-panel"
+            >
               <div className="project-estimate-hero">
                 <div className="project-estimate-hero-copy">
-                  <span className="project-estimate-hero-icon"><Calculator size={27} aria-hidden="true" /></span>
+                  <span className="project-estimate-hero-icon">
+                    <Calculator size={27} aria-hidden="true" />
+                  </span>
                   <div>
                     <small>PROJECT FINANCIAL PLAN</small>
                     <h2>Project estimate</h2>
@@ -1092,34 +1180,88 @@ export function ProjectDetailPage() {
               </div>
               <div className="project-estimate-metrics">
                 <div className="project-estimate-metric is-cost">
-                  <span className="project-estimate-metric-icon"><Wallet size={23} /></span>
+                  <span className="project-estimate-metric-icon">
+                    <Wallet size={23} />
+                  </span>
                   <span>Estimated costs</span>
-                  <strong>{formatPKRInLakhCrore(costMin)} – {formatPKRInLakhCrore(costMax)}</strong>
-                  <small>{costs.length} planned {costs.length === 1 ? "cost" : "costs"} · {formatPKR(costMin)} to {formatPKR(costMax)}</small>
+                  <strong>
+                    {formatPKRInLakhCrore(costMin)} – {formatPKRInLakhCrore(costMax)}
+                  </strong>
+                  <small>
+                    {costs.length} planned {costs.length === 1 ? "cost" : "costs"} ·{" "}
+                    {formatPKR(costMin)} to {formatPKR(costMax)}
+                  </small>
                 </div>
                 <div className="project-estimate-metric is-recovery">
-                  <span className="project-estimate-metric-icon"><HandCoins size={23} /></span>
+                  <span className="project-estimate-metric-icon">
+                    <HandCoins size={23} />
+                  </span>
                   <span>Expected recovery</span>
-                  <strong>{formatPKRInLakhCrore(revenueMin)} – {formatPKRInLakhCrore(revenueMax)}</strong>
-                  <small>{revenues.length} planned {revenues.length === 1 ? "recovery" : "recoveries"} · {formatPKR(revenueMin)} to {formatPKR(revenueMax)}</small>
+                  <strong>
+                    {formatPKRInLakhCrore(revenueMin)} – {formatPKRInLakhCrore(revenueMax)}
+                  </strong>
+                  <small>
+                    {revenues.length} planned {revenues.length === 1 ? "recovery" : "recoveries"} ·{" "}
+                    {formatPKR(revenueMin)} to {formatPKR(revenueMax)}
+                  </small>
                 </div>
                 <div className="project-estimate-metric is-margin">
-                  <span className="project-estimate-metric-icon"><PieChart size={23} /></span>
+                  <span className="project-estimate-metric-icon">
+                    <PieChart size={23} />
+                  </span>
                   <span>Projected margin range</span>
-                  <strong>{revenues.length ? `${formatPKRInLakhCrore(revenueMin - costMax)} – ${formatPKRInLakhCrore(revenueMax - costMin)}` : "Add recovery items"}</strong>
-                  <small>{revenues.length ? "Recovery after planned costs" : "Add expected recovery to see your margin"}</small>
+                  <strong>
+                    {revenues.length
+                      ? `${formatPKRInLakhCrore(revenueMin - costMax)} – ${formatPKRInLakhCrore(revenueMax - costMin)}`
+                      : "Add recovery items"}
+                  </strong>
+                  <small>
+                    {revenues.length
+                      ? "Recovery after planned costs"
+                      : "Add expected recovery to see your margin"}
+                  </small>
                 </div>
               </div>
               <div className="project-estimate-comparison">
                 <div className="project-estimate-comparison-heading">
-                  <span><PieChart size={20} /> The plan at a glance</span>
+                  <span>
+                    <PieChart size={20} /> The plan at a glance
+                  </span>
                   <small>Maximum planned amounts</small>
                 </div>
                 <div className="project-estimate-comparison-bars">
-                  <div><span>Costs <strong>{formatPKR(costMax)}</strong></span><i><b className="is-cost" style={{ width: `${Math.round(costMax / Math.max(costMax, revenueMax, 1) * 100)}%` }} /></i></div>
-                  <div><span>Recovery <strong>{formatPKR(revenueMax)}</strong></span><i><b className="is-recovery" style={{ width: `${Math.round(revenueMax / Math.max(costMax, revenueMax, 1) * 100)}%` }} /></i></div>
+                  <div>
+                    <span>
+                      Costs <strong>{formatPKR(costMax)}</strong>
+                    </span>
+                    <i>
+                      <b
+                        className="is-cost"
+                        style={{
+                          width: `${Math.round((costMax / Math.max(costMax, revenueMax, 1)) * 100)}%`,
+                        }}
+                      />
+                    </i>
+                  </div>
+                  <div>
+                    <span>
+                      Recovery <strong>{formatPKR(revenueMax)}</strong>
+                    </span>
+                    <i>
+                      <b
+                        className="is-recovery"
+                        style={{
+                          width: `${Math.round((revenueMax / Math.max(costMax, revenueMax, 1)) * 100)}%`,
+                        }}
+                      />
+                    </i>
+                  </div>
                 </div>
-                <p>{revenues.length ? "Compare the highest planned cost with the highest expected recovery. The margin above shows the possible range." : "Add recovery items to compare what the project may bring in against what it may cost."}</p>
+                <p>
+                  {revenues.length
+                    ? "Compare the highest planned cost with the highest expected recovery. The margin above shows the possible range."
+                    : "Add recovery items to compare what the project may bring in against what it may cost."}
+                </p>
               </div>
               <div className="project-estimate-explore">
                 <h3>Explore the plan</h3>
@@ -1127,13 +1269,31 @@ export function ProjectDetailPage() {
               </div>
               <details className="project-estimate-drawer is-cost">
                 <summary>
-                  <span className="project-estimate-drawer-icon"><Wallet size={22} /></span>
-                  <span className="project-estimate-drawer-copy"><strong>Planned costs</strong><small>{costs.length} {costs.length === 1 ? "item" : "items"} · estimate breakdown and cost list</small></span>
-                  <span className="project-estimate-drawer-total">{formatPKRInLakhCrore(costMin)} – {formatPKRInLakhCrore(costMax)}</span>
+                  <span className="project-estimate-drawer-icon">
+                    <Wallet size={22} />
+                  </span>
+                  <span className="project-estimate-drawer-copy">
+                    <strong>Planned costs</strong>
+                    <small>
+                      {costs.length} {costs.length === 1 ? "item" : "items"} · estimate breakdown
+                      and cost list
+                    </small>
+                  </span>
+                  <span className="project-estimate-drawer-total">
+                    {formatPKRInLakhCrore(costMin)} – {formatPKRInLakhCrore(costMax)}
+                  </span>
                   <ChevronDown size={19} className="project-estimate-drawer-chevron" />
                 </summary>
                 <div className="project-estimate-drawer-body">
-                  {costs.length ? <EstimateChart items={costs} title="Estimated cost breakdown" /> : <div className="project-estimate-empty-chart"><Wallet size={26} /><h3>No planned costs yet</h3><p>Add an expected cost to see its range here.</p></div>}
+                  {costs.length ? (
+                    <EstimateChart items={costs} title="Estimated cost breakdown" />
+                  ) : (
+                    <div className="project-estimate-empty-chart">
+                      <Wallet size={26} />
+                      <h3>No planned costs yet</h3>
+                      <p>Add an expected cost to see its range here.</p>
+                    </div>
+                  )}
                   <EstimateSection
                     title="Cost items"
                     items={costs}
@@ -1148,13 +1308,31 @@ export function ProjectDetailPage() {
               </details>
               <details className="project-estimate-drawer is-recovery">
                 <summary>
-                  <span className="project-estimate-drawer-icon"><HandCoins size={22} /></span>
-                  <span className="project-estimate-drawer-copy"><strong>Expected recovery</strong><small>{revenues.length} {revenues.length === 1 ? "item" : "items"} · sales estimates and recovery list</small></span>
-                  <span className="project-estimate-drawer-total">{formatPKRInLakhCrore(revenueMin)} – {formatPKRInLakhCrore(revenueMax)}</span>
+                  <span className="project-estimate-drawer-icon">
+                    <HandCoins size={22} />
+                  </span>
+                  <span className="project-estimate-drawer-copy">
+                    <strong>Expected recovery</strong>
+                    <small>
+                      {revenues.length} {revenues.length === 1 ? "item" : "items"} · sales estimates
+                      and recovery list
+                    </small>
+                  </span>
+                  <span className="project-estimate-drawer-total">
+                    {formatPKRInLakhCrore(revenueMin)} – {formatPKRInLakhCrore(revenueMax)}
+                  </span>
                   <ChevronDown size={19} className="project-estimate-drawer-chevron" />
                 </summary>
                 <div className="project-estimate-drawer-body">
-                  {revenues.length ? <EstimateChart items={revenues} title="Expected recovery breakdown" /> : <div className="project-estimate-empty-chart is-recovery"><HandCoins size={26} /><h3>No expected recovery yet</h3><p>Add an expected recovery to compare it with costs.</p></div>}
+                  {revenues.length ? (
+                    <EstimateChart items={revenues} title="Expected recovery breakdown" />
+                  ) : (
+                    <div className="project-estimate-empty-chart is-recovery">
+                      <HandCoins size={26} />
+                      <h3>No expected recovery yet</h3>
+                      <p>Add an expected recovery to compare it with costs.</p>
+                    </div>
+                  )}
                   <EstimateSection
                     title="Recovery / revenue items"
                     items={revenues}
@@ -1170,42 +1348,263 @@ export function ProjectDetailPage() {
             </div>
           )}
           {tab === "costs" && (
-            <div id="project-panel-costs" role="tabpanel" aria-labelledby="project-tab-costs" className="project-actual-panel">
+            <div
+              id="project-panel-costs"
+              role="tabpanel"
+              aria-labelledby="project-tab-costs"
+              className="project-actual-panel"
+            >
               <div className="project-actual-hero">
-                <div className="project-actual-hero-copy"><span><Wallet size={28} /></span><div><small>ALL PROJECT SPENDING</small><h2>Project costs</h2><p>Land, construction and other payments together in one place.</p></div></div>
-                <div className="project-actual-actions"><Button onClick={() => setDialog("construction")}><Plus className="size-4" /> Add Construction Cost</Button><Button variant="outline" onClick={() => setDialog("actual")}><Plus className="size-4" /> Add Other Cost</Button></div>
+                <div className="project-actual-hero-copy">
+                  <span>
+                    <Wallet size={28} />
+                  </span>
+                  <div>
+                    <small>ALL PROJECT SPENDING</small>
+                    <h2>Project costs</h2>
+                    <p>Land, construction and other payments together in one place.</p>
+                  </div>
+                </div>
+                <div className="project-actual-actions">
+                  {!isLandSold && (
+                    <Button onClick={() => setDialog("construction")}>
+                      <Plus className="size-4" /> Add Construction Cost
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setDialog("actual")}>
+                    <Plus className="size-4" /> Add Other Cost
+                  </Button>
+                </div>
               </div>
               <div className="project-actual-metrics">
-                <div className="project-actual-metric is-spent"><span className="project-actual-metric-icon"><Wallet size={22} /></span><small>Total spent</small><strong>{formatPKRInLakhCrore(actualTotal)}</strong><p>{formatPKR(actualTotal)} · {allActualCosts.length} {allActualCosts.length === 1 ? "payment" : "payments"}</p></div>
-                <div className="project-actual-metric is-plan"><span className="project-actual-metric-icon"><Calculator size={22} /></span><small>Estimated cost range</small><strong>{costs.length ? `${formatPKRInLakhCrore(costMin)} – ${formatPKRInLakhCrore(costMax)}` : "Not planned yet"}</strong><p>{costs.length ? `${costs.length} planned cost ${costs.length === 1 ? "item" : "items"}` : "Add expected costs in Estimate"}</p></div>
-                <div className="project-actual-metric is-remaining"><span className="project-actual-metric-icon"><PieChart size={22} /></span><small>{actualTotal > costMax && costs.length ? "Over highest estimate" : "Until highest estimate"}</small><strong>{costs.length ? formatPKRInLakhCrore(Math.abs(costMax - actualTotal)) : "—"}</strong><p>{costs.length ? "Based on the maximum planned cost" : "Available after a cost estimate is added"}</p></div>
+                <div className="project-actual-metric is-spent">
+                  <span className="project-actual-metric-icon">
+                    <Wallet size={22} />
+                  </span>
+                  <small>Total spent</small>
+                  <strong>{formatPKRInLakhCrore(actualTotal)}</strong>
+                  <p>
+                    {formatPKR(actualTotal)} · {allActualCosts.length}{" "}
+                    {allActualCosts.length === 1 ? "payment" : "payments"}
+                  </p>
+                </div>
+                <div className="project-actual-metric is-plan">
+                  <span className="project-actual-metric-icon">
+                    <Calculator size={22} />
+                  </span>
+                  <small>Estimated cost range</small>
+                  <strong>
+                    {costs.length
+                      ? `${formatPKRInLakhCrore(costMin)} – ${formatPKRInLakhCrore(costMax)}`
+                      : "Not planned yet"}
+                  </strong>
+                  <p>
+                    {costs.length
+                      ? `${costs.length} planned cost ${costs.length === 1 ? "item" : "items"}`
+                      : "Add expected costs in Estimate"}
+                  </p>
+                </div>
+                <div className="project-actual-metric is-remaining">
+                  <span className="project-actual-metric-icon">
+                    <PieChart size={22} />
+                  </span>
+                  <small>
+                    {actualTotal > costMax && costs.length
+                      ? "Over highest estimate"
+                      : "Until highest estimate"}
+                  </small>
+                  <strong>
+                    {costs.length ? formatPKRInLakhCrore(Math.abs(costMax - actualTotal)) : "—"}
+                  </strong>
+                  <p>
+                    {costs.length
+                      ? "Based on the maximum planned cost"
+                      : "Available after a cost estimate is added"}
+                  </p>
+                </div>
               </div>
               <div className="project-actual-insights">
                 <section className="project-actual-source-card">
-                  <div className="project-actual-section-title"><div><h3>Where the money went</h3><p>All recorded project costs by source</p></div></div>
+                  <div className="project-actual-section-title">
+                    <div>
+                      <h3>Where the money went</h3>
+                      <p>All recorded project costs by source</p>
+                    </div>
+                  </div>
                   <div className="project-actual-source-list">
                     {actualSources.map(({ key, label, icon: Icon, amount }) => (
-                      <div key={key} className={`project-actual-source is-${key}`}><span className="project-actual-source-icon"><Icon size={18} /></span><div><span><strong>{label}</strong><b>{formatPKR(amount)}</b></span><i><em style={{ width: `${actualTotal ? (amount / actualTotal) * 100 : 0}%` }} /></i></div></div>
+                      <div key={key} className={`project-actual-source is-${key}`}>
+                        <span className="project-actual-source-icon">
+                          <Icon size={18} />
+                        </span>
+                        <div>
+                          <span>
+                            <strong>{label}</strong>
+                            <b>{formatPKR(amount)}</b>
+                          </span>
+                          <i>
+                            <em
+                              style={{
+                                width: `${actualTotal ? (amount / actualTotal) * 100 : 0}%`,
+                              }}
+                            />
+                          </i>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </section>
-                <section className="project-actual-chart-card">{actualFilter.visible.length ? <SpendingChart costs={actualFilter.visible} /> : <><div className="project-actual-section-title"><div><h3>Spending over time</h3><p>Running total for the selected records</p></div></div><div className="project-actual-chart-empty"><PieChart size={27} /><strong>No spending to chart</strong><span>{allActualCosts.length ? "Try changing your filters." : "Recorded costs will appear here."}</span></div></>}</section>
+                <section className="project-actual-chart-card">
+                  {actualFilter.visible.length ? (
+                    <SpendingChart costs={actualFilter.visible} />
+                  ) : (
+                    <>
+                      <div className="project-actual-section-title">
+                        <div>
+                          <h3>Spending over time</h3>
+                          <p>Running total for the selected records</p>
+                        </div>
+                      </div>
+                      <div className="project-actual-chart-empty">
+                        <PieChart size={27} />
+                        <strong>No spending to chart</strong>
+                        <span>
+                          {allActualCosts.length
+                            ? "Try changing your filters."
+                            : "Recorded costs will appear here."}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </section>
               </div>
               <section className="project-actual-history">
-                <div className="project-actual-section-title"><div><h3>Cost history</h3><p>Review every recorded project payment</p></div><span>{actualFilter.visible.length} of {allActualCosts.length} shown</span></div>
-                <details className="project-actual-filter"><summary><span><SlidersHorizontal size={18} /> Search & filter costs</span><span>{actualFilter.active ? "Filters applied" : "All costs"} <ChevronDown size={16} /></span></summary>{actualFilter.controls}</details>{actualFilter.pagination}
-                {actualFilter.active && <p className="project-actual-filter-summary">Matching total: <strong>{formatPKR(sum(actualFilter.visible.map((item) => item.amount)))}</strong> · Summary cards above include all costs.</p>}
-                {actualFilter.visible.length === 0 ? <div className="project-actual-empty"><Wallet size={25} /><strong>{allActualCosts.length ? "No costs match these filters" : "No actual costs recorded yet"}</strong><p>{allActualCosts.length ? "Adjust your search or filters to see more records." : "Add a cost, or record a land or construction payment."}</p></div> :
-                  <div className="project-actual-records">{actualFilter.pageItems.map((item) => { const source = item.type === "land_purchase" ? "land" : item.type === "construction_cost" ? "construction" : "other"; const Icon = source === "land" ? Landmark : source === "construction" ? HardHat : Wallet; return <article key={item.id} className={`project-actual-record is-${source}`}><span className="project-actual-record-icon"><Icon size={20} /></span><div className="project-actual-record-main"><strong>{item.description}</strong><span>{formatDate(item.date)} · {source === "land" ? "Land acquired" : source === "construction" ? "Construction Cost" : "Added here"}{item.method ? ` · ${item.method}` : ""}</span>{item.reference && <small>Ref: {item.reference}</small>}{source !== "land" && <><PaymentDetailsView transaction={item} /><SavedImageGallery documents={costDocuments.filter((receipt) => receipt.owner_id === item.id)} /></>}</div><b>{formatPKR(item.amount)}</b></article>; })}</div>}
+                <div className="project-actual-section-title">
+                  <div>
+                    <h3>Cost history</h3>
+                    <p>Review every recorded project payment</p>
+                  </div>
+                  <span>
+                    {actualFilter.visible.length} of {allActualCosts.length} shown
+                  </span>
+                </div>
+                <details className="project-actual-filter">
+                  <summary>
+                    <span>
+                      <SlidersHorizontal size={18} /> Search & filter costs
+                    </span>
+                    <span>
+                      {actualFilter.active ? "Filters applied" : "All costs"}{" "}
+                      <ChevronDown size={16} />
+                    </span>
+                  </summary>
+                  {actualFilter.controls}
+                </details>
+                {actualFilter.pagination}
+                {actualFilter.active && (
+                  <p className="project-actual-filter-summary">
+                    Matching total:{" "}
+                    <strong>
+                      {formatPKR(sum(actualFilter.visible.map((item) => item.amount)))}
+                    </strong>{" "}
+                    · Summary cards above include all costs.
+                  </p>
+                )}
+                {actualFilter.visible.length === 0 ? (
+                  <div className="project-actual-empty">
+                    <Wallet size={25} />
+                    <strong>
+                      {allActualCosts.length
+                        ? "No costs match these filters"
+                        : "No actual costs recorded yet"}
+                    </strong>
+                    <p>
+                      {allActualCosts.length
+                        ? "Adjust your search or filters to see more records."
+                        : "Add a cost, or record a land or construction payment."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="project-actual-records">
+                    {actualFilter.pageItems.map((item) => {
+                      const source =
+                        item.type === "land_purchase"
+                          ? "land"
+                          : item.type === "construction_cost"
+                            ? "construction"
+                            : "other";
+                      const Icon =
+                        source === "land" ? Landmark : source === "construction" ? HardHat : Wallet;
+                      return (
+                        <article key={item.id} className={`project-actual-record is-${source}`}>
+                          <span className="project-actual-record-icon">
+                            <Icon size={20} />
+                          </span>
+                          <div className="project-actual-record-main">
+                            <strong>{item.description}</strong>
+                            <span>
+                              {formatDate(item.date)} ·{" "}
+                              {source === "land"
+                                ? "Land acquired"
+                                : source === "construction"
+                                  ? "Construction Cost"
+                                  : "Added here"}
+                              {item.method ? ` · ${item.method}` : ""}
+                            </span>
+                            {item.reference && <small>Ref: {item.reference}</small>}
+                            {source !== "land" && (
+                              <>
+                                <PaymentDetailsView transaction={item} />
+                                <SavedImageGallery
+                                  documents={costDocuments.filter(
+                                    (receipt) => receipt.owner_id === item.id,
+                                  )}
+                                />
+                              </>
+                            )}
+                          </div>
+                          <b>{formatPKR(item.amount)}</b>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
-              <details className="project-actual-construction-details" onToggle={(event) => setConstructionDetailsOpen(event.currentTarget.open)}><summary><span><HardHat size={20} /> Construction spending detail</span><ChevronDown size={18} /></summary>{constructionDetailsOpen && <ConstructionCostInsights costs={constructionCosts} receipts={costDocuments} />}</details>
+              {!isLandSold && (
+                <details
+                  className="project-actual-construction-details"
+                  onToggle={(event) => setConstructionDetailsOpen(event.currentTarget.open)}
+                >
+                  <summary>
+                    <span>
+                      <HardHat size={20} /> Construction spending detail
+                    </span>
+                    <ChevronDown size={18} />
+                  </summary>
+                  {constructionDetailsOpen && (
+                    <ConstructionCostInsights costs={constructionCosts} receipts={costDocuments} />
+                  )}
+                </details>
+              )}
             </div>
           )}
           {tab === "sales" && (
-            <ProjectSalesPanel projectId={project.id} buildingDetails={buildingDetails} />
+            <ProjectSalesPanel
+              projectId={project.id}
+              buildingDetails={buildingDetails}
+              landSold={isLandSold}
+              refreshKey={project.updated_at}
+            />
           )}
           {tab === "profit" && (
-            <ProjectProfitLossPanel projectId={project.id} costs={allActualCosts} partners={partners} contributions={contributions} onManagePartner={(partner) => setSelectedPartnerId(partner.partnership_id)} refreshKey={selectedPartnerId} />
+            <ProjectProfitLossPanel
+              projectId={project.id}
+              costs={allActualCosts}
+              partners={partners}
+              contributions={contributions}
+              onManagePartner={(partner) => setSelectedPartnerId(partner.partnership_id)}
+              refreshKey={selectedPartnerId}
+            />
           )}
           {dialog && (
             <ProjectEntryDialog
@@ -1242,467 +1641,445 @@ export function ProjectDetailPage() {
             }}
           >
             <DialogContent className="project-stage-dialog project-stage-redesign payment-modal">
-              <PaymentModalHeader icon={Building2} eyebrow="PROJECT JOURNEY" title="Change project status" description="Choose the project stage and save the land and payment details." />
+              <PaymentModalHeader
+                icon={Building2}
+                eyebrow="PROJECT JOURNEY"
+                title="Change project status"
+                description="Choose the project stage and save the land and payment details."
+              />
               <div className="payment-modal-scroll">
-              <div className="project-stage-preview">
-                <ProjectStatusProgress status={statusDraft} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-update-status">Project status</Label>
-                <select
-                  id="project-update-status"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={statusDraft}
-                  onChange={(event) => setStatusDraft(event.target.value as ProjectStatus)}
-                >
-                  {ProjectStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground">
-                  The new status will also appear on the Projects page.
-                </p>
-              </div>
-              {statusDraft === "land acquired" && (
-                <div className="project-stage-fields">
-                  <div className="project-land-steps" aria-label="Land acquisition steps">
-                    {["Land details", "Payment details", "Land documents"].map((label, index) => (
-                      <span
-                        key={label}
-                        className={
-                          index === landStep ? "is-active" : index < landStep ? "is-complete" : ""
-                        }
-                      >
-                        <b>{index + 1}</b>
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                  {landStep === 0 && (
-                    <>
-                      <div className="project-stage-intro">
-                        <Landmark size={20} />
-                        <div>
-                          <strong>Tell us about the land</strong>
-                          <p>
-                            These details will stay with this project so you can see what was
-                            acquired.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="project-stage-grid">
-                        <div>
-                          <Label htmlFor="stage-land-title">Land name *</Label>
-                          <input
-                            id="stage-land-title"
-                            value={landTitle}
-                            onChange={(event) => setLandTitle(event.target.value)}
-                            placeholder="e.g. Baloch Residency plot"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="stage-land-date">Date acquired *</Label>
-                          <input
-                            id="stage-land-date"
-                            type="date"
-                            value={landDate}
-                            onChange={(event) => setLandDate(event.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="stage-land-location">Land location *</Label>
-                        <input
-                          id="stage-land-location"
-                          value={landLocation}
-                          onChange={(event) => setLandLocation(event.target.value)}
-                          placeholder="Address or area"
-                        />
-                      </div>
-                      <div className="project-stage-grid">
-                        <div>
-                          <Label htmlFor="stage-land-area">Area (optional)</Label>
-                          <input
-                            id="stage-land-area"
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={landArea}
-                            onChange={(event) => setLandArea(event.target.value)}
-                            placeholder="e.g. 7000"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="stage-land-unit">Area unit</Label>
-                          <select
-                            id="stage-land-unit"
-                            value={landAreaUnit}
-                            onChange={(event) =>
-                              setLandAreaUnit(event.target.value as typeof landAreaUnit)
-                            }
-                          >
-                            <option value="sqyd">Square yards</option>
-                            <option value="sqft">Square feet</option>
-                            <option value="marla">Marla</option>
-                            <option value="kanal">Kanal</option>
-                            <option value="acre">Acre</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="project-stage-grid">
-                        <div>
-                          <Label htmlFor="stage-land-seller">Seller (optional)</Label>
-                          <input
-                            id="stage-land-seller"
-                            value={landSeller}
-                            onChange={(event) => setLandSeller(event.target.value)}
-                            placeholder="Person or company"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="stage-land-price">Purchase price in Rs (optional)</Label>
-                          <input
-                            id="stage-land-price"
-                            inputMode="numeric"
-                            value={landPrice}
-                            onChange={(event) => setLandPrice(event.target.value)}
-                            placeholder="e.g. 5,000,000"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="stage-land-notes">Notes (optional)</Label>
-                        <textarea
-                          id="stage-land-notes"
-                          value={landNotes}
-                          onChange={(event) => setLandNotes(event.target.value)}
-                          rows={2}
-                          placeholder="Any useful detail about this land"
-                        />
-                      </div>
-                    </>
-                  )}
-                  {landStep === 1 && (
-                    <>
-                      <div className="project-stage-intro">
-                        <Wallet size={20} />
-                        <div>
-                          <strong>Purchase payment</strong>
-                          <p>Choose the paying account and how money reached the seller.</p>
-                        </div>
-                      </div>
-                      <div>
-                        {landPrice.trim() && (
-                          <>
-                            <BankAccountSelect
-                              value={landAccount}
-                              onChange={(value) => {
-                                setLandAccount(value);
-                                setLandPaymentDetails((current) => ({
-                                  ...current,
-                                  paid_to: current.paid_to || landSeller,
-                                }));
-                              }}
-                            />
-                            {landAccount && (
-                              <div className="project-stage-payment">
-                                <div className="project-stage-intro">
-                                  <Wallet size={20} />
-                                  <div>
-                                    <strong>How was this land paid for?</strong>
-                                    <p>
-                                      Save the payment details with this land purchase and show them
-                                      in Bank.
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="project-stage-grid">
-                                  <div className="sm:col-span-2"><PaymentMethodSelect value={landPaymentDetails.method} onChange={(method) => { setLandPaymentDetails({ ...emptyLandPaymentDetails, paid_to: landPaymentDetails.paid_to || landSeller, method }); setLandPaymentImages([]); }} /></div>
-                                  <div>
-                                    <Label htmlFor="stage-land-paid-to">Paid to *</Label>
-                                    <input
-                                      id="stage-land-paid-to"
-                                      value={landPaymentDetails.paid_to}
-                                      onChange={(event) =>
-                                        setLandPaymentDetails((current) => ({
-                                          ...current,
-                                          paid_to: event.target.value,
-                                        }))
-                                      }
-                                      placeholder="Seller or recipient"
-                                    />
-                                  </div>
-                                </div>
-                                {landPaymentDetails.method !== "cash" && (
-                                  <div className="project-stage-grid">
-                                    <div>
-                                      <Label htmlFor="stage-land-provider">
-                                        {landPaymentDetails.method === "digital"
-                                          ? "Wallet / app name *"
-                                          : landPaymentDetails.method === "other"
-                                            ? "Payment service *"
-                                            : "Bank name *"}
-                                      </Label>
-                                      <input
-                                        id="stage-land-provider"
-                                        value={landPaymentDetails.provider}
-                                        onChange={(event) =>
-                                          setLandPaymentDetails((current) => ({
-                                            ...current,
-                                            provider: event.target.value,
-                                          }))
-                                        }
-                                        placeholder={
-                                          landPaymentDetails.method === "digital"
-                                            ? "e.g. Easypaisa"
-                                            : "e.g. Meezan Bank"
-                                        }
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="stage-land-reference">
-                                        {landPaymentDetails.method === "cheque"
-                                          ? "Cheque number *"
-                                          : landPaymentDetails.method === "bank" ||
-                                              landPaymentDetails.method === "digital"
-                                            ? "Transaction reference *"
-                                            : "Reference (optional)"}
-                                      </Label>
-                                      <input
-                                        id="stage-land-reference"
-                                        value={landPaymentDetails.reference}
-                                        onChange={(event) =>
-                                          setLandPaymentDetails((current) => ({
-                                            ...current,
-                                            reference: event.target.value,
-                                          }))
-                                        }
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                                {(landPaymentDetails.method === "bank" ||
-                                  landPaymentDetails.method === "digital" ||
-                                  landPaymentDetails.method === "cheque") && (
-                                  <div className="project-stage-grid">
-                                    <div>
-                                      <Label htmlFor="stage-land-account-name">
-                                        {landPaymentDetails.method === "cheque"
-                                          ? "Account holder / payer"
-                                          : "Account holder"}
-                                      </Label>
-                                      <input
-                                        id="stage-land-account-name"
-                                        value={landPaymentDetails.account_name}
-                                        onChange={(event) =>
-                                          setLandPaymentDetails((current) => ({
-                                            ...current,
-                                            account_name: event.target.value,
-                                          }))
-                                        }
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="stage-land-account-no">
-                                        {landPaymentDetails.method === "digital"
-                                          ? "Wallet / mobile number"
-                                          : "Account number (optional)"}
-                                      </Label>
-                                      <input
-                                        id="stage-land-account-no"
-                                        value={landPaymentDetails.account_no}
-                                        onChange={(event) =>
-                                          setLandPaymentDetails((current) => ({
-                                            ...current,
-                                            account_no: event.target.value,
-                                          }))
-                                        }
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                                {landPaymentDetails.method === "cheque" && (
-                                  <div>
-                                    <Label htmlFor="stage-land-cheque-date">Cheque date *</Label>
-                                    <input
-                                      id="stage-land-cheque-date"
-                                      type="date"
-                                      value={landPaymentDetails.cheque_date}
-                                      onChange={(event) =>
-                                        setLandPaymentDetails((current) => ({
-                                          ...current,
-                                          cheque_date: event.target.value,
-                                        }))
-                                      }
-                                    />
-                                  </div>
-                                )}
-                                <div className="project-payment-images">
-                                  <Label htmlFor="stage-land-payment-images">
-                                    {landPaymentDetails.method === "cash"
-                                      ? "Cash payment photo (optional)"
-                                      : landPaymentDetails.method === "cheque"
-                                        ? "Cheque image (optional)"
-                                        : landPaymentDetails.method === "bank"
-                                          ? "Bank transfer receipt (optional)"
-                                          : landPaymentDetails.method === "digital"
-                                            ? "Digital payment receipt (optional)"
-                                            : "Payment proof image (optional)"}
-                                  </Label>
-                                  <p>
-                                    {landPaymentDetails.method === "cash"
-                                      ? "Add a photo of a signed cash receipt or payment acknowledgement."
-                                      : landPaymentDetails.method === "cheque"
-                                        ? "Add a photo of the cheque or deposit slip."
-                                        : landPaymentDetails.method === "bank"
-                                          ? "Add a screenshot or photo of the transfer receipt."
-                                          : landPaymentDetails.method === "digital"
-                                            ? "Add a screenshot of the wallet payment confirmation."
-                                            : "Add a photo of any payment record you have."}
-                                  </p>
-                                  <input
-                                    key={landPaymentDetails.method}
-                                    id="stage-land-payment-images"
-                                    className="project-image-file-input"
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
-                                    multiple
-                                    onChange={(event) => {
-                                      const files = Array.from(event.target.files ?? []);
-                                      const invalid = files.find(
-                                        (file) =>
-                                          !["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"].includes(file.type) ||
-                                          !file.size || file.size > 10 * 1024 * 1024,
-                                      );
-                                      if (invalid) {
-                                        setStatusError("Choose JPG, PNG or PDF files (also WebP/GIF), up to 10 MB each.");
-                                        event.target.value = "";
-                                        return;
-                                      }
-                                      setStatusError("");
-                                      setLandPaymentImages(files);
-                                    }}
-                                  />
-                                  <label className="project-image-upload project-image-upload-payment" htmlFor="stage-land-payment-images">
-                                    <span className="project-image-upload-icon"><Upload size={21} aria-hidden="true" /></span>
-                                    <span><strong>Upload payment receipts</strong><small>{landPaymentImages.length ? `${landPaymentImages.length} selected · choose again to replace` : "Choose images or PDF files"}</small></span>
-                                  </label>
-                                  <SelectedImagePreviews files={landPaymentImages} />
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {!landPrice.trim() && (
-                          <p className="project-stage-hint">
-                            No purchase price was entered. You can continue without payment details.
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
-                  {landStep === 2 && (
-                    <div className="project-land-images">
-                      <div className="project-stage-intro">
-                        <FolderOpen size={20} />
-                        <div>
-                          <strong>Add land documents</strong>
-                          <p>Optional JPG, PNG and PDF files are saved in Documents and linked to this land.</p>
-                        </div>
-                      </div>
-                      <Label htmlFor="stage-land-images">Land ownership papers, agreements, photos or maps</Label>
-                      <input
-                        id="stage-land-images"
-                        className="project-image-file-input"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
-                        multiple
-                        onChange={(event) => {
-                          const files = Array.from(event.target.files ?? []);
-                          const invalid = files.find(
-                            (file) =>
-                              !["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"].includes(
-                                file.type,
-                              ) ||
-                              !file.size ||
-                              file.size > 10 * 1024 * 1024,
-                          );
-                          if (invalid) {
-                            setStatusError(
-                              "Choose JPG, PNG or PDF files (also WebP/GIF), up to 10 MB each.",
-                            );
-                            event.target.value = "";
-                            return;
-                          }
-                          setStatusError("");
-                          setLandImages(files);
-                        }}
-                      />
-                      <label className="project-image-upload" htmlFor="stage-land-images">
-                        <span className="project-image-upload-icon"><Upload size={21} aria-hidden="true" /></span>
-                        <span><strong>Upload land documents</strong><small>{landImages.length ? `${landImages.length} selected · choose again to replace` : "Choose images or PDF files"}</small></span>
-                      </label>
-                      <p>JPG, PNG or PDF · up to 10 MB per file. You can select more than one.</p>
-                      <SelectedImagePreviews files={landImages} />
-                    </div>
-                  )}
+                <div className="project-stage-preview">
+                  <ProjectStatusProgress status={statusDraft} />
                 </div>
-              )}
-              {statusDraft === "under construction" && (
-                <p className="project-stage-hint">
-                  Construction payments can be added in the Costs tab after you save
-                  this status.
-                </p>
-              )}
-              {statusError && (
-                <p role="alert" className="text-sm text-destructive">
-                  {statusError}
-                </p>
-              )}
+                <div className="space-y-2">
+                  <Label htmlFor="project-update-status">Project status</Label>
+                  <select
+                    id="project-update-status"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={statusDraft}
+                    disabled={savingStatus}
+                    onChange={(event) => setStatusDraft(event.target.value as ProjectStatus)}
+                  >
+                    {ProjectStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    The new status will also appear on the Projects page.
+                  </p>
+                </div>
+                {statusDraft === "land acquired" && (
+                  <div className="project-stage-fields">
+                    <div className="project-land-steps" aria-label="Land acquisition steps">
+                      {["Land details", "Payment details", "Land documents"].map((label, index) => (
+                        <span
+                          key={label}
+                          className={
+                            index === landStep ? "is-active" : index < landStep ? "is-complete" : ""
+                          }
+                        >
+                          <b>{index + 1}</b>
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                    {landStep === 0 && (
+                      <>
+                        <div className="project-stage-intro">
+                          <Landmark size={20} />
+                          <div>
+                            <strong>Tell us about the land</strong>
+                            <p>
+                              These details will stay with this project so you can see what was
+                              acquired.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="project-stage-grid">
+                          <div>
+                            <Label htmlFor="stage-land-title">Land name *</Label>
+                            <input
+                              id="stage-land-title"
+                              value={landTitle}
+                              onChange={(event) => setLandTitle(event.target.value)}
+                              placeholder="e.g. Baloch Residency plot"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="stage-land-date">Date acquired *</Label>
+                            <input
+                              id="stage-land-date"
+                              type="date"
+                              value={landDate}
+                              onChange={(event) => setLandDate(event.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="stage-land-location">Land location *</Label>
+                          <input
+                            id="stage-land-location"
+                            value={landLocation}
+                            onChange={(event) => setLandLocation(event.target.value)}
+                            placeholder="Address or area"
+                          />
+                        </div>
+                        <div className="project-stage-grid">
+                          <div>
+                            <Label htmlFor="stage-land-area">Area (optional)</Label>
+                            <input
+                              id="stage-land-area"
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={landArea}
+                              onChange={(event) => setLandArea(event.target.value)}
+                              placeholder="e.g. 7000"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="stage-land-unit">Area unit</Label>
+                            <select
+                              id="stage-land-unit"
+                              value={landAreaUnit}
+                              onChange={(event) =>
+                                setLandAreaUnit(event.target.value as typeof landAreaUnit)
+                              }
+                            >
+                              <option value="sqyd">Square yards</option>
+                              <option value="sqft">Square feet</option>
+                              <option value="marla">Marla</option>
+                              <option value="kanal">Kanal</option>
+                              <option value="acre">Acre</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="project-stage-grid">
+                          <div>
+                            <Label htmlFor="stage-land-seller">Seller (optional)</Label>
+                            <input
+                              id="stage-land-seller"
+                              value={landSeller}
+                              onChange={(event) => setLandSeller(event.target.value)}
+                              placeholder="Person or company"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="stage-land-price">
+                              Purchase price in Rs (optional)
+                            </Label>
+                            <input
+                              id="stage-land-price"
+                              inputMode="numeric"
+                              value={landPrice}
+                              onChange={(event) => setLandPrice(event.target.value)}
+                              placeholder="e.g. 5,000,000"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="stage-land-notes">Notes (optional)</Label>
+                          <textarea
+                            id="stage-land-notes"
+                            value={landNotes}
+                            onChange={(event) => setLandNotes(event.target.value)}
+                            rows={2}
+                            placeholder="Any useful detail about this land"
+                          />
+                        </div>
+                      </>
+                    )}
+                    {landStep === 1 && (
+                      <>
+                        <div className="project-stage-intro">
+                          <Wallet size={20} />
+                          <div>
+                            <strong>Purchase payment</strong>
+                            <p>Choose the paying account and how money reached the seller.</p>
+                          </div>
+                        </div>
+                        <div>
+                          {landPrice.trim() && (
+                            <>
+                              <BankAccountSelect
+                                value={landAccount}
+                                onChange={(value) => {
+                                  setLandAccount(value);
+                                  setLandPaymentDetails((current) => ({
+                                    ...current,
+                                    paid_to: current.paid_to || landSeller,
+                                  }));
+                                }}
+                              />
+                              {landAccount && (
+                                <div className="project-stage-payment">
+                                  <div className="project-stage-intro">
+                                    <Wallet size={20} />
+                                    <div>
+                                      <strong>How was this land paid for?</strong>
+                                      <p>
+                                        Save the payment details with this land purchase and show
+                                        them in Bank.
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="project-stage-grid">
+                                    <div className="sm:col-span-2">
+                                      <PaymentMethodSelect
+                                        value={landPaymentDetails.method}
+                                        onChange={(method) => {
+                                          setLandPaymentDetails({
+                                            ...emptyLandPaymentDetails,
+                                            paid_to: landPaymentDetails.paid_to || landSeller,
+                                            method,
+                                          });
+                                          setLandPaymentImages([]);
+                                        }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="stage-land-paid-to">Paid to *</Label>
+                                      <input
+                                        id="stage-land-paid-to"
+                                        value={landPaymentDetails.paid_to}
+                                        onChange={(event) =>
+                                          setLandPaymentDetails((current) => ({
+                                            ...current,
+                                            paid_to: event.target.value,
+                                          }))
+                                        }
+                                        placeholder="Seller or recipient"
+                                      />
+                                    </div>
+                                  </div>
+                                  {landPaymentDetails.method !== "cash" && (
+                                    <div className="project-stage-grid">
+                                      <div>
+                                        <Label htmlFor="stage-land-provider">
+                                          {landPaymentDetails.method === "digital"
+                                            ? "Wallet / app name *"
+                                            : landPaymentDetails.method === "other"
+                                              ? "Payment service *"
+                                              : "Bank name *"}
+                                        </Label>
+                                        <input
+                                          id="stage-land-provider"
+                                          value={landPaymentDetails.provider}
+                                          onChange={(event) =>
+                                            setLandPaymentDetails((current) => ({
+                                              ...current,
+                                              provider: event.target.value,
+                                            }))
+                                          }
+                                          placeholder={
+                                            landPaymentDetails.method === "digital"
+                                              ? "e.g. Easypaisa"
+                                              : "e.g. Meezan Bank"
+                                          }
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor="stage-land-reference">
+                                          {landPaymentDetails.method === "cheque"
+                                            ? "Cheque number *"
+                                            : landPaymentDetails.method === "bank" ||
+                                                landPaymentDetails.method === "digital"
+                                              ? "Transaction reference *"
+                                              : "Reference (optional)"}
+                                        </Label>
+                                        <input
+                                          id="stage-land-reference"
+                                          value={landPaymentDetails.reference}
+                                          onChange={(event) =>
+                                            setLandPaymentDetails((current) => ({
+                                              ...current,
+                                              reference: event.target.value,
+                                            }))
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                  {(landPaymentDetails.method === "bank" ||
+                                    landPaymentDetails.method === "digital" ||
+                                    landPaymentDetails.method === "cheque") && (
+                                    <div className="project-stage-grid">
+                                      <div>
+                                        <Label htmlFor="stage-land-account-name">
+                                          {landPaymentDetails.method === "cheque"
+                                            ? "Account holder / payer"
+                                            : "Account holder"}
+                                        </Label>
+                                        <input
+                                          id="stage-land-account-name"
+                                          value={landPaymentDetails.account_name}
+                                          onChange={(event) =>
+                                            setLandPaymentDetails((current) => ({
+                                              ...current,
+                                              account_name: event.target.value,
+                                            }))
+                                          }
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor="stage-land-account-no">
+                                          {landPaymentDetails.method === "digital"
+                                            ? "Wallet / mobile number"
+                                            : "Account number (optional)"}
+                                        </Label>
+                                        <input
+                                          id="stage-land-account-no"
+                                          value={landPaymentDetails.account_no}
+                                          onChange={(event) =>
+                                            setLandPaymentDetails((current) => ({
+                                              ...current,
+                                              account_no: event.target.value,
+                                            }))
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                  {landPaymentDetails.method === "cheque" && (
+                                    <div>
+                                      <Label htmlFor="stage-land-cheque-date">Cheque date *</Label>
+                                      <input
+                                        id="stage-land-cheque-date"
+                                        type="date"
+                                        value={landPaymentDetails.cheque_date}
+                                        onChange={(event) =>
+                                          setLandPaymentDetails((current) => ({
+                                            ...current,
+                                            cheque_date: event.target.value,
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="project-payment-images">
+                                    <AttachmentUpload
+                                      files={landPaymentImages}
+                                      onChange={setLandPaymentImages}
+                                      allowPdf
+                                      label="Upload payment receipts"
+                                      onError={setStatusError}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {!landPrice.trim() && (
+                            <p className="project-stage-hint">
+                              No purchase price was entered. You can continue without payment
+                              details.
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    {landStep === 2 && (
+                      <div className="project-land-images">
+                        <div className="project-stage-intro">
+                          <FolderOpen size={20} />
+                          <div>
+                            <strong>Add land documents</strong>
+                            <p>
+                              Optional JPG, PNG and PDF files are saved in Documents and linked to
+                              this land.
+                            </p>
+                          </div>
+                        </div>
+                        <AttachmentUpload
+                          files={landImages}
+                          onChange={setLandImages}
+                          allowPdf
+                          title="Land documents"
+                          label="Land ownership papers, agreements, photos or maps"
+                          onError={setStatusError}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                {statusDraft === "land sold" &&
+                  (landDetails?.purchase_date && landDetails.status === "acquired" ? (
+                    <LandSaleForm
+                      projectId={project.id}
+                      acquiredDate={landDetails.purchase_date}
+                      onBusy={setSavingStatus}
+                      onSaved={async () => {
+                        const updated = await getProjectById(project.id);
+                        if (!updated)
+                          throw new Error("Sale saved. Reopen the project to refresh its status.");
+                        setProject(updated);
+                        setStatusDialogOpen(false);
+                        setTab("sales");
+                        toast.success("Land sale saved");
+                      }}
+                    />
+                  ) : (
+                    <p role="alert" className="project-stage-hint">
+                      Acquire the land first. Choose Land acquired and save its purchase details
+                      before recording a sale.
+                    </p>
+                  ))}
+                {statusDraft === "under construction" && (
+                  <p className="project-stage-hint">
+                    Construction payments can be added in the Costs tab after you save this status.
+                  </p>
+                )}
+                {statusError && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {statusError}
+                  </p>
+                )}
               </div>
-              <DialogFooter>
-                {statusDraft === "land acquired" && landStep > 0 && (
+              {statusDraft !== "land sold" && (
+                <DialogFooter>
+                  {statusDraft === "land acquired" && landStep > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={savingStatus}
+                      onClick={() => {
+                        setStatusError("");
+                        setLandStep((step) => step - 1);
+                      }}
+                    >
+                      Back
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
                     disabled={savingStatus}
-                    onClick={() => {
-                      setStatusError("");
-                      setLandStep((step) => step - 1);
-                    }}
+                    onClick={() => setStatusDialogOpen(false)}
                   >
-                    Back
+                    Cancel
                   </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={savingStatus}
-                  onClick={() => setStatusDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  disabled={
-                    savingStatus ||
-                    (statusDraft === project.status && statusDraft !== "land acquired")
-                  }
-                  onClick={
-                    statusDraft === "land acquired" && landStep < 2 ? nextLandStep : saveStatus
-                  }
-                >
-                  {savingStatus
-                    ? "Saving…"
-                    : statusDraft === "land acquired"
-                      ? landStep < 2
-                        ? "Next"
-                        : "Save land and status"
-                      : "Save status"}
-                </Button>
-              </DialogFooter>
+                  <Button
+                    type="button"
+                    disabled={
+                      savingStatus ||
+                      (statusDraft === project.status && statusDraft !== "land acquired")
+                    }
+                    onClick={
+                      statusDraft === "land acquired" && landStep < 2 ? nextLandStep : saveStatus
+                    }
+                  >
+                    {savingStatus
+                      ? "Saving…"
+                      : statusDraft === "land acquired"
+                        ? landStep < 2
+                          ? "Next"
+                          : "Save land and status"
+                        : "Save status"}
+                  </Button>
+                </DialogFooter>
+              )}
             </DialogContent>
           </Dialog>
           {selectedPartner && (
@@ -1797,38 +2174,69 @@ function EstimateSection({
   return (
     <section className="project-estimate-section">
       <div className="project-estimate-section-heading">
-        <div><h3>{title}</h3><p>Review and update each planned amount.</p></div>
-        <span>{items.length} {items.length === 1 ? "item" : "items"}</span>
+        <div>
+          <h3>{title}</h3>
+          <p>Review and update each planned amount.</p>
+        </div>
+        <span>
+          {items.length} {items.length === 1 ? "item" : "items"}
+        </span>
       </div>
       <details className="project-estimate-filter">
-        <summary><span><SlidersHorizontal size={18} /> Search & filter {title.toLowerCase()}</span><span>{active ? "Filters applied" : "All items"} <ChevronDown size={16} /></span></summary>
+        <summary>
+          <span>
+            <SlidersHorizontal size={18} /> Search & filter {title.toLowerCase()}
+          </span>
+          <span>
+            {active ? "Filters applied" : "All items"} <ChevronDown size={16} />
+          </span>
+        </summary>
         {controls}
-      </details>{pagination}
-      {active && <div className="project-estimate-filter-results"><span>{visible.length} of {items.length} shown</span><button type="button" onClick={reset}>Clear filters</button></div>}
+      </details>
+      {pagination}
+      {active && (
+        <div className="project-estimate-filter-results">
+          <span>
+            {visible.length} of {items.length} shown
+          </span>
+          <button type="button" onClick={reset}>
+            Clear filters
+          </button>
+        </div>
+      )}
       {items.length > 0 && visible.length === 0 && (
         <p className="filter-empty">No estimate items match these filters.</p>
       )}
       {items.length === 0 ? (
-        <div className="project-estimate-empty-list"><Calculator size={23} /><strong>No items added yet</strong><p>Use the button above to start this part of the plan.</p></div>
+        <div className="project-estimate-empty-list">
+          <Calculator size={23} />
+          <strong>No items added yet</strong>
+          <p>Use the button above to start this part of the plan.</p>
+        </div>
       ) : (
         <div className="project-estimate-items">
-              {pageItems.map((item) => {
-                const flatLines = flatRecoveryLines(item);
-                const link = recoveryLink(item);
-                const floorCount = new Set(flatLines.map((line) => line.floor_index)).size;
-                return (
-                <article key={item.id} className="project-estimate-item">
-                  <div className="project-estimate-item-top">
-                    <span className="project-estimate-item-icon"><Calculator size={18} /></span>
-                    <div><h4>{item.title}</h4>
+          {pageItems.map((item) => {
+            const flatLines = flatRecoveryLines(item);
+            const link = recoveryLink(item);
+            const floorCount = new Set(flatLines.map((line) => line.floor_index)).size;
+            return (
+              <article key={item.id} className="project-estimate-item">
+                <div className="project-estimate-item-top">
+                  <span className="project-estimate-item-icon">
+                    <Calculator size={18} />
+                  </span>
+                  <div>
+                    <h4>{item.title}</h4>
                     {link && (
                       <p>
                         {link.quantity} {link.space} included
-                        {floorCount > 0 ? ` · ${floorCount} ${floorCount === 1 ? "floor" : "floors"}` : " · priced per unit"}
+                        {floorCount > 0
+                          ? ` · ${floorCount} ${floorCount === 1 ? "floor" : "floors"}`
+                          : " · priced per unit"}
                       </p>
                     )}
-                    </div>
-                    <div className="project-estimate-item-actions">
+                  </div>
+                  <div className="project-estimate-item-actions">
                     <Button
                       type="button"
                       size="icon"
@@ -1848,25 +2256,51 @@ function EstimateSection({
                     >
                       <Trash2 className="size-4" />
                     </Button>
-                    </div>
                   </div>
-                  <div className="project-estimate-item-amounts"><span><small>Minimum</small><strong>{formatPKR(item.minimum_amount)}</strong></span><span><small>Maximum</small><strong>{formatPKR(item.maximum_amount)}</strong></span></div>
-                  {flatLines.length > 0 && (
-                    <details className="project-estimate-flat-details">
-                      <summary><span>View prices by floor</span><span>{flatLines.length} flat {flatLines.length === 1 ? "type" : "types"} <ChevronDown size={16} /></span></summary>
-                      <div className="project-estimate-flat-lines">
-                        {flatLines.map((line) => (
-                          <div key={`${line.floor_index}-${line.rooms}`}>
-                            <span><strong>{line.floor_index === 0 ? "Ground" : `Floor ${line.floor_index}`}</strong><small>{line.quantity} × {line.rooms}-room flats</small></span>
-                            <strong>{formatPKR(line.minimum_unit_price)} – {formatPKR(line.maximum_unit_price)} <small>each</small></strong>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                  {item.details && <p className="project-estimate-item-note">{item.details}</p>}
-                </article>
-              );})}
+                </div>
+                <div className="project-estimate-item-amounts">
+                  <span>
+                    <small>Minimum</small>
+                    <strong>{formatPKR(item.minimum_amount)}</strong>
+                  </span>
+                  <span>
+                    <small>Maximum</small>
+                    <strong>{formatPKR(item.maximum_amount)}</strong>
+                  </span>
+                </div>
+                {flatLines.length > 0 && (
+                  <details className="project-estimate-flat-details">
+                    <summary>
+                      <span>View prices by floor</span>
+                      <span>
+                        {flatLines.length} flat {flatLines.length === 1 ? "type" : "types"}{" "}
+                        <ChevronDown size={16} />
+                      </span>
+                    </summary>
+                    <div className="project-estimate-flat-lines">
+                      {flatLines.map((line) => (
+                        <div key={`${line.floor_index}-${line.rooms}`}>
+                          <span>
+                            <strong>
+                              {line.floor_index === 0 ? "Ground" : `Floor ${line.floor_index}`}
+                            </strong>
+                            <small>
+                              {line.quantity} × {line.rooms}-room flats
+                            </small>
+                          </span>
+                          <strong>
+                            {formatPKR(line.minimum_unit_price)} –{" "}
+                            {formatPKR(line.maximum_unit_price)} <small>each</small>
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                {item.details && <p className="project-estimate-item-note">{item.details}</p>}
+              </article>
+            );
+          })}
         </div>
       )}
     </section>

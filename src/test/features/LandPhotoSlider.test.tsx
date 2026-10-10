@@ -10,6 +10,9 @@ it("shows a single property image without slider controls",async()=>{
  render(<LandPhotoSlider landId="land" title="Corner plot"/>);
  expect(await screen.findByAltText("Corner plot — one.png")).toHaveAttribute("src","blob:one");
  expect(screen.queryByRole("button",{name:/Next photo/})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"Preview one.png"}));
+ expect(screen.getByRole("dialog",{name:"one.png"})).toBeInTheDocument();
+ expect(screen.getByAltText("one.png")).toHaveAttribute("src","blob:one");
 });
 it("shows one image at a time, wraps navigation and releases old images",async()=>{
  vi.mocked(listLandDocuments).mockResolvedValue([photo("one"),photo("two")]);
@@ -28,4 +31,12 @@ it("shows an honest empty state and retries failed loading",async()=>{
  render(<LandPhotoSlider landId="land" title="Corner plot"/>);
  fireEvent.click(await screen.findByRole("button",{name:"Retry photos"}));
  await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("No property photos added"));
+});
+
+it("uses receipt images without including property photos",async()=>{
+ vi.mocked(listLandDocuments).mockResolvedValue([photo("property"),{...photo("receipt"),doc_type:"land_payment_receipt"}]);
+ render(<LandPhotoSlider landId="land" title="Payment receipts" documentType="land_payment_receipt"/>);
+ expect(await screen.findByAltText("Payment receipts — receipt.png")).toHaveAttribute("src","blob:receipt");
+ expect(screen.queryByText("property.png")).not.toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"Download receipt.png"})).toBeInTheDocument();
 });
