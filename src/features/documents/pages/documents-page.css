@@ -153,3 +153,51 @@
 .documents-panel .documents-empty h3 { color: var(--foreground); font-size: 17px; font-weight: 800; }
 @media (max-width: 850px) { .documents-tabs { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .documents-panel { padding: 14px; } .documents-panel-heading { align-items: flex-start; } .documents-panel-heading h2 { font-size: 18px; } .documents-tab-copy small { white-space: normal; } }
+
+.documents-library-tabs { display:flex; gap:10px; flex-wrap:wrap; }
+.documents-library-tabs button { display:flex; align-items:center; gap:9px; padding:13px 16px; border:1px solid var(--border); background:var(--card); color:var(--foreground); border-radius:13px; font-size:13px; cursor:pointer; }
+.documents-library-tabs button[aria-pressed="true"] { border-color:#8b5cf6; background:color-mix(in srgb,#7c3aed 9%,var(--card)); }
+.documents-library-tabs svg { color:#8b5cf6; }
+.documents-library-tabs b { background:var(--muted); border-radius:6px; padding:2px 7px; font-size:11px; }
+.document-project-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.document-project-card { overflow:hidden; text-align:left; border:1px solid var(--border); border-radius:17px; background:var(--card); cursor:pointer; min-width:0; }
+.document-project-card:hover { border-color:#8b5cf6; box-shadow:0 8px 24px #15213c10; }
+.document-collection-art { display:flex; justify-content:space-between; align-items:center; padding:24px; min-height:115px; background:linear-gradient(120deg,#253566,#514395); color:white; }
+.document-collection-art.is-project { background:linear-gradient(90deg,#132c3bef,#132c3b65),url("../../../assets/auth/residential-towers.png") center/cover; }
+.document-collection-art b { padding:5px 9px; border-radius:7px; background:#112238b8; font-size:11px; }
+.document-collection-info { display:grid; gap:10px; padding:20px; }
+.document-collection-info small { font-size:9px; letter-spacing:.1em; color:var(--muted-foreground); }
+.document-collection-info > strong { font-size:20px; overflow-wrap:anywhere; }
+.document-collection-info > span { font-size:12px; color:var(--muted-foreground); }
+.document-collection-info em { display:flex; align-items:center; justify-content:space-between; font-size:12px; font-style:normal; font-weight:700; color:var(--primary); margin-top:8px; }
+.document-collection-dialog[data-slot="dialog-content"] { max-width:960px; width:calc(100vw - 32px); max-height:90dvh; overflow:auto; padding:24px; border-radius:22px; }
+.document-collection-header { background:linear-gradient(90deg,#142c3def,#142c3ba0),url("../../../assets/auth/residential-towers.png") center/cover; color:white; padding:22px; border-radius:14px; }
+.document-collection-header [data-slot="dialog-description"] { color:#d1dfed; }
+.document-section-tabs { display:flex; flex-wrap:wrap; gap:7px; }
+.document-section-tabs button { display:flex; gap:9px; align-items:center; padding:9px 12px; border:1px solid var(--border); border-radius:9px; color:var(--foreground); cursor:pointer; }
+.document-section-tabs button[aria-pressed="true"] { background:#6d28d9; border-color:#6d28d9; color:white; }
+.document-section-tabs span { font-size:11px; opacity:.8; }
+.document-collection-count { font-size:12px; color:var(--muted-foreground); }
+.document-project-card:focus-visible,.documents-library-tabs button:focus-visible,.document-section-tabs button:focus-visible { outline:3px solid #a78bfa; outline-offset:3px; }
+@media(max-width:1000px) { .document-project-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:640px) { .document-project-grid { grid-template-columns:1fr; } .documents-library-tabs button { flex:1 1 40%; } }
+
+.document-preview-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.document-preview-card { min-width:0; overflow:hidden; border:1px solid var(--border); border-radius:14px; background:var(--card); }
+.document-preview-image { position:relative; display:block; width:100%; aspect-ratio:1.6; background:#142d3c; overflow:hidden; cursor:zoom-in; }
+.document-preview-image > img { width:100%; height:100%; object-fit:contain; }
+.document-preview-placeholder { height:100%; display:flex; flex-direction:column; gap:10px; align-items:center; justify-content:center; padding:20px; color:#d5e6ef; font-size:12px; }
+.document-preview-eye { position:absolute; top:10px; right:10px; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; color:white; background:#0f766e; }
+.document-preview-open { position:absolute; left:0; right:0; bottom:0; padding:7px 10px; font-size:10px; color:white; background:#112733d9; text-align:left; }
+.document-preview-info { padding:14px; display:grid; gap:7px; }
+.document-preview-source { display:flex; align-items:center; gap:7px; font-size:11px; font-weight:700; color:var(--primary); }
+.document-preview-info h3 { font-size:13px; font-weight:650; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.document-preview-info p { font-size:11px; color:var(--muted-foreground); text-transform:capitalize; }
+.document-preview-info strong { font-size:12px; overflow-wrap:anywhere; }
+.document-preview-info small { font-size:11px; color:var(--muted-foreground); }
+.document-preview-image:focus-visible { outline:3px solid #a78bfa; outline-offset:-3px; }
+.document-image-preview[data-slot="dialog-content"] { width:calc(100vw - 32px); max-width:1100px; max-height:92dvh; overflow:auto; }
+.document-image-preview [data-slot="dialog-title"] { overflow-wrap:anywhere; padding-right:22px; }
+.document-image-preview > img { width:100%; max-height:76dvh; object-fit:contain; }
+@media(max-width:800px) { .document-preview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:500px) { .document-preview-grid { grid-template-columns:1fr; } }

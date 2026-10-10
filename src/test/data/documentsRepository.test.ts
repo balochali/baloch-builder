@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { execute, query } from "@/data/client";
-import { listDocuments, listProjectCostDocuments, saveActualCostBill, saveActualCostReceipt, saveConstructionCostReceipt, saveConstructionSupplierBill, saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
+import { savePartnerDocument, savePartnerContributionReceipt, savePartnerPayoutReceipt, validatePartnerDocument, listDocuments, listProjectCostDocuments, saveActualCostBill, saveActualCostReceipt, saveConstructionCostReceipt, saveConstructionSupplierBill, saveLandImage, saveLandPaymentReceipt } from "@/data/repositories/documentsRepository";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@/data/client", () => ({ execute: vi.fn(), query: vi.fn() }));
@@ -37,7 +37,7 @@ describe("land image documents", () => {
   });
 
   it("rejects files that are not supported images", async () => {
-    const file = { name: "plan.pdf", type: "application/pdf", size: 3 } as File;
+    const file = { name: "plan.html", type: "text/html", size: 3 } as File;
     await expect(saveLandImage("land-1", file, "2026-10-03")).rejects.toThrow("JPEG");
     expect(invoke).not.toHaveBeenCalled();
   });
@@ -62,7 +62,7 @@ describe("land image documents", () => {
     vi.mocked(query).mockResolvedValue([]);
     await listDocuments();
     expect(query).toHaveBeenCalledWith(expect.stringContaining("COALESCE(d.notes, t.method) AS notes"));
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("COALESCE(l.project_id, t.project_id, s.project_id)"));
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("COALESCE(l.project_id, t.project_id, s.project_id, ps.project_id"));
     await listProjectCostDocuments("project-1");
     expect(query).toHaveBeenCalledWith(expect.stringContaining("'project_cost_bill'"), ["project-1"]);
   });
@@ -90,4 +90,30 @@ describe("land image documents", () => {
     await saveActualCostBill("transaction-2", file, "2026-10-03");
     expect(execute).toHaveBeenLastCalledWith(expect.stringContaining("INSERT INTO documents"), expect.arrayContaining(["project_cost_bill", "transaction-2"]));
   });
+});
+
+describe("partner documents", () => {
+ beforeEach(() => {vi.clearAllMocks();});
+ it("supports PDFs for both contribution and payout receipts", async () => {
+  vi.mocked(invoke).mockResolvedValue("attachments/proof.pdf");
+  vi.mocked(query).mockResolvedValue([{id:"doc"}]);
+  const file = {name:"proof.pdf",type:"application/pdf",size:3,arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer} as File;
+  await savePartnerContributionReceipt("contribution",file,"2026-10-08","cash");
+  expect(execute).toHaveBeenLastCalledWith(expect.any(String),expect.arrayContaining(["partner_contribution_receipt","contribution","application/pdf"]));
+  await savePartnerPayoutReceipt("payout",file,"2026-10-08","bank");
+  expect(execute).toHaveBeenLastCalledWith(expect.any(String),expect.arrayContaining(["partner_payout_receipt","payout"]));
+ });
+ it("links agreements to the specific partnership and rejects missing owners", async () => {
+  const file = {name:"agreement.pdf",type:"application/pdf",size:3,arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer} as File;
+  vi.mocked(query).mockResolvedValue([]);
+  await expect(savePartnerDocument("missing",file)).rejects.toThrow("not found");
+  expect(invoke).not.toHaveBeenCalled();
+  vi.mocked(query).mockResolvedValue([{id:"partnership"}]);
+  vi.mocked(invoke).mockResolvedValue("attachments/agreement.pdf");
+  await savePartnerDocument("partnership",file);
+  expect(execute).toHaveBeenLastCalledWith(expect.stringContaining("'partnership'"),expect.arrayContaining(["partnership","agreement.pdf"]));
+ });
+ it("rejects empty, oversized and unsupported files", () => {
+  for(const file of [{type:"application/pdf",size:0},{type:"image/png",size:10485761},{type:"text/html",size:10}]) expect(()=>validatePartnerDocument(file as File)).toThrow("10 MB");
+ });
 });

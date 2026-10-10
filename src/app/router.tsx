@@ -1,4 +1,5 @@
 import { BankPage } from "@/features/bank/pages/BankPage";
+import { PersonalDepositPage } from "@/features/personal-deposit/PersonalDepositPage";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -59,6 +60,7 @@ export function AppRouter() {
           <Route path="/partners" element={<PartnersPage />} />
           <Route path="/personal-expense" element={<PersonalExpensePage />} />
           <Route path="/credit-udhaar" element={<CreditUdhaarPage />} />
+          <Route path="/personal-deposit" element={<PersonalDepositPage />} />
           <Route path="/ledger" element={<Navigate to="/credit-udhaar" replace />} />
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/bank" element={<BankPage />} />

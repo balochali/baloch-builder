@@ -686,3 +686,48 @@
   background: #302653;
   color: #c6afff;
 }
+
+.bank-transaction-receipts { margin-top: 12px; max-width: 360px; }
+.bank-transaction-receipts .document-preview-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.bank-transaction-receipts .document-preview-image { height: 100px; min-height: 100px; }
+.bank-transaction-receipts .document-preview-info { padding: 8px; }
+.bank-transaction-receipts .document-preview-info h3 { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bank-transaction-receipts .document-preview-info > :not(h3) { display: none; }
+.bank-transaction-receipts .document-preview-open { font-size: 10px; }
+
+/* Ledger rows align receipt thumbnails with the transaction, in their own column. */
+.bank-table-wrap table { min-width: 1050px; }
+.bank-table-wrap th { padding: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.bank-table-wrap td { padding: 16px; vertical-align: middle; }
+.bank-table-wrap tbody tr { transition: background .15s; }
+.bank-table-wrap tbody tr:hover { background: color-mix(in srgb,var(--primary) 3%,var(--card)); }
+.bank-table-wrap td.money-in,.bank-table-wrap td.money-out { text-align: right; font-variant-numeric: tabular-nums; }
+.bank-table-wrap th:nth-child(4),.bank-table-wrap th:nth-child(5) { text-align: right; }
+.bank-table-wrap td:nth-child(3) { max-width: 290px; }
+.bank-table-wrap select { min-height: 40px; border-radius: 10px; }
+.bank-receipt-cell { width: 148px; min-width: 148px; }
+.bank-no-receipt { font-size: 12px; color: var(--muted-foreground); }
+.bank-receipt-cell .bank-transaction-receipts { margin: 0; width: 116px; }
+.bank-receipt-cell .document-preview-grid { grid-template-columns: minmax(0,1fr); gap: 6px; max-height: 200px; overflow-y: auto; }
+.bank-receipt-cell .document-preview-image { height: 72px; min-height: 72px; }
+.bank-receipt-cell .document-preview-info { padding: 5px 7px; }
+.bank-receipt-cell .document-preview-open { display: none; }
+.bank-receipt-cell .document-preview-eye { width: 26px; height: 26px; top: 5px; right: 5px; }
+.bank-receipt-cell .document-preview-eye svg { width: 14px; height: 14px; }
+
+.app-main .bank-table-wrap table tbody td { vertical-align: middle; }
+.bank-account-label { display: inline-flex; align-items: center; white-space: nowrap; padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--muted); color: var(--muted-foreground); }
+.bank-account-label.is-personal { color: #0f766e; background: color-mix(in srgb,#14b8a6 12%,var(--card)); }
+.bank-account-label.is-builder { color: #2563eb; background: color-mix(in srgb,#3b82f6 12%,var(--card)); }
+.dark .bank-account-label.is-personal { color: #5eead4; }
+.dark .bank-account-label.is-builder { color: #93c5fd; }
+.bank-header-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.bank-print-options { display:grid; gap:20px; overflow-y:auto; max-height:65vh; padding:4px; }
+.bank-print-options fieldset { border:1px solid var(--border); border-radius:12px; padding:16px; }
+.bank-print-options legend { font-weight:650; padding:0 6px; }
+.bank-print-checks { display:flex; flex-wrap:wrap; gap:14px 22px; }
+.bank-print-checks label { display:flex; align-items:center; gap:8px; }
+.bank-print-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.bank-print-grid label { display:grid; gap:7px; font-size:13px; font-weight:600; }
+.bank-print-grid input,.bank-print-grid select { padding:11px; border:1px solid var(--border); border-radius:9px; background:var(--card); min-width:0; }
+@media(max-width:600px){.bank-print-grid{grid-template-columns:1fr}}

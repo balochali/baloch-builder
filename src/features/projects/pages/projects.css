@@ -480,3 +480,9 @@
   justify-content: center;
   gap: 8px;
 }
+
+/* Residential architecture anchors the project workspace. */
+.projects-page.projects-page .projects-overview-heading { position:relative; isolation:isolate; overflow:hidden; min-height:210px; background:#152b37; }
+.projects-page.projects-page .projects-overview-heading::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,#142a38 0%,#142a38ed 36%,#142a3860 100%),url("../../../assets/auth/residential-towers.png") center 45% / cover; pointer-events:none; }
+.projects-page.projects-page .projects-overview-heading::after { content:none; }
+.projects-page.projects-page .projects-overview-heading > div { max-width:560px; }

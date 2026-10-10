@@ -38,14 +38,15 @@ pub fn open_file(app: AppHandle, path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn save_image_attachment(app: AppHandle, bytes: Vec<u8>, mime: String) -> Result<String, String> {
     let extension = match mime.as_str() {
+        "application/pdf" => "pdf",
         "image/jpeg" => "jpg",
         "image/png" => "png",
         "image/webp" => "webp",
         "image/gif" => "gif",
-        _ => return Err("Choose a JPEG, PNG, WebP or GIF image".into()),
+        _ => return Err("Choose a JPEG, PNG, WebP, GIF or PDF file".into()),
     };
     if bytes.is_empty() || bytes.len() > 10 * 1024 * 1024 {
-        return Err("Image must be between 1 byte and 10 MB".into());
+        return Err("File must be between 1 byte and 10 MB".into());
     }
     let app_dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
     let attachments_dir = app_dir.join("attachments");
@@ -68,4 +69,23 @@ pub fn read_image_attachment(app: AppHandle, path: String) -> Result<Vec<u8>, St
     let metadata = fs::metadata(&requested).map_err(|e| e.to_string())?;
     if !metadata.is_file() || metadata.len() > 10 * 1024 * 1024 { return Err("Image is unavailable".into()); }
     fs::read(requested).map_err(|e| e.to_string())
+}
+
+/// Export a saved attachment to Downloads without overwriting an existing file.
+#[tauri::command]
+pub fn download_attachment(app: AppHandle, path: String, filename: String) -> Result<String, String> {
+    use std::io::Write;
+    let extension = std::path::Path::new(&path).extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+    if !["png", "jpg", "jpeg", "webp", "gif", "pdf"].contains(&extension.as_str()) { return Err("Unsupported document type".into()); }
+    let bytes = read_image_attachment(app.clone(), path)?;
+    let stem = std::path::Path::new(&filename).file_stem().and_then(|s| s.to_str()).unwrap_or("document");
+    let safe: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).take(80).collect();
+    let directory = app.path().download_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    let mut random = [0u8; 8]; rand::thread_rng().fill_bytes(&mut random);
+    let suffix: String = random.iter().map(|b| format!("{:02x}", b)).collect();
+    let destination = directory.join(format!("Baloch-{}-{}.{}", safe, suffix, extension));
+    let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&destination).map_err(|e| e.to_string())?;
+    file.write_all(&bytes).map_err(|e| e.to_string())?;
+    Ok(destination.to_string_lossy().to_string())
 }

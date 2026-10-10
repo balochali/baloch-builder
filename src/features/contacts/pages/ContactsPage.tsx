@@ -33,8 +33,9 @@ export function ContactsPage() {
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
 
   const { contacts, isLoading, error, addContact, editContact, archive } = useContacts("");
-  const { visible, controls, search, setSearch, active, reset } = useRecordFilters(contacts, {
+  const { visible, pageItems, pagination, controls, search, setSearch, active, reset } = useRecordFilters(contacts, {
     label: "contacts",
+    paginate: view !== "table",
     showSearch: false,
     searchText: (contact) =>
       [contact.name, contact.phone, contact.phone2, contact.address, contact.notes]
@@ -154,7 +155,7 @@ export function ContactsPage() {
               </span>
             </summary>
             {controls}
-          </details>
+          </details>{pagination}
           {active && (
             <div className="contacts-active-filter">
               <span>{visible.length} contacts match your filters.</span>
@@ -202,7 +203,7 @@ export function ContactsPage() {
             ) : (
               <>
                 <div className="contacts-cards">
-                  {visible.map((contact) => (
+                  {pageItems.map((contact) => (
                     <article className="contacts-card" key={contact.id}>
                       <div className="contacts-card-top">
                         <span className="contacts-avatar">

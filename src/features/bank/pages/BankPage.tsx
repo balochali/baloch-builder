@@ -1,3 +1,5 @@
+import { BankPrintButton } from "./BankPrintButton";
+import { paymentSummary } from "@/domain/udhaarPaymentDetails";
 import "./bank-page.css";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -9,8 +11,7 @@ import {
   ChevronDown,
   Landmark,
   List,
-  Images,
-  RefreshCw,
+RefreshCw,
   Search,
   SlidersHorizontal,
   Wallet,
@@ -18,24 +19,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { useRecordFilters } from "@/components/RecordFilters";
 import { TimeSeriesChart, chartColors } from "@/components/charts/TimeSeriesChart";
-import { accountName, type BankAccount } from "@/domain/bankAccount";
+import { accountName } from "@/domain/bankAccount";
 import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 import {
   listBankEntries,
-  assignBankAccount,
-  type BankEntry,
+type BankEntry,
 } from "@/data/repositories/bankRepository";
 import { LandPaymentDetailsSchema } from "@/data/repositories/projectStageRepository";
 import { listBankPaymentReceipts, type DocumentRecord } from "@/data/repositories/documentsRepository";
-import { SavedImageGallery } from "@/features/documents/components/ImageGallery";
+import { DocumentPreviewCards } from "@/features/documents/components/DocumentPreviewCards";
+import "@/features/documents/pages/documents-page.css";
 
-type View = "overview" | "accounts" | "transactions" | "images";
+type View = "overview" | "accounts" | "transactions";
 const views: { key: View; label: string; icon: typeof BarChart3 }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
   { key: "accounts", label: "Accounts", icon: Landmark },
   { key: "transactions", label: "Transactions", icon: List },
-  { key: "images", label: "Images", icon: Images },
 ];
 const accountOptions = [
   { key: "all", label: "All accounts" },
@@ -53,6 +53,7 @@ function totalsOf(rows: BankEntry[]) {
   );
 }
 function sourceLink(row: BankEntry) {
+  if (row.source === "personal_deposits" || row.source === "deposit_returns") return "/personal-deposit";
   if (row.project_id) return `/projects/${row.project_id}`;
   if (row.source === "personal_expenses") return "/personal-expense";
   if (row.source === "land") return "/land";
@@ -103,10 +104,8 @@ function LandPaymentInfo({ raw }: { raw: string }) {
 export function BankPage() {
   const [entries, setEntries] = useState<BankEntry[]>([]);
   const [receipts, setReceipts] = useState<DocumentRecord[]>([]);
-  const [imageSearch, setImageSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [saving, setSaving] = useState<string | null>(null);
   const [account, setAccount] = useState("all");
   const [view, setView] = useState<View>("overview");
   async function refresh() {
@@ -148,12 +147,8 @@ export function BankPage() {
   const scoped = entries.filter(
     (row) => account === "all" || (row.account_key ?? "unassigned") === account,
   );
-  const paymentEntries = new Map(scoped.filter((row) => row.source === "land" || row.source === "transactions").map((row) => [row.source_id, row]));
-  const visibleReceipts = receipts.filter((receipt) =>
-    receipt.owner_id && paymentEntries.has(receipt.owner_id) &&
-    [receipt.title, receipt.project_name, receipt.notes].join(" ").toLowerCase().includes(imageSearch.trim().toLowerCase()),
-  );
-  const { visible, controls, search, setSearch, active, reset } = useRecordFilters(scoped, {
+
+  const { visible, pageItems, pagination, controls, search, setSearch, active, reset } = useRecordFilters(scoped, {
     label: "bank transactions",
     showSearch: false,
     searchText: (row) =>
@@ -167,20 +162,6 @@ export function BankPage() {
       { label: "Method", value: (row) => row.method },
     ],
   });
-  async function changeAccount(row: BankEntry, value: BankAccount) {
-    setSaving(row.id);
-    setError("");
-    try {
-      await assignBankAccount(row, value);
-      setEntries(await listBankEntries());
-    } catch {
-      setError(
-        "Could not update the account. Refresh to check the latest saved data, then try again.",
-      );
-    } finally {
-      setSaving(null);
-    }
-  }
   const totals = totalsOf(scoped);
   const filteredTotals = totalsOf(visible);
   const unassignedCount = entries.filter((row) => !row.account_key).length;
@@ -218,9 +199,9 @@ export function BankPage() {
           <h1>Bank & accounts</h1>
           <p>Follow money coming in and going out across your personal and builder accounts.</p>
         </div>
-        <Button onClick={refresh} disabled={loading || !!saving} variant="secondary">
+        <div className="bank-header-actions"><BankPrintButton entries={entries} disabled={loading || !!error}/><Button onClick={refresh} disabled={loading} variant="secondary">
           <RefreshCw size={16} /> Refresh
-        </Button>
+        </Button></div>
       </header>
       <div className="bank-tabs" role="tablist" aria-label="Bank views">
         {views.map(({ key, label, icon: Icon }, index) => (
@@ -499,7 +480,7 @@ export function BankPage() {
                 <div>
                   <h2>Transaction history</h2>
                   <p>
-                    Search payments, review their source, and assign older records to an account.
+                    Search payments and review their source, account, and receipts.
                   </p>
                 </div>
                 <span>
@@ -513,7 +494,7 @@ export function BankPage() {
                       {unassignedCount} older{" "}
                       {unassignedCount === 1 ? "transaction has" : "transactions have"} no account
                     </strong>
-                    <p>Choose Unassigned above to review and assign each payment.</p>
+                    <p>Choose Unassigned above to review these historical payments.</p>
                   </div>
                 </div>
               )}
@@ -537,7 +518,7 @@ export function BankPage() {
                   </span>
                 </summary>
                 {controls}
-              </details>
+              </details>{pagination}
               {active && (
                 <div className="bank-filter-active">
                   <span>{visible.length} transactions match your filters.</span>
@@ -571,13 +552,14 @@ export function BankPage() {
                         "Money in",
                         "Money out",
                         "Account",
+                        "Receipts",
                       ].map((title) => (
                         <th key={title}>{title}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {visible.map((row) => (
+                    {pageItems.map((row) => (
                       <tr key={row.id + row.account_key}>
                         <td>{formatDate(row.date)}</td>
                         <td>
@@ -590,12 +572,11 @@ export function BankPage() {
                             {row.category} <ArrowRight size={13} />
                           </Link>
                           <p>{row.project}</p>
+                          {(row.source === "personal_deposits" || row.source === "deposit_returns") && row.payment_details && <p>{paymentSummary(row.payment_details)}</p>}
                           {row.source === "land" && row.payment_details && (
                             <LandPaymentInfo raw={row.payment_details} />
                           )}
-                          {(row.source === "land" || row.source === "transactions") && (
-                            <SavedImageGallery documents={receipts.filter((receipt) => receipt.owner_id === row.source_id)} />
-                          )}
+
                         </td>
                         <td className="money-in">
                           {row.direction === "in" ? formatPKR(row.amount) : "—"}
@@ -604,21 +585,9 @@ export function BankPage() {
                           {row.direction === "out" ? formatPKR(row.amount) : "—"}
                         </td>
                         <td>
-                          <select
-                            aria-label={`Account for ${row.person || row.description} on ${row.date}`}
-                            value={row.account_key ?? ""}
-                            disabled={!!saving}
-                            onChange={(event) =>
-                              void changeAccount(row, event.target.value as BankAccount)
-                            }
-                          >
-                            <option value="" disabled>
-                              Unassigned
-                            </option>
-                            <option value="personal">Personal Account</option>
-                            <option value="builder">Builder Account</option>
-                          </select>
+                          <span className={"bank-account-label is-" + (row.account_key || "unassigned")}>{row.account_key ? accountName(row.account_key) : "Unassigned"}</span>
                         </td>
+                        <td className="bank-receipt-cell">{receipts.some(receipt => receipt.owner_id === row.source_id) ? <div className="bank-transaction-receipts"><DocumentPreviewCards documents={receipts.filter(receipt => receipt.owner_id === row.source_id)} /></div> : <span className="bank-no-receipt">No receipt</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -627,27 +596,6 @@ export function BankPage() {
                   <p className="bank-empty-visual">No transactions match these filters.</p>
                 )}
               </div>
-            </section>
-          )}
-          {view === "images" && (
-            <section id="bank-panel-images" role="tabpanel" aria-labelledby="bank-tab-images" className="bank-panel">
-              <div className="bank-section-title"><div><h2>Payment images</h2><p>Receipts, cheque photos and payment proof saved with projects and partners.</p></div><span>{visibleReceipts.length} images</span></div>
-              <div className="bank-search-box"><Search size={19} /><input aria-label="Search payment images" placeholder="Search images or projects…" value={imageSearch} onChange={(event) => setImageSearch(event.target.value)} /></div>
-              {visibleReceipts.length ? (
-                <div className="bank-images-grid">
-                  {visibleReceipts.map((receipt) => {
-                    const entry = paymentEntries.get(receipt.owner_id || "");
-                    return <article key={receipt.id} className="bank-image-card">
-                      <div className="bank-image-card-icon"><Images size={23} /></div>
-                      <strong>{receipt.title}</strong>
-                      <span>{receipt.project_name || "Land purchase"} · {entry ? formatDate(entry.date) : ""}</span>
-                      <small>{receipt.notes === "bank" ? "Bank transfer" : receipt.notes === "cheque" ? "Cheque" : receipt.notes === "cash" ? "Cash" : receipt.notes === "digital" ? "Digital payment" : "Payment proof"}</small>
-                      <SavedImageGallery documents={[receipt]} />
-                      {entry?.project_id && <Link to={`/projects/${entry.project_id}`}>Open project <ArrowRight size={14} /></Link>}
-                    </article>;
-                  })}
-                </div>
-              ) : <p className="bank-empty-visual">No payment images match this account or search.</p>}
             </section>
           )}
         </>

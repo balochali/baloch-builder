@@ -54,7 +54,7 @@ describe("PersonalExpensePage", () => {
     expect(screen.getByLabelText("Amount paid (Rs) *")).toHaveValue("500000");
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
-    fireEvent.click(screen.getByRole("button", { name: "Digital wallet", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Digital wallet" }));
     fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
     fireEvent.change(screen.getByLabelText("Wallet / app name *"), {
       target: { value: "JazzCash" },

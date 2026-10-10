@@ -39,7 +39,7 @@ export function ResetBusinessData() {
       <h2>Reset all business data</h2>
       <p>
         Start testing with an empty workspace. Permanently removes all projects, land, contacts,
-        partners, contributions, loans, repayments, purchases, estimates, document records, notes
+        partners, contributions, loans, repayments, Amanat deposits and returns, purchases, estimates, document records, notes
         and business history, including archived records. Bank activity is cleared too.
       </p>
       <p>

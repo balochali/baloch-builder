@@ -90,18 +90,27 @@ describe("PartnersPage", () => {
       await screen.findByRole("heading", { name: "Contributions over time" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Partner profiles" }));
-    expect(screen.getByRole("heading", { name: "Ali Khan" })).toBeInTheDocument();
+    expect(screen.queryByText("Satellite Town")).not.toBeInTheDocument();
     const profileFilters = screen.getByText("More filters").closest("details");
     expect(profileFilters).not.toHaveAttribute("open");
     fireEvent.click(screen.getByText("More filters"));
     expect(profileFilters).toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: /View details for Ali Khan/ }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Baloch Residency/ })).toHaveAttribute(
       "href",
       `/projects/${projectId}`,
     );
-    expect(screen.getByText("25.00% share")).toBeInTheDocument();
+    expect(screen.getAllByText("25.00% share")[0]).toBeInTheDocument();
     expect(screen.getByText("03001234567")).toBeInTheDocument();
     expect(screen.getByText("Satellite Town")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Record contribution" }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByLabelText("Amount received (Rs) *")).toBeVisible();
+    fireEvent.click(screen.getByRole("tab", { name: "Payment history" }));
+    expect(screen.getByRole("heading", {name: /Contribution history/})).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Contributions" }));
     expect(screen.getByText("TRX-9", { exact: false })).toBeInTheDocument();
     fireEvent.click(screen.getByText("Payment details"));
@@ -114,3 +123,4 @@ describe("PartnersPage", () => {
     );
   });
 });
+

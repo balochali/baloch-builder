@@ -140,7 +140,7 @@ describe("CreditUdhaarPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Record repayment" }));
     fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
     fireEvent.change(screen.getByLabelText("Amount received (Rs) *"), { target: { value: "1000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Digital wallet", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Digital wallet" }));
     fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ahmed" } });
     fireEvent.change(screen.getByLabelText("Wallet / app name *"), { target: { value: "Easypaisa" } });
     fireEvent.click(screen.getByRole("button", { name: "Save repayment" }));

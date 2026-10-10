@@ -1,5 +1,8 @@
+import { ContributionReceipts } from "@/features/partners/components/ContributionReceipts";
+import { PartnerProfileContent } from "@/features/partners/components/PartnerProfileContent";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -8,8 +11,7 @@ import {
   HandCoins,
   Landmark,
   PieChart,
-  Plus,
-  Search,
+Search,
   SlidersHorizontal,
   UserRound,
   Users,
@@ -31,7 +33,7 @@ import type { Transaction } from "@/domain/types";
 import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 import "./partners-page.css";
-import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
+
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
 
 export function PartnersPage() {
@@ -40,7 +42,7 @@ export function PartnersPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedPartner, setSelectedPartner] = useState<PartnerOverviewRow | null>(null);
+
   const [view, setView] = useState<"overview" | "profiles" | "history">("overview");
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export function PartnersPage() {
     };
   }, []);
 
-  const { visible, controls, search, setSearch, active, reset } = useRecordFilters(partners, {
+  const { visible, pageItems, pagination, controls, search, setSearch, active, reset } = useRecordFilters(partners, {
     label: "partners",
     showSearch: false,
     searchText: (partner) =>
@@ -115,7 +117,7 @@ export function PartnersPage() {
   });
 
   async function recordContribution(value: PartnerContributionInput) {
-    await addPartnerContribution(value);
+    const id = await addPartnerContribution(value);
     toast.success("Partner contribution recorded");
     try {
       const [partnerRows, paymentRows] = await Promise.all([
@@ -127,6 +129,7 @@ export function PartnersPage() {
     } catch {
       toast.error("Payment saved. Refresh the page to see the latest details.");
     }
+    return id;
   }
 
   const totalReceived = contributions.reduce((total, item) => total + item.amount, 0);
@@ -367,7 +370,7 @@ export function PartnersPage() {
                   </span>
                 </summary>
                 {controls}
-              </details>
+              </details>{pagination}
               {active && (
                 <div className="partners-active-filter">
                   <span>{visible.length} partners match your filters.</span>
@@ -391,7 +394,7 @@ export function PartnersPage() {
                 </p>
               ) : (
                 <div className="partners-cards">
-                  {visible.map((partner) => {
+                  {pageItems.map((partner) => {
                     const payments = contributions.filter(
                       (item) =>
                         item.project_id === partner.project_id &&
@@ -401,12 +404,6 @@ export function PartnersPage() {
                       partner.agreed_contribution === null
                         ? null
                         : Math.max(0, partner.agreed_contribution - partner.contributed);
-                    const progress =
-                      partner.agreed_contribution && partner.agreed_contribution > 0
-                        ? Math.min(100, (partner.contributed / partner.agreed_contribution) * 100)
-                        : partner.agreed_contribution === 0
-                          ? 100
-                          : 0;
                     const status =
                       partner.agreed_contribution === null
                         ? "no-target"
@@ -416,113 +413,19 @@ export function PartnersPage() {
                             ? "partial"
                             : "unpaid";
                     return (
-                      <section
-                        key={partner.partnership_id}
-                        className={`partners-card is-${status}`}
-                      >
-                        <div className="partners-card-top">
-                          <span className="partners-avatar">
-                            <UserRound size={25} />
-                          </span>
-                          <div className="partners-person">
-                            <h2 className="text-lg font-semibold">{partner.name}</h2>
-                            <p className="text-sm text-muted-foreground">
-                              {partner.phone || "No mobile number"}
-                              {partner.phone2 ? ` · ${partner.phone2}` : ""}
-                            </p>
-                          </div>
-                          <span className="partners-share">
-                            {(partner.share_bp / 100).toFixed(2)}% share
-                          </span>
-                        </div>
-                        <div className="partners-card-status">
-                          {status === "settled"
-                            ? "Contribution received"
-                            : status === "partial"
-                              ? "Partly received"
-                              : status === "no-target"
-                                ? "No amount agreed"
-                                : "Awaiting payment"}
-                        </div>
-                        <div className="partners-card-balance">
-                          <small>
-                            {remaining === null ? "Received so far" : "Still to receive"}
-                          </small>
-                          <strong>{formatPKRInLakhCrore(remaining ?? partner.contributed)}</strong>
-                        </div>
-                        {remaining !== null && (
-                          <>
-                            <div className="partners-progress-caption">
-                              <span>Contribution progress</span>
-                              <strong>{Math.round(progress)}% received</strong>
-                            </div>
-                            <div
-                              className="partners-progress"
-                              role="img"
-                              aria-label={`${partner.name}: ${formatPKR(partner.contributed)} received, ${formatPKR(remaining)} remaining`}
-                            >
-                              <span style={{ width: `${progress}%` }} />
-                            </div>
-                          </>
-                        )}
-                        <div className="partners-card-split">
-                          <span>
-                            Agreed{" "}
-                            <strong>
-                              {partner.agreed_contribution === null
-                                ? "Not set"
-                                : formatPKR(partner.agreed_contribution)}
-                            </strong>
-                          </span>
-                          <span>
-                            Received <strong>{formatPKR(partner.contributed)}</strong>
-                          </span>
-                        </div>
-                        <div className="partners-card-project">
-                          <p className="text-xs text-muted-foreground">Project</p>
-                          <Link
-                            to={`/projects/${partner.project_id}`}
-                            className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                          >
-                            {partner.project_name}
-                            {partner.project_code ? ` · ${partner.project_code}` : ""}
-                            <ArrowUpRight className="size-4" />
-                          </Link>
-                          <p className="text-xs text-muted-foreground">
-                            {partner.project_location || "No project address"}
-                            {partner.project_status ? ` · ${partner.project_status}` : ""}
-                          </p>
-                        </div>
-                        <div className="partners-card-facts">
-                          <Fact label="Address" value={partner.address} />
-                          <Fact
-                            label="Partner status"
-                            value={partner.partner_status || partner.partnership_status}
-                          />
-                          <Fact label="Partner since" value={formatDate(partner.created_at)} />
-                        </div>
-                        {partner.notes && (
-                          <div className="mt-3 text-sm">
-                            <Fact label="Notes" value={partner.notes} />
-                          </div>
-                        )}
-                        <div className="partners-card-footer">
-                          <p className="text-sm font-medium">Payments ({payments.length})</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setSelectedPartner(partner)}
-                          >
-                            <Plus className="size-4" />
-                            Record Contribution
-                          </Button>
-                        </div>
-                        {payments.length === 0 && (
-                          <p className="mt-3 text-sm text-muted-foreground">
-                            No contributions recorded yet.
-                          </p>
-                        )}
-                      </section>
+                      <Dialog key={partner.partnership_id}>
+                        <DialogTrigger asChild>
+                          <button type="button" className={`partners-card partners-card-compact is-${status}`} aria-label={`View details for ${partner.name} in ${partner.project_name}`}>
+                            <span className="partners-card-top"><span className="partners-avatar"><UserRound size={23}/></span><span className="partners-person"><strong>{partner.name}</strong><small>{partner.project_name}</small></span><span className="partners-share">{(partner.share_bp / 100).toFixed(2)}% share</span></span>
+                            <span className="partners-compact-money"><span><small>{remaining === null ? "Received so far" : "Still to receive"}</small><strong>{formatPKRInLakhCrore(remaining ?? partner.contributed)}</strong></span><span className="partners-card-status">{status === "settled" ? "Received" : status === "partial" ? "Partly received" : status === "no-target" ? "No target" : "Awaiting payment"}</span></span>
+                            <span className="partners-compact-footer">Details, payments & documents <ArrowUpRight size={17}/></span>
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="partner-profile-modal" aria-describedby={undefined}>
+                        <DialogTitle>{partner.name} · Partner details</DialogTitle>
+<PartnerProfileContent partner={partner} payments={payments} onContribution={recordContribution}/>
+                        </DialogContent>
+                      </Dialog>
                     );
                   })}
                 </div>
@@ -555,7 +458,7 @@ export function PartnersPage() {
                   </span>
                 </summary>
                 {paymentFilter.controls}
-              </details>
+              </details>{paymentFilter.pagination}
               {paymentFilter.active && (
                 <div className="partners-active-filter">
                   <span>{paymentFilter.visible.length} payments match your filters.</span>
@@ -568,7 +471,7 @@ export function PartnersPage() {
                 <p className="filter-empty">No contributions match these filters.</p>
               ) : (
                 <div className="partners-payment-list">
-                  {paymentFilter.visible.map((payment) => {
+                  {paymentFilter.pageItems.map((payment) => {
                     const partner = partners.find(
                       (item) =>
                         item.partner_id === payment.partner_id &&
@@ -593,7 +496,7 @@ export function PartnersPage() {
                           {payment.description || "Contribution"}
                           {payment.reference ? ` · Ref: ${payment.reference}` : ""}
                         </p>
-                        <PaymentDetailsView transaction={payment} />
+                        <PaymentDetailsView transaction={payment} /><ContributionReceipts transactionId={payment.id}/>
                       </article>
                     );
                   })}
@@ -602,16 +505,6 @@ export function PartnersPage() {
             </section>
           )}
         </>
-      )}
-      {selectedPartner && (
-        <ProjectPartnerDialog
-          projectId={selectedPartner.project_id}
-          partner={selectedPartner}
-          onOpenChange={(open) => {
-            if (!open) setSelectedPartner(null);
-          }}
-          onContribution={recordContribution}
-        />
       )}
     </main>
   );
@@ -638,15 +531,6 @@ function Summary({
       <small>{label}</small>
       <strong>{value}</strong>
       <p>{note}</p>
-    </div>
-  );
-}
-
-function Fact({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 font-medium">{value || "—"}</p>
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useRef, type CSSProperties } from "react";
 import "./sidebar.css";
+import buildingElevation from "@/assets/building-elevation.svg";
 import {
   Landmark,
   LayoutDashboard,
   MapPin,
-  FolderKanban,
   Users,
   Wallet,
+  ShieldCheck,
   ReceiptText,
   BookUser,
   Settings,
@@ -24,7 +25,7 @@ const groups = [
     label: "WORKSPACE",
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard, color: "#3b82f6" },
-      { to: "/projects", label: "Projects", icon: FolderKanban, color: "#a855f7" },
+      { to: "/projects", label: "Projects", icon: Building2, color: "#d2ad65" },
       { to: "/land", label: "Land", icon: MapPin, color: "#f59e0b" },
       { to: "/documents", label: "Documents", icon: FolderOpen, color: "#6366f1" },
     ],
@@ -37,6 +38,7 @@ const groups = [
       { to: "/personal-expense", label: "Personal Expense", icon: ReceiptText, color: "#ec4899" },
       { to: "/bank", label: "Bank", icon: Landmark, color: "#10b981" },
       { to: "/credit-udhaar", label: "Credit / Udhaar", icon: Wallet, color: "#8b5cf6" },
+      { to: "/personal-deposit", label: "Personal Deposit", icon: ShieldCheck, color: "#2dd4bf" },
     ],
   },
 ];
@@ -89,6 +91,10 @@ export function Sidebar({ onLogout }: SidebarProps) {
           </div>
         ))}
       </nav>
+      <div className="sidebar-building-scene" aria-hidden="true">
+        <img src={buildingElevation} alt="" />
+        <span>From foundation to skyline</span>
+      </div>
       <div className="sidebar-bottom">
         <div className="workspace-local">
           <span className="sidebar-local-icon">

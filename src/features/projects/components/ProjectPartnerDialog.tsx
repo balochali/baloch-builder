@@ -1,3 +1,7 @@
+import { PartnerPaymentFields } from "@/components/PartnerPaymentFields";
+import { AttachmentUpload } from "@/components/AttachmentUpload";
+import { savePartnerContributionReceipt } from "@/data/repositories/documentsRepository";
+
 import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
 import "./project-partner-dialog.css";
@@ -6,7 +10,6 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
-  CreditCard,
   HandCoins,
   Landmark,
   UserRound,
@@ -14,11 +17,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,6 +33,7 @@ import {
 } from "@/data/repositories/projectPartnersRepository";
 
 type Props = {
+  embedded?: boolean;
   projectId: string;
   partner?: ProjectPartnerRow;
   editingPartner?: ProjectPartnerRow;
@@ -52,6 +52,7 @@ function wholeRupees(raw: string): number | null {
 }
 
 export function ProjectPartnerDialog({
+  embedded = false,
   projectId,
   partner,
   editingPartner,
@@ -72,18 +73,16 @@ export function ProjectPartnerDialog({
   const [agreed, setAgreed] = useState(editingPartner?.agreed_contribution?.toString() ?? "");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [accountKey, setAccountKey] = useState("");
+  const [accountKey, setAccountKey] = useState("personal");
   const [method, setMethod] = useState<"cash" | "bank" | "digital" | "cheque" | "other">("cash");
   const [step, setStep] = useState(partner ? 2 : 0);
   const [reference, setReference] = useState("");
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({ ...emptyPaymentDetails });
   const [description, setDescription] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [savedPayment, setSavedPayment] = useState<string>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-
-  function updatePaymentDetail(key: keyof PaymentDetails, value: string) {
-    setPaymentDetails((current) => ({ ...current, [key]: value }));
-  }
 
   function relevantDetails(): PaymentDetails {
     const details = { ...emptyPaymentDetails, receipt_no: paymentDetails.receipt_no };
@@ -114,6 +113,7 @@ export function ProjectPartnerDialog({
         ...details,
         from_bank: paymentDetails.from_bank,
         from_account_name: paymentDetails.from_account_name,
+        to_account_no: paymentDetails.to_account_no,
       };
     return details;
   }
@@ -164,10 +164,31 @@ export function ProjectPartnerDialog({
       }
       setPending(true);
       try {
-        await onContribution?.(parsed.data);
+        const id = savedPayment || (await onContribution?.(parsed.data));
+        if (id) setSavedPayment(id);
+        if (files.length && !id)
+          throw new Error(
+            "Payment saved but its ID is unavailable. Attach receipts from the partner profile.",
+          );
+        const remaining = [...files];
+        for (const file of files) {
+          await savePartnerContributionReceipt(id!, file, date, method);
+          remaining.shift();
+          setFiles([...remaining]);
+        }
+        if (embedded) {
+          setSavedPayment(undefined);
+          setAmount("");
+          setFiles([]);
+          setReference("");
+          setDescription("");
+          setPaymentDetails({ ...emptyPaymentDetails });
+        }
         onOpenChange(false);
       } catch (cause) {
-        setError(`Could not record contribution: ${String(cause)}`);
+        setError(
+          `${savedPayment ? "Payment saved. Could not upload receipts" : "Could not finish saving contribution"}: ${String(cause)}`,
+        );
       } finally {
         setPending(false);
       }
@@ -253,33 +274,52 @@ export function ProjectPartnerDialog({
     }
   }
 
-  return (
-    <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="partner-dialog payment-modal">
-        <PaymentModalHeader icon={HandCoins} eyebrow="PROJECT PARTNER" title={partner ? `Record payment · ${partner.name}` : editingPartner ? `Edit partner · ${editingPartner.name}` : "Add project partner"} description={partner ? "Record money received from this partner." : editingPartner ? "Update this partner’s profile and agreement." : "Add a partner in three short steps."} />
-        {!partner && (
-          <div
-            className={`partner-dialog-steps${editingPartner ? " is-edit" : ""}`}
-            aria-label={editingPartner ? "Edit partner steps" : "Add partner steps"}
-          >
-            {[
-              { label: "Partner", icon: UserRound },
-              { label: "Share", icon: Building2 },
-              ...(!editingPartner ? [{ label: "Payment", icon: Wallet }] : []),
-            ].map(({ label, icon: Icon }, index) => (
-              <div
-                key={label}
-                className={index === step ? "is-active" : index < step ? "is-complete" : ""}
-              >
-                <span>
-                  <Icon size={18} aria-hidden="true" />
-                </span>
-                <strong>{label}</strong>
-              </div>
-            ))}
-          </div>
-        )}
-        <form id="partner-form" onSubmit={(event) => event.preventDefault()} className="space-y-4">
+  const content = (
+    <>
+      {!embedded && (
+        <PaymentModalHeader
+          icon={HandCoins}
+          eyebrow="PROJECT PARTNER"
+          title={
+            partner
+              ? `Record payment · ${partner.name}`
+              : editingPartner
+                ? `Edit partner · ${editingPartner.name}`
+                : "Add project partner"
+          }
+          description={
+            partner
+              ? "Record money received from this partner."
+              : editingPartner
+                ? "Update this partner’s profile and agreement."
+                : "Add a partner in three short steps."
+          }
+        />
+      )}
+      {!partner && (
+        <div
+          className={`partner-dialog-steps${editingPartner ? " is-edit" : ""}`}
+          aria-label={editingPartner ? "Edit partner steps" : "Add partner steps"}
+        >
+          {[
+            { label: "Partner", icon: UserRound },
+            { label: "Share", icon: Building2 },
+            ...(!editingPartner ? [{ label: "Payment", icon: Wallet }] : []),
+          ].map(({ label, icon: Icon }, index) => (
+            <div
+              key={label}
+              className={index === step ? "is-active" : index < step ? "is-complete" : ""}
+            >
+              <span>
+                <Icon size={18} aria-hidden="true" />
+              </span>
+              <strong>{label}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+      <form id="partner-form" onSubmit={(event) => event.preventDefault()} className="space-y-4">
+        <fieldset disabled={pending || !!savedPayment} className="space-y-4">
           {!partner && step === 0 && (
             <>
               <div className="partner-dialog-section-heading">
@@ -388,158 +428,26 @@ export function ProjectPartnerDialog({
                     </div>
                     <BankAccountSelect value={accountKey} onChange={setAccountKey} direction="in" />
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2"><PaymentMethodSelect value={method} onChange={setMethod} /></div>
-                    <Field
-                      id="partner-reference"
-                      label={
-                        method === "bank" || method === "digital"
-                          ? "Transfer reference / transaction ID *"
-                          : "Reference"
-                      }
-                      value={reference}
-                      onChange={setReference}
-                      required={method === "bank" || method === "digital"}
-                    />
+                  <div className="partner-payment-panel">
+                    <PaymentMethodSelect
+                      value={method}
+                      onChange={(next) => {
+                        setMethod(next);
+                        setReference("");
+                        setPaymentDetails({ ...emptyPaymentDetails });
+                      }}
+                      disabled={pending || !!savedPayment}
+                    >
+                      <PartnerPaymentFields
+                        method={method}
+                        value={paymentDetails}
+                        onChange={setPaymentDetails}
+                        reference={reference}
+                        onReferenceChange={setReference}
+                        disabled={pending || !!savedPayment}
+                      />
+                    </PaymentMethodSelect>
                   </div>
-                  {method === "digital" && (
-                    <div className="partner-dialog-method-details">
-                      <div className="partner-dialog-method-heading">
-                        <CreditCard size={19} aria-hidden="true" />
-                        <strong>Digital payment details</strong>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Field
-                          id="payment-digital-service"
-                          label="Wallet or service"
-                          value={paymentDetails.from_bank}
-                          onChange={(value) => updatePaymentDetail("from_bank", value)}
-                        />
-                        <Field
-                          id="payment-digital-sender"
-                          label="Sender name"
-                          value={paymentDetails.from_account_name}
-                          onChange={(value) => updatePaymentDetail("from_account_name", value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {method === "bank" && (
-                    <div className="space-y-3 rounded-lg border p-3">
-                      <p className="text-sm font-semibold">Bank transfer details</p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Field
-                          id="payment-from-bank"
-                          label="Sender bank *"
-                          value={paymentDetails.from_bank}
-                          onChange={(value) => updatePaymentDetail("from_bank", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-from-name"
-                          label="Sender account name *"
-                          value={paymentDetails.from_account_name}
-                          onChange={(value) => updatePaymentDetail("from_account_name", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-from-number"
-                          label="Sender account / IBAN"
-                          value={paymentDetails.from_account_no}
-                          onChange={(value) => updatePaymentDetail("from_account_no", value)}
-                        />
-                        <Field
-                          id="payment-to-bank"
-                          label="Receiving bank *"
-                          value={paymentDetails.to_bank}
-                          onChange={(value) => updatePaymentDetail("to_bank", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-to-name"
-                          label="Receiving account name *"
-                          value={paymentDetails.to_account_name}
-                          onChange={(value) => updatePaymentDetail("to_account_name", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-to-number"
-                          label="Receiving account / IBAN"
-                          value={paymentDetails.to_account_no}
-                          onChange={(value) => updatePaymentDetail("to_account_no", value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {method === "cheque" && (
-                    <div className="space-y-3 rounded-lg border p-3">
-                      <p className="text-sm font-semibold">Cheque details</p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Field
-                          id="payment-cheque-no"
-                          label="Cheque number *"
-                          value={paymentDetails.cheque_no}
-                          onChange={(value) => updatePaymentDetail("cheque_no", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-cheque-date"
-                          label="Cheque date *"
-                          type="date"
-                          value={paymentDetails.cheque_date}
-                          onChange={(value) => updatePaymentDetail("cheque_date", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-issuing-bank"
-                          label="Issuing bank *"
-                          value={paymentDetails.from_bank}
-                          onChange={(value) => updatePaymentDetail("from_bank", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-account-name"
-                          label="Account holder *"
-                          value={paymentDetails.from_account_name}
-                          onChange={(value) => updatePaymentDetail("from_account_name", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-account-no"
-                          label="Account number"
-                          value={paymentDetails.from_account_no}
-                          onChange={(value) => updatePaymentDetail("from_account_no", value)}
-                        />
-                        <Field
-                          id="payment-payee"
-                          label="Payable to *"
-                          value={paymentDetails.cheque_payee}
-                          onChange={(value) => updatePaymentDetail("cheque_payee", value)}
-                          required
-                        />
-                        <Field
-                          id="payment-deposit-bank"
-                          label="Deposited to bank"
-                          value={paymentDetails.to_bank}
-                          onChange={(value) => updatePaymentDetail("to_bank", value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {method === "cash" && (
-                    <Field
-                      id="payment-received-by"
-                      label="Received by"
-                      value={paymentDetails.received_by}
-                      onChange={(value) => updatePaymentDetail("received_by", value)}
-                    />
-                  )}
-                  <Field
-                    id="payment-receipt"
-                    label="Receipt number"
-                    value={paymentDetails.receipt_no}
-                    onChange={(value) => updatePaymentDetail("receipt_no", value)}
-                  />
                   {partner && (
                     <Field
                       id="partner-description"
@@ -552,58 +460,83 @@ export function ProjectPartnerDialog({
               )}
             </>
           )}
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
+          {partner && (
+            <AttachmentUpload
+              files={files}
+              onChange={setFiles}
+              allowPdf
+              mode="append"
+              disabled={pending || !!savedPayment}
+              onError={setError}
+            />
           )}
-        </form>
-        <DialogFooter>
-          {!partner && step > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={() => {
-                setError("");
-                setStep(step - 1);
-              }}
-            >
-              <ChevronLeft size={16} /> Back
-            </Button>
-          )}
+        </fieldset>
+        {savedPayment && (
+          <p role="status">
+            Payment recorded. Retry saving to upload any remaining receipts without recording
+            another payment.
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </form>
+      <DialogFooter>
+        {!partner && step > 0 && (
           <Button
             type="button"
             variant="outline"
             disabled={pending}
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              setError("");
+              setStep(step - 1);
+            }}
           >
-            Cancel
+            <ChevronLeft size={16} /> Back
           </Button>
-          {!partner && step < (editingPartner ? 1 : 2) ? (
-            <Button
-              key="next-step"
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                nextStep();
-              }}
-            >
-              Next <ChevronRight size={16} />
-            </Button>
-          ) : (
-            <Button key="save-partner" type="button" disabled={pending} onClick={() => void save()}>
-              {pending
-                ? "Saving…"
-                : partner
-                  ? "Record Payment"
-                  : editingPartner
-                    ? "Save Changes"
-                    : "Add Partner"}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending}
+          onClick={() => onOpenChange(false)}
+        >
+          Cancel
+        </Button>
+        {!partner && step < (editingPartner ? 1 : 2) ? (
+          <Button
+            key="next-step"
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              nextStep();
+            }}
+          >
+            Next <ChevronRight size={16} />
+          </Button>
+        ) : (
+          <Button key="save-partner" type="button" disabled={pending} onClick={() => void save()}>
+            {pending
+              ? "Saving…"
+              : partner
+                ? savedPayment
+                  ? "Retry receipt upload"
+                  : "Record Payment"
+                : editingPartner
+                  ? "Save Changes"
+                  : "Add Partner"}
+          </Button>
+        )}
+      </DialogFooter>
+    </>
+  );
+  return embedded ? (
+    <div className="partner-inline-contribution">{content}</div>
+  ) : (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="partner-dialog payment-modal">{content}</DialogContent>
     </Dialog>
   );
 }

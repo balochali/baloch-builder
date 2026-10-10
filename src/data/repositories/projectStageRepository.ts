@@ -100,11 +100,12 @@ export type LandAcquisitionInput = z.infer<typeof LandAcquisitionSchema>;
 export type ProjectLand = Omit<LandAcquisitionInput, "seller_name"> & {
   id: string;
   seller_name: string;
+  status?: string;
 };
 
 export async function getProjectLand(projectId: string): Promise<ProjectLand | null> {
   const rows = await query<ProjectLand & { custom: string }>(
-    `SELECT id, account_key, title, location, purchase_date, area_value, area_unit, price,
+    `SELECT id, status, account_key, title, location, purchase_date, area_value, area_unit, price,
     notes, custom FROM land WHERE project_id = ? AND archived = 0 ORDER BY created_at LIMIT 1`,
     [projectId],
   );

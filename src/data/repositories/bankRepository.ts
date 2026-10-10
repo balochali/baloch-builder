@@ -46,19 +46,30 @@ export async function listBankEntries(): Promise<BankEntry[]> {
       COALESCE(json_extract(l.custom, '$.payment_details.method'), 'Not recorded'), COALESCE(pr.name, ''), l.project_id,
       json_extract(l.custom, '$.payment_details')
     FROM land l LEFT JOIN projects pr ON pr.id = l.project_id WHERE l.archived = 0 AND l.price > 0
+    UNION ALL
+    SELECT 'sale:' || s.id, 'project_sales', s.id, json_extract(s.custom, '$.account_key'), s.sale_date,
+      json_extract(s.custom, '$.received'), 'in', 'Land sale', s.buyer_name, COALESCE(s.notes, ''),
+      COALESCE(json_extract(s.custom, '$.method'), 'Not recorded'), pr.name, s.project_id, json_extract(s.custom, '$.payment_details')
+    FROM project_sales s JOIN projects pr ON pr.id = s.project_id WHERE s.archived = 0 AND s.kind = 'land' AND json_extract(s.custom, '$.received') > 0
+    UNION ALL
+    SELECT 'deposit:' || d.id, 'personal_deposits', d.id, d.account_key, d.deposit_date, d.amount, 'out', 'Amanat deposit',
+      d.holder_name, d.reason, d.method, '', NULL, d.payment_details FROM personal_deposits d
+    UNION ALL
+    SELECT 'deposit-return:' || r.id, 'deposit_returns', r.id, r.account_key, r.return_date, r.amount, 'in', 'Amanat returned',
+      d.holder_name, r.notes, r.method, '', NULL, r.payment_details FROM deposit_returns r JOIN personal_deposits d ON d.id = r.deposit_id
   ) ORDER BY date DESC, id`);
 }
 
 export async function assignBankAccount(entry: BankEntry, account: BankAccount): Promise<void> {
   const value = BankAccountSchema.parse(account);
-  const allowed = ["transactions", "udhaars", "udhaar_payments", "personal_expenses", "land"];
+  const allowed = ["transactions", "udhaars", "udhaar_payments", "personal_expenses", "land", "personal_deposits", "deposit_returns"];
   if (!allowed.includes(entry.source)) throw new Error("Unknown payment source");
   const where =
     entry.source === "udhaar_payments"
       ? `id = ? OR json_extract(custom, '$.payment_group_id') = (SELECT json_extract(custom, '$.payment_group_id') FROM udhaar_payments WHERE id = ?)`
       : "id = ?";
   const result = await execute(
-    `UPDATE ${entry.source} SET account_key = ?, updated_at = ? WHERE archived = 0 AND (${where})`,
+    `UPDATE ${entry.source} SET account_key = ?, updated_at = ? WHERE ${entry.source === "personal_deposits" || entry.source === "deposit_returns" ? "" : "archived = 0 AND "}(${where})`,
     [
       value,
       new Date().toISOString(),

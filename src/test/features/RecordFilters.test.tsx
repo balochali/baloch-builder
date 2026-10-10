@@ -36,7 +36,7 @@ describe("record filters", () => {
     fireEvent.change(screen.getByLabelText("Min amount (Rs)"), { target: { value: "300" } });
     fireEvent.change(screen.getByLabelText("Max amount (Rs)"), { target: { value: "300" } });
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Beta"]);
-    expect(screen.getByRole("status")).toHaveTextContent("1 of 3 records shown");
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 3 records match");
     fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByLabelText("Date from")).toHaveValue("");

@@ -1,3 +1,4 @@
+import { usePagination } from "@/components/Pagination";
 import { PaymentModalHeader } from "@/components/PaymentChoices";
 import "./credit-udhaar.css";
 import { UdhaarPaymentDetails } from "@/components/UdhaarPaymentDetails";
@@ -339,8 +340,11 @@ export function CreditUdhaarPage() {
         })),
       ].sort((a, b) => b.date.localeCompare(a.date))
     : [];
+  const historyPages = usePagination(history, JSON.stringify([selected?.borrower_name, history.map(row => row.id)]), "money history");
   const {
     visible,
+    pageItems,
+    pagination,
     controls,
     active: filtersActive,
     reset: resetFilters,
@@ -802,7 +806,7 @@ export function CreditUdhaarPage() {
                   </span>
                 </summary>
                 {controls}
-              </details>
+              </details>{pagination}
               {filtersActive && (
                 <div className="udhaar-active-filters">
                   <span>{visible.length} people match your filters.</span>
@@ -831,7 +835,7 @@ export function CreditUdhaarPage() {
                 </p>
               ) : (
                 <div className="udhaar-cards">
-                  {visible.map((record) => {
+                  {pageItems.map((record) => {
                     const remaining = Math.max(0, record.amount - record.paid_amount);
                     const overdue = remaining > 0 && !!record.due_date && record.due_date < today();
                     const percent = Math.min(100, (record.paid_amount / record.amount) * 100);
@@ -954,14 +958,14 @@ export function CreditUdhaarPage() {
               {selected.notes && (
                 <p className="rounded-lg bg-muted p-3 text-sm">{selected.notes}</p>
               )}
-              <div className="udhaar-history-heading">
+              {historyPages.controls}<div className="udhaar-history-heading">
                 <h3>Money given &amp; received</h3>
                 <span>
                   {selected.loans.length} loans · {personPayments.size} repayments
                 </span>
               </div>
               <div className="udhaar-history">
-                {history.map((item) => (
+                {historyPages.items.map((item) => (
                   <div key={item.id} data-kind={item.kind}>
                     <span className="udhaar-history-icon">
                       {item.kind === "Paid back" ? (

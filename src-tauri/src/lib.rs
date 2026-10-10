@@ -82,6 +82,9 @@ pub fn run() {
         Migration { version: 14, description: "014_covered_area_unit", sql: include_str!("../migrations/014_covered_area_unit.sql"), kind: MigrationKind::Up },
         Migration { version: 15, description: "015_project_sales", sql: include_str!("../migrations/015_project_sales.sql"), kind: MigrationKind::Up },
         Migration { version: 16, description: "016_sales_business_reset", sql: include_str!("../migrations/016_sales_business_reset.sql"), kind: MigrationKind::Up },
+        Migration { version: 17, description: "017_personal_deposits", sql: include_str!("../migrations/017_personal_deposits.sql"), kind: MigrationKind::Up },
+        Migration { version: 18, description: "018_deposit_payment_details", sql: include_str!("../migrations/018_deposit_payment_details.sql"), kind: MigrationKind::Up },
+        Migration { version: 19, description: "019_land_sales", sql: include_str!("../migrations/019_land_sales.sql"), kind: MigrationKind::Up },
     ];
 
     tauri::Builder::default()
@@ -99,6 +102,7 @@ pub fn run() {
             commands::files::open_file,
             commands::files::save_image_attachment,
             commands::files::read_image_attachment,
+            commands::files::download_attachment,
             commands::project_stage::save_project_stage,
             commands::auth::auth_status,
             commands::auth::create_account,

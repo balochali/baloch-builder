@@ -1,6 +1,6 @@
 import { CirclePause, ClipboardList, MapPinned, HardHat, CircleCheck } from "lucide-react";
 
-const stages = [
+const buildingStages = [
   { id: "planning", label: "Planning", icon: ClipboardList },
   { id: "land acquired", label: "Land acquired", icon: MapPinned },
   { id: "under construction", label: "Construction", icon: HardHat },
@@ -8,6 +8,9 @@ const stages = [
 ] as const;
 
 export function ProjectStatusProgress({ status }: { status: string | null }) {
+  const stages = status === "land sold"
+    ? [buildingStages[0], buildingStages[1], { id: "land sold", label: "Land Sold", icon: CircleCheck }]
+    : buildingStages;
   const current = stages.findIndex((stage) => stage.id === status);
   const onHold = status === "on hold";
   const stageIndex = current >= 0 ? current : 0;

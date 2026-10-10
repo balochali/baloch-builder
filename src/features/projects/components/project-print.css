@@ -1,0 +1,95 @@
+[data-slot="dialog-content"].project-print-dialog {
+  width: min(720px, calc(100vw - 28px));
+  max-width: 720px;
+  max-height: 92vh;
+  overflow: auto;
+  padding: 28px;
+  border-radius: 22px;
+}
+.project-print-dialog [data-slot="dialog-title"] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 22px;
+}
+.project-print-dialog [data-slot="dialog-title"] svg {
+  color: #7c3aed;
+  flex: none;
+}
+.project-print-dialog [data-slot="dialog-description"] {
+  line-height: 1.7;
+  margin-top: 8px;
+}
+.project-print-selection-actions {
+  display: flex;
+  gap: 8px;
+}
+.project-print-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.project-print-options label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.project-print-options label:has(input:checked) {
+  border-color: #8b5cf6;
+  background: color-mix(in srgb, #8b5cf6 7%, var(--card));
+}
+.project-print-options input {
+  margin-top: 4px;
+  width: 17px;
+  height: 17px;
+  accent-color: #7c3aed;
+  flex: none;
+}
+.project-print-options span {
+  display: grid;
+  gap: 5px;
+}
+.project-print-options strong {
+  font-size: 14px;
+}
+.project-print-options small,
+.project-print-note {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.project-print-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+[data-slot="dialog-content"].project-print-dialog.has-preview {
+  max-width: 1050px;
+  width: calc(100vw - 32px);
+}
+.project-print-dialog iframe {
+  width: 100%;
+  height: 62vh;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: white;
+}
+.project-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .project-print-options {
+    grid-template-columns: 1fr;
+  }
+  [data-slot="dialog-content"].project-print-dialog {
+    padding: 20px;
+  }
+}

@@ -1,140 +1,257 @@
+import { usePagination } from "@/components/Pagination";
 import { useEffect, useState } from "react";
-import { Building2, CalendarDays, FileImage, FolderOpen, HardHat, Landmark, ReceiptText, Search, Store } from "lucide-react";
-import { listDocuments, openDocument, type DocumentRecord } from "@/data/repositories/documentsRepository";
-import { formatDate } from "@/lib/dates";
+import {
+  Building2,
+  FolderOpen,
+  Search,
+  ArrowUpRight,
+  Files,
+  Wallet,
+  ReceiptText,
+  ShieldCheck,
+} from "lucide-react";
+import { listDocuments, type DocumentRecord } from "@/data/repositories/documentsRepository";
+import { DocumentPreviewCards } from "../components/DocumentPreviewCards";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  documentScopes,
+  documentScope,
+  projectFileTabs,
+  projectFileTab,
+  groupDocuments,
+  type DocumentScope,
+  type DocumentGroup,
+  type ProjectFileTab,
+} from "./documentGroups";
 import "./documents-page.css";
-
-type DocumentTab = "bank" | "land" | "construction" | "sales";
-
-const tabs = [
-  { id: "bank", title: "Bank receipts", description: "Transfers, cheques and payment proof", icon: ReceiptText },
-  { id: "land", title: "Land documents", description: "Land photos, maps and records", icon: Landmark },
-  { id: "construction", title: "Construction receipts", description: "Supplier bills and project cost proof", icon: HardHat },
-  { id: "sales", title: "Sales documents", description: "Flat and shop sale images", icon: Store },
-] as const;
-
-const paymentMethodLabels: Record<string, string> = {
-  cash: "Cash receipt",
-  bank: "Bank transfer receipt",
-  digital: "Digital payment receipt",
-  cheque: "Cheque image",
-  other: "Payment receipt",
+const icons = {
+  All: Files,
+  Projects: Building2,
+  Udhaar: Wallet,
+  "Personal Expense": ReceiptText,
+  "Personal Deposit": ShieldCheck,
 };
-
-function categoryOf(document: DocumentRecord): DocumentTab {
-  if (document.doc_type === "project_sale_document") return "sales";
-  if (document.doc_type === "land_payment_receipt" || document.doc_type === "project_cost_receipt" || document.doc_type === "partner_contribution_receipt" || document.doc_type === "partner_payout_receipt") return "bank";
-  if (document.doc_type === "construction_supplier_bill" || document.doc_type === "project_cost_bill") return "construction";
-  if (document.doc_type === "construction_cost_receipt")
-    return ["bank", "cheque", "digital"].includes(document.notes || "") ? "bank" : "construction";
-  return "land";
-}
-
-function descriptionOf(document: DocumentRecord): string {
-  if (document.doc_type === "project_sale_document") return "Sale document";
-  if (document.doc_type === "land_image") return "Land image";
-  if (document.doc_type === "land_payment_receipt")
-    return paymentMethodLabels[document.notes || ""] || "Land payment receipt";
-  if (document.doc_type === "construction_cost_receipt")
-    return paymentMethodLabels[document.notes || ""] || "Construction cost receipt";
-  if (document.doc_type === "construction_supplier_bill") return "Supplier bill";
-  if (document.doc_type === "project_cost_receipt") return paymentMethodLabels[document.notes || ""] || "Project payment receipt";
-  if (document.doc_type === "project_cost_bill") return "Project cost bill";
-  if (document.doc_type === "partner_contribution_receipt") return `Partner contribution · ${paymentMethodLabels[document.notes || ""] || "payment image"}`;
-  if (document.doc_type === "partner_payout_receipt") return `Partner profit payout · ${paymentMethodLabels[document.notes || ""] || "payment image"}`;
-  return document.doc_type || "Project document";
-}
-
 export function DocumentsPage() {
-  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
-  const [tab, setTab] = useState<DocumentTab>("bank");
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [openError, setOpenError] = useState("");
-
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]),
+    [tab, setTab] = useState<DocumentScope>("All"),
+    [search, setSearch] = useState(""),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [selected, setSelected] = useState<DocumentGroup | null>(null);
   useEffect(() => {
     let active = true;
     listDocuments()
-      .then((rows) => { if (active) setDocuments(rows); })
-      .catch(() => { if (active) setError("Could not load documents. Reopen this page to try again."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+      .then((rows) => {
+        if (active) setDocuments(rows);
+      })
+      .catch(() => {
+        if (active) setError("Could not load documents. Reopen this page to try again.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
-
-  const selectedTab = tabs.find((item) => item.id === tab)!;
-  const tabDocuments = documents.filter((document) => categoryOf(document) === tab);
-  const visible = tabDocuments.filter((document) =>
-    [document.title, document.project_name, document.notes, descriptionOf(document)]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(search.trim().toLowerCase()),
+  const groups = groupDocuments(documents).filter(
+    (g) =>
+      (tab === "All" || g.scope === tab) &&
+      [g.title, ...g.documents.map((d) => [d.title, d.doc_type, d.notes].join(" "))]
+        .join(" ")
+        .toLowerCase()
+        .includes(search.trim().toLowerCase()),
   );
-
+  const pages = usePagination(
+    groups,
+    JSON.stringify([tab, search, groups.map((g) => g.id)]),
+    "document collections",
+  );
   return (
-    <main className="documents-page">
+    <main className="documents-page documents-library">
       <header className="documents-heading">
-        <span><FolderOpen size={26} /></span>
+        <span>
+          <FolderOpen size={26} />
+        </span>
         <div>
-          <small>YOUR PROJECT FILES</small>
+          <small>YOUR PROPERTY & BUSINESS RECORDS</small>
           <h1>Documents</h1>
-          <p>Find payment proof, land images and construction receipts by project.</p>
+          <p>Open a project to explore its files, or find your personal payment records.</p>
         </div>
       </header>
-
-      <div className="documents-tabs" role="tablist" aria-label="Document categories">
-        {tabs.map(({ id, title, description, icon: Icon }) => {
-          const count = documents.filter((document) => categoryOf(document) === id).length;
+      <div className="documents-library-tabs" role="group" aria-label="Document categories">
+        {documentScopes.map((scope) => {
+          const Icon = icons[scope];
           return (
-            <button key={id} id={`documents-tab-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls={`documents-panel-${id}`} className={`documents-tab is-${id} ${tab === id ? "is-active" : ""}`} onClick={() => { setTab(id); setSearch(""); setOpenError(""); }}>
-              <span className="documents-tab-icon"><Icon size={22} /></span>
-              <span className="documents-tab-copy"><strong>{title}</strong><small>{description}</small></span>
-              <b>{count}</b>
+            <button
+              key={scope}
+              type="button"
+              aria-pressed={tab === scope}
+              onClick={() => {
+                setTab(scope);
+                setSearch("");
+              }}
+            >
+              <Icon size={19} />
+              <span>{scope}</span>
+              <b>{documents.filter((d) => scope === "All" || documentScope(d) === scope).length}</b>
             </button>
           );
         })}
       </div>
-
-      <section id={`documents-panel-${tab}`} role="tabpanel" aria-labelledby={`documents-tab-${tab}`} className={`documents-panel is-${tab}`}>
+      <section className="documents-panel">
         <div className="documents-panel-heading">
-          <div><h2>{selectedTab.title}</h2><p>{selectedTab.description}. Every card shows its linked project.</p></div>
-          <span>{visible.length} {visible.length === 1 ? "document" : "documents"}</span>
+          <div>
+            <h2>{tab === "All" ? "Your document collections" : tab}</h2>
+            <p>Grouped by project and personal activity. Counts show saved files.</p>
+          </div>
+          <span>{groups.length} collections</span>
         </div>
         <div className="documents-search">
           <Search size={18} />
-          <input aria-label={`Search ${selectedTab.title.toLowerCase()}`} placeholder="Search files, projects or payment types…" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input
+            aria-label="Search document collections"
+            placeholder="Search projects, filenames or document types…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        {openError && <p className="documents-open-error" role="alert">{openError}</p>}
+        {pages.controls}
         {loading ? (
-          <p className="documents-state">Loading documents…</p>
+          <p role="status" className="documents-state">
+            Loading documents…
+          </p>
         ) : error ? (
-          <p className="documents-state" role="alert">{error}</p>
-        ) : visible.length ? (
-          <div className="documents-grid">
-            {visible.map((document) => (
-              <article className={`documents-card is-${tab}`} key={document.id}>
-                <div className="documents-card-top"><span className="documents-card-icon"><FileImage size={23} /></span><span className="documents-card-kind">{descriptionOf(document)}</span></div>
-                <h3>{document.title}</h3>
-                <span className="documents-card-source">{document.doc_type === "project_sale_document" ? "Flat or shop sale" : document.doc_type === "construction_cost_receipt" ? "Construction payment" : document.doc_type === "construction_supplier_bill" ? "Construction supplier" : document.doc_type === "project_cost_receipt" ? "Project payment" : document.doc_type === "project_cost_bill" ? "Project supplier" : document.doc_type === "land_payment_receipt" ? "Land purchase payment" : document.doc_type === "partner_contribution_receipt" ? "Partner contribution" : document.doc_type === "partner_payout_receipt" ? "Partner profit payout" : "Land record"}</span>
-                <div className="documents-card-project"><Building2 size={16} /><span><small>PROJECT</small><strong>{document.project_name || "Project not linked"}</strong></span></div>
-                <div className="documents-card-date"><CalendarDays size={15} />{document.doc_date ? formatDate(document.doc_date) : "No date"}</div>
-                <button type="button" disabled={!document.file_path} onClick={async () => {
-                  if (!document.file_path) return;
-                  try { await openDocument(document.file_path); }
-                  catch { setOpenError("Could not open this image. Check that the attachments folder is available."); }
-                }}>Open image →</button>
-              </article>
+          <p role="alert" className="documents-state">
+            {error}
+          </p>
+        ) : groups.length ? (
+          <div className="document-project-grid">
+            {pages.items.map((group) => (
+              <button
+                type="button"
+                className="document-project-card"
+                  aria-label={`Open ${group.title} documents`}
+                key={group.id}
+                onClick={() => setSelected(group)}
+              >
+                <span
+                  className={`document-collection-art ${group.scope === "Projects" ? "is-project" : ""}`}
+                >
+                  {group.scope === "Projects" ? <Building2 size={29} /> : <FolderOpen size={29} />}
+                  <b>{group.documents.length} files</b>
+                </span>
+                <span className="document-collection-info">
+                  <small>
+                    {group.scope === "Projects" ? "PROJECT DOCUMENTS" : "PERSONAL & BUSINESS FILES"}
+                  </small>
+                  <strong>{group.title}</strong>
+                  <span>
+                    {group.scope === "Projects"
+                      ? Array.from(new Set(group.documents.map(projectFileTab))).join(" · ")
+                      : "Receipts and saved documents"}
+                  </span>
+                  <em>
+                    Open collection <ArrowUpRight size={17} />
+                  </em>
+                </span>
+              </button>
             ))}
           </div>
         ) : (
           <div className="documents-empty">
-            <FileImage size={30} />
-            <h3>{search ? "No matching documents" : `No ${selectedTab.title.toLowerCase()} yet`}</h3>
-            <p>{search ? "Try another filename, project or payment type." : "Images saved with a project will appear here."}</p>
+            <FolderOpen size={30} />
+            <h3>{search ? "No matching collections" : "No documents saved here yet"}</h3>
+            <p>
+              {search
+                ? "Try a project name or another filename."
+                : "Documents will appear here when they are attached to these records."}
+            </p>
           </div>
         )}
       </section>
+      {selected && (
+        <DocumentCollection key={selected.id} group={selected} onClose={() => setSelected(null)} />
+      )}
     </main>
+  );
+}
+function DocumentCollection({ group, onClose }: { group: DocumentGroup; onClose: () => void }) {
+  const [tab, setTab] = useState<ProjectFileTab>("All"),
+    [search, setSearch] = useState("");
+  const documents = group.documents.filter(
+    (d) =>
+      (tab === "All" || projectFileTab(d) === tab) &&
+      [d.title, d.doc_type, d.notes].join(" ").toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="document-collection-dialog">
+        <DialogHeader className="document-collection-header">
+          <Building2 size={25} />
+          <DialogTitle>{group.title}</DialogTitle>
+          <DialogDescription>
+            {group.documents.length} saved files · Choose a section, then select a file to preview
+            it. PDFs open in your PDF viewer.
+          </DialogDescription>
+        </DialogHeader>
+        {group.scope === "Projects" && (
+          <div
+            className="document-section-tabs"
+            role="group"
+            aria-label="Project document sections"
+          >
+            {projectFileTabs.map((section) => (
+              <button
+                type="button"
+                key={section}
+                aria-pressed={tab === section}
+                onClick={() => {
+                  setTab(section);
+                  setSearch("");
+                }}
+              >
+                {section}
+                <span>
+                  {
+                    group.documents.filter(
+                      (d) => section === "All" || projectFileTab(d) === section,
+                    ).length
+                  }
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="documents-search">
+          <Search size={18} />
+          <input
+            aria-label="Search files in collection"
+            placeholder="Search these files…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <p className="document-collection-count">
+          {documents.length} files · {tab}
+        </p>
+        {documents.length ? (
+          <DocumentPreviewCards documents={documents} />
+        ) : (
+          <p className="documents-state">No files match this section or search.</p>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

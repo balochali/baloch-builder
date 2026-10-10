@@ -114,10 +114,13 @@
   font-size: 11px;
   color: var(--muted-foreground);
 }
-.partner-dialog-receiving-account > div:last-child {
+.partner-dialog-receiving-account > .payment-account-section {
   grid-column: 1 / -1;
+  min-width: 0;
+  width: 100%;
+  margin-top: 8px;
 }
-.partner-dialog-receiving-account > div:last-child p {
+.partner-dialog-receiving-account > .payment-account-section > p {
   display: none;
 }
 .partner-dialog-method-details {
@@ -173,3 +176,5 @@
     gap: 4px;
   }
 }
+.contribution-receipts { margin-top: 16px; }
+.contribution-receipts h4 { font-weight: 600; margin-bottom: 12px; }

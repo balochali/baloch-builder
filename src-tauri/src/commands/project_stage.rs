@@ -32,7 +32,7 @@ pub async fn save_project_stage(
     land_id: String,
     timestamp: String,
 ) -> Result<(), String> {
-    if !["planning", "land acquired", "under construction", "completed", "on hold"].contains(&status.as_str()) {
+    if !["planning", "land acquired", "under construction", "completed", "land sold", "on hold"].contains(&status.as_str()) {
         return Err("Invalid project status".into());
     }
     if status == "land acquired" && land.is_none() { return Err("Land details are required".into()); }

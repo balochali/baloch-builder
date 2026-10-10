@@ -20,6 +20,7 @@ function EmptyChart({ title, message }: { title: string; message: string }) {
 }
 
 export function ProjectDashboard({ project, buildingDetails, land = null, partners, contributions, estimates, actualCosts }: Props) {
+  const isLandSold = project.status === "land sold";
   const spaces = buildingDetails ? [buildingDetails.planned_flats, buildingDetails.planned_shops,
     buildingDetails.planned_offices, buildingDetails.planned_houses].reduce<number>((total, count) => total + (count ?? 0), 0) : 0;
   const received = contributions.reduce((total, payment) => total + payment.amount, 0);
@@ -33,17 +34,17 @@ export function ProjectDashboard({ project, buildingDetails, land = null, partne
   const comparisonMax = Math.max(costMax, recoveryMax, spent, 1);
 
   return <section id="project-panel-dashboard" role="tabpanel" aria-labelledby="project-tab-dashboard" className="project-dashboard">
-    <div className="project-dashboard-heading"><div><p className="projects-eyebrow">PROJECT AT A GLANCE</p><h2>{project.name} dashboard</h2><p>Charts below use the building plan and money records saved for this project.</p></div><span className="project-dashboard-stage">{project.status || "Planning"}</span></div>
+    <div className="project-dashboard-heading"><div><p className="projects-eyebrow">PROJECT AT A GLANCE</p><h2>{project.name} dashboard</h2><p>{isLandSold ? "Land sold. Review the land and money records saved for this project." : "Charts below use the building plan and money records saved for this project."}</p></div><span className="project-dashboard-stage">{project.status || "Planning"}</span></div>
     <div className="project-dashboard-metrics">
-      <div><span className="project-dashboard-metric-icon"><Layers3 size={20} /></span><small>Planned spaces</small><strong>{buildingDetails ? spaces.toLocaleString() : "Not added"}</strong><p>Flats, shops, offices and houses</p></div>
+      {!isLandSold && <div><span className="project-dashboard-metric-icon"><Layers3 size={20} /></span><small>Planned spaces</small><strong>{buildingDetails ? spaces.toLocaleString() : "Not added"}</strong><p>Flats, shops, offices and houses</p></div>}
       <div><span className="project-dashboard-metric-icon"><Users size={20} /></span><small>Partners</small><strong>{partners.length}</strong><p>People linked to this project</p></div>
       <div><span className="project-dashboard-metric-icon"><HandCoins size={20} /></span><small>Money received</small><strong>{formatPKRInLakhCrore(received)}</strong><p>Payments from partners</p></div>
       <div><span className="project-dashboard-metric-icon"><Building2 size={20} /></span><small>Project costs</small><strong>{formatPKRInLakhCrore(spent)}</strong><p>Land purchase and project spending so far</p></div>
     </div>
     <div className="project-dashboard-charts">
-      {land && <div className="project-dashboard-chart"><BuildingAreaChart details={buildingDetails} land={land} /></div>}
-      <div className="project-dashboard-chart">{buildingDetails && spaces > 0 ? <BuildingMixChart details={buildingDetails} /> :
-        <EmptyChart title="Building mix" message="Add planned flats, shops, offices or houses in Building to see the circular chart." />}</div>
+      {land && <div className="project-dashboard-chart"><BuildingAreaChart details={isLandSold ? null : buildingDetails} land={land} /></div>}
+      {!isLandSold && <div className="project-dashboard-chart">{buildingDetails && spaces > 0 ? <BuildingMixChart details={buildingDetails} /> :
+        <EmptyChart title="Building mix" message="Add planned flats, shops, offices or houses in Building to see the circular chart." />}</div>}
       <div className="project-dashboard-chart">{partners.length > 0 ? <OwnershipChart partners={partners} /> :
         <EmptyChart title="Partner shares" message="Add project partners to see how ownership is divided." />}</div>
       <div className="project-dashboard-chart">{estimatedCosts.length > 0 || expectedRecovery.length > 0 || actualCosts.length > 0 ?
