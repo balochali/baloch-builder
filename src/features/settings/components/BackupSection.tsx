@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorText, settingsApi, type BackupStatus } from "../api";
 import { formatBytes, formatDateTime } from "../format";
-import "../settings-account.css";
+import { SettingsCard, type BadgeTone } from "./SettingsCard";
 
 type Busy = null | "credentials" | "connect" | "backup" | "disconnect" | "schedule";
 type Notice = { kind: "ok" | "error"; text: string } | null;
@@ -67,7 +67,11 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
         }
     }
 
-    function changeSchedule(next: { enabled?: boolean; frequency?: "daily" | "weekly"; keep?: number }) {
+    function changeSchedule(next: {
+        enabled?: boolean;
+        frequency?: "daily" | "weekly";
+        keep?: number;
+    }) {
         void run("schedule", () =>
             settingsApi.setBackupSchedule(
                 next.enabled ?? status.autoEnabled,
@@ -77,43 +81,56 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
         );
     }
 
+    const badge: { text: string; tone: BadgeTone } = status.connected
+        ? { text: "Connected", tone: "ok" }
+        : status.credentialsSaved
+            ? { text: "Not connected", tone: "warn" }
+            : { text: "Setup needed", tone: "muted" };
+
     return (
-        <section className="settings-section" aria-labelledby="backup-heading">
-            <CloudUpload size={24} />
-            <h2 id="backup-heading">Backup to Google Drive</h2>
-            <p>
+        <SettingsCard
+            id="backup"
+            icon={CloudUpload}
+            title="Backup to Google Drive"
+            description="A safe copy of your records in your own Google Drive."
+            badge={badge}
+        >
+            <p className="sx-intro">
                 Sends a complete copy of your records, including the database and all attached receipts,
-                photos and documents, to a private folder in your own Google Drive. The app can only see
-                the backup files it created itself. Your login password is never included.
+                photos and documents, to a private folder in your own Google Drive. The app can only see the
+                backup files it created itself. Your login password is never included.
             </p>
 
             {setupVisible && (
                 <form className="settings-form" onSubmit={saveCredentials}>
-                    <div className="settings-field">
-                        <Label htmlFor="google-client-id">Google Client ID</Label>
-                        <Input
-                            id="google-client-id"
-                            value={clientId}
-                            autoComplete="off"
-                            spellCheck={false}
-                            placeholder="1234567890-abc….apps.googleusercontent.com"
-                            onChange={(event) => setClientId(event.target.value)}
-                            disabled={busy !== null}
-                        />
-                    </div>
-                    <div className="settings-field">
-                        <Label htmlFor="google-client-secret">Google Client Secret</Label>
-                        <Input
-                            id="google-client-secret"
-                            type="password"
-                            value={clientSecret}
-                            autoComplete="off"
-                            spellCheck={false}
-                            onChange={(event) => setClientSecret(event.target.value)}
-                            disabled={busy !== null}
-                        />
-                        <small>
-                            Kept in this computer&apos;s secure credential store, not in the database or a file.
+                    <div className="sx-grid-2">
+                        <div className="settings-field">
+                            <Label htmlFor="google-client-id">Google Client ID</Label>
+                            <Input
+                                id="google-client-id"
+                                value={clientId}
+                                autoComplete="off"
+                                spellCheck={false}
+                                placeholder="1234567890-abc….apps.googleusercontent.com"
+                                onChange={(event) => setClientId(event.target.value)}
+                                disabled={busy !== null}
+                            />
+                        </div>
+                        <div className="settings-field">
+                            <Label htmlFor="google-client-secret">Google Client Secret</Label>
+                            <Input
+                                id="google-client-secret"
+                                type="password"
+                                value={clientSecret}
+                                autoComplete="off"
+                                spellCheck={false}
+                                onChange={(event) => setClientSecret(event.target.value)}
+                                disabled={busy !== null}
+                            />
+                        </div>
+                        <small className="sx-span-2 sx-note">
+                            The secret is kept in this computer&apos;s secure credential store, not in the
+                            database or a file.9
                         </small>
                     </div>
                     <details className="settings-help">
@@ -129,8 +146,7 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                             </li>
                             <li>
                                 Set up the OAuth consent screen (also called Google Auth Platform): choose External,
-                                enter an app name and your email, and add the scope
-                                &quot;…/auth/drive.file&quot;.
+                                enter an app name and your email, and add the scope &quot;…/auth/drive.file&quot;.
                             </li>
                             <li>
                                 Publish the app so its status is &quot;In production&quot;. While it stays in
@@ -145,7 +161,10 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                         <p>Menu names in Google Cloud change from time to time, but the steps stay the same.</p>
                     </details>
                     <div className="settings-actions">
-                        <Button type="submit" disabled={busy !== null || !clientId.trim() || !clientSecret.trim()}>
+                        <Button
+                            type="submit"
+                            disabled={busy !== null || !clientId.trim() || !clientSecret.trim()}
+                        >
                             {busy === "credentials" ? "Saving…" : "Save credentials"}
                         </Button>
                         {status.credentialsSaved && (
@@ -167,7 +186,7 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
             )}
 
             {!setupVisible && !status.connected && (
-                <div className="settings-form">
+                <div className="sx-connect">
                     <p>Your Google credentials are saved. Connect your Google account to start backing up.</p>
                     {busy === "connect" && (
                         <p className="settings-message">
@@ -176,10 +195,19 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                         </p>
                     )}
                     <div className="settings-actions">
-                        <Button disabled={busy !== null} onClick={() => void run("connect", settingsApi.connectGoogleDrive, "Google Drive is connected.")}>
+                        <Button
+                            disabled={busy !== null}
+                            onClick={() =>
+                                void run("connect", settingsApi.connectGoogleDrive, "Google Drive is connected.")
+                            }
+                        >
                             {busy === "connect" ? "Waiting for Google…" : "Connect Google Drive"}
                         </Button>
-                        <Button variant="outline" disabled={busy !== null} onClick={() => setEditingCredentials(true)}>
+                        <Button
+                            variant="outline"
+                            disabled={busy !== null}
+                            onClick={() => setEditingCredentials(true)}
+                        >
                             Change Google credentials
                         </Button>
                     </div>
@@ -187,7 +215,7 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
             )}
 
             {!setupVisible && status.connected && (
-                <div className="settings-form">
+                <>
                     <dl className="settings-facts">
                         <div>
                             <dt>Google account</dt>
@@ -217,23 +245,37 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                         </p>
                     )}
                     <div className="settings-actions">
-                        <Button disabled={working} onClick={() => void run("backup", settingsApi.runBackupNow, "Backup finished and uploaded to Google Drive.")}>
+                        <Button
+                            disabled={working}
+                            onClick={() =>
+                                void run(
+                                    "backup",
+                                    settingsApi.runBackupNow,
+                                    "Backup finished and uploaded to Google Drive.",
+                                )
+                            }
+                        >
                             {busy === "backup" || status.running ? "Backing up…" : "Back up now"}
                         </Button>
                     </div>
 
                     <div className="settings-subsection">
                         <h3>Automatic backup</h3>
-                        <label className="settings-check">
+                        <div className="sx-switch-row">
+                            <div>
+                                <label htmlFor="backup-auto">Back up automatically</label>
+                                <small>Runs on its own while Baloch Builder is open.</small>
+                            </div>
                             <input
+                                id="backup-auto"
+                                className="sx-switch"
                                 type="checkbox"
                                 checked={status.autoEnabled}
                                 disabled={busy !== null}
                                 onChange={(event) => changeSchedule({ enabled: event.target.checked })}
                             />
-                            Back up automatically
-                        </label>
-                        <div className="settings-inline">
+                        </div>
+                        <div className="sx-grid-2">
                             <div className="settings-field">
                                 <Label htmlFor="backup-frequency">How often</Label>
                                 <select
@@ -241,7 +283,9 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                                     className="settings-select"
                                     value={status.frequency}
                                     disabled={busy !== null}
-                                    onChange={(event) => changeSchedule({ frequency: event.target.value as "daily" | "weekly" })}
+                                    onChange={(event) =>
+                                        changeSchedule({ frequency: event.target.value as "daily" | "weekly" })
+                                    }
                                 >
                                     <option value="daily">Every day</option>
                                     <option value="weekly">Every week</option>
@@ -276,7 +320,7 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                         )}
                     </div>
 
-                    <div className="settings-actions">
+                    <div className="sx-manage">
                         {confirmingDisconnect ? (
                             <>
                                 <span className="settings-confirm-text">
@@ -287,7 +331,11 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                                     disabled={busy !== null}
                                     onClick={() => {
                                         setConfirmingDisconnect(false);
-                                        void run("disconnect", () => settingsApi.disconnectGoogleDrive(false), "Google Drive has been disconnected.");
+                                        void run(
+                                            "disconnect",
+                                            () => settingsApi.disconnectGoogleDrive(false),
+                                            "Google Drive has been disconnected.",
+                                        );
                                     }}
                                 >
                                     Yes, disconnect
@@ -298,16 +346,24 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                             </>
                         ) : (
                             <>
-                                <Button variant="outline" disabled={working} onClick={() => setConfirmingDisconnect(true)}>
+                                <Button
+                                    variant="outline"
+                                    disabled={working}
+                                    onClick={() => setConfirmingDisconnect(true)}
+                                >
                                     Disconnect
                                 </Button>
-                                <Button variant="outline" disabled={working} onClick={() => setEditingCredentials(true)}>
+                                <Button
+                                    variant="outline"
+                                    disabled={working}
+                                    onClick={() => setEditingCredentials(true)}
+                                >
                                     Change Google credentials
                                 </Button>
                             </>
                         )}
                     </div>
-                </div>
+                </>
             )}
 
             {notice && (
@@ -318,6 +374,6 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                     {notice.text}
                 </p>
             )}
-        </section>
+        </SettingsCard>
     );
 }

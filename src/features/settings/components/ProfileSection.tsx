@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorText, settingsApi, type Profile } from "../api";
-import "../settings-account.css";
+import { SettingsCard } from "./SettingsCard";
 
 interface ProfileSectionProps {
     profile: Profile;
@@ -39,47 +39,51 @@ export function ProfileSection({ profile, onSaved }: ProfileSectionProps) {
     }
 
     return (
-        <section className="settings-section" aria-labelledby="profile-heading">
-            <UserRound size={24} />
-            <h2 id="profile-heading">Your details</h2>
-            <p>These details are kept on this computer and shown on the Settings page.</p>
+        <SettingsCard
+            id="profile"
+            icon={UserRound}
+            title="Your details"
+            description="Kept on this computer and shown on this page."
+        >
             <form className="settings-form" onSubmit={submit} noValidate>
-                <div className="settings-field">
-                    <Label htmlFor="profile-username">Username</Label>
-                    <Input id="profile-username" value={profile.username} readOnly disabled />
-                    <small>Your username is used to sign in and cannot be changed here.</small>
-                </div>
-                <div className="settings-field">
-                    <Label htmlFor="profile-full-name">Full name</Label>
-                    <Input
-                        id="profile-full-name"
-                        value={fullName}
-                        maxLength={100}
-                        autoComplete="name"
-                        placeholder="For example, Ali Baloch"
-                        onChange={(event) => {
-                            setFullName(event.target.value);
-                            setSaved(false);
-                        }}
-                        disabled={busy}
-                    />
-                </div>
-                <div className="settings-field">
-                    <Label htmlFor="profile-email">Email</Label>
-                    <Input
-                        id="profile-email"
-                        type="email"
-                        value={email}
-                        maxLength={254}
-                        autoComplete="email"
-                        placeholder="name@example.com"
-                        onChange={(event) => {
-                            setEmail(event.target.value);
-                            setSaved(false);
-                        }}
-                        disabled={busy}
-                    />
-                    <small>Optional. For your records only. Backups go to the Google account you connect.</small>
+                <div className="sx-grid-2">
+                    <div className="settings-field sx-span-2">
+                        <Label htmlFor="profile-username">Username</Label>
+                        <Input id="profile-username" value={profile.username} readOnly disabled />
+                        <small>Your username is used to sign in and cannot be changed here.</small>
+                    </div>
+                    <div className="settings-field">
+                        <Label htmlFor="profile-full-name">Full name</Label>
+                        <Input
+                            id="profile-full-name"
+                            value={fullName}
+                            maxLength={100}
+                            autoComplete="name"
+                            placeholder="For example, Ali Baloch"
+                            onChange={(event) => {
+                                setFullName(event.target.value);
+                                setSaved(false);
+                            }}
+                            disabled={busy}
+                        />
+                    </div>
+                    <div className="settings-field">
+                        <Label htmlFor="profile-email">Email</Label>
+                        <Input
+                            id="profile-email"
+                            type="email"
+                            value={email}
+                            maxLength={254}
+                            autoComplete="email"
+                            placeholder="name@example.com"
+                            onChange={(event) => {
+                                setEmail(event.target.value);
+                                setSaved(false);
+                            }}
+                            disabled={busy}
+                        />
+                        <small>Optional. Backups go to the Google account you connect.</small>
+                    </div>
                 </div>
                 {error && (
                     <p role="alert" className="settings-message settings-message-error">
@@ -97,6 +101,6 @@ export function ProfileSection({ profile, onSaved }: ProfileSectionProps) {
                     </Button>
                 </div>
             </form>
-        </section>
+        </SettingsCard>
     );
 }

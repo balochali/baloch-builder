@@ -1,10 +1,12 @@
-import { ResetBusinessData } from "../components/ResetBusinessData";
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { clearAllUdhaarData } from "@/data/repositories/udhaarRepository";
 import { BackupSection } from "../components/BackupSection";
 import { CurrentSettings } from "../components/CurrentSettings";
 import { PasswordSection } from "../components/PasswordSection";
+import { SettingsCard } from "../components/SettingsCard";
+import { SettingsNav, type SettingsNavItem } from "../components/SettingsNav";
+import { ResetBusinessData } from "../components/ResetBusinessData";
 import { ProfileSection } from "../components/ProfileSection";
 import { settingsApi, type BackupStatus, type DataLocations, type Profile } from "../api";
 import { Button } from "@/components/ui/button";
@@ -18,9 +20,10 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Monitor, Moon, Sun, Database, ShieldCheck } from "lucide-react";
+import { Database, Monitor, Moon, Palette, ShieldAlert, ShieldCheck, Sun } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useThemeStore } from "@/stores/themeStore";
+import "../settings-account.css";
 
 export function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
@@ -66,6 +69,16 @@ export function SettingsPage() {
     };
   }, []);
 
+  const navItems: SettingsNavItem[] = [
+    { id: "overview", label: "Overview" },
+    ...(profile ? [{ id: "profile", label: "Your details" }] : []),
+    { id: "security", label: "Password" },
+    ...(backup ? [{ id: "backup", label: "Google Drive backup" }] : []),
+    { id: "appearance", label: "Appearance" },
+    { id: "data", label: "Data and access" },
+    { id: "danger", label: "Danger zone" },
+  ];
+
   async function clearUdhaar() {
     if (confirmation !== "DELETE" || clearing) return;
     setClearing(true);
@@ -89,61 +102,120 @@ export function SettingsPage() {
         title="Settings"
         description="Make your workspace comfortable and understand where your records live."
       />
-      <CurrentSettings theme={theme} profile={profile} backup={backup} locations={locations} />
-      {profile && <ProfileSection profile={profile} onSaved={setProfile} />}
-      <PasswordSection />
-      {backup && <BackupSection status={backup} onStatus={setBackup} />}
-      <section className="settings-section">
-        <h2>Appearance</h2>
-        <p>Choose a theme. Your preference is saved on this device.</p>
-        <div className="theme-options">
-          {(
-            [
-              { value: "light", label: "Light", icon: Sun },
-              { value: "dark", label: "Dark", icon: Moon },
-              { value: "system", label: "Match device", icon: Monitor },
-            ] as const
-          ).map(({ value, label, icon: Icon }) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={theme === value}
-              onClick={() => setTheme(value)}
-            >
-              <Icon size={24} />
-              <strong>{label}</strong>
-              <span>{theme === value ? "Selected" : "Select theme"}</span>
-            </button>
-          ))}
+      <div className="settings-layout">
+        <SettingsNav items={navItems} />
+        <div className="settings-stack">
+          <CurrentSettings theme={theme} profile={profile} backup={backup} locations={locations} />
+          {profile && <ProfileSection profile={profile} onSaved={setProfile} />}
+          <PasswordSection />
+          {backup && <BackupSection status={backup} onStatus={setBackup} />}
+          <SettingsCard
+            id="appearance"
+            icon={Palette}
+            title="Appearance"
+            description="Choose a theme. Your preference is saved on this device."
+          >
+            <div className="sx-themes">
+              {(
+                [
+                  { value: "light", label: "Light", icon: Sun },
+                  { value: "dark", label: "Dark", icon: Moon },
+                  { value: "system", label: "Match device", icon: Monitor },
+                ] as const
+              ).map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="sx-theme"
+                  aria-pressed={theme === value}
+                  onClick={() => setTheme(value)}
+                >
+                  <span className={`sx-preview sx-preview-${value}`} aria-hidden="true">
+                    <i />
+                    <b />
+                  </span>
+                  <strong>
+                    <Icon size={16} />
+                    {label}
+                  </strong>
+                  <small>{theme === value ? "Selected" : "Select theme"}</small>
+                </button>
+              ))}
+            </div>
+          </SettingsCard>
+          <SettingsCard
+            id="data"
+            icon={Database}
+            title="Your data and access"
+            description="Where your records are kept and how the app is protected."
+          >
+            <div className="sx-info">
+              <div>
+                <Database size={20} aria-hidden="true" />
+                <h3>Your data</h3>
+                <p>
+                  Business records are stored locally in the app&apos;s SQLite database. Receipt and
+                  document files are stored in the attachments folder.
+                </p>
+                <p>
+                  Use &quot;Backup to Google Drive&quot; above to keep a safe copy of both the
+                  database and the attachments, manually or on a schedule.
+                </p>
+              </div>
+              <div>
+                <ShieldCheck size={20} aria-hidden="true" />
+                <h3>Account access</h3>
+                <p>
+                  Your local account protects access to the desktop workspace. Keep your password
+                  somewhere safe.
+                </p>
+                <p>
+                  You can change your password above. Password recovery is not available, so a
+                  forgotten password cannot be reset.
+                </p>
+              </div>
+            </div>
+          </SettingsCard>
+          <SettingsCard
+            id="danger"
+            icon={ShieldAlert}
+            title="Danger zone"
+            description="These actions permanently delete records. Make a backup first."
+            danger
+            bodyClassName="sx-danger-body"
+          >
+            <div className="sx-danger-row">
+              <h3>Credit / Udhaar data</h3>
+              <p>
+                Permanently delete all Udhaar loans and their repayment history, including archived
+                records. Contacts, partners, projects and other records are kept.
+              </p>
+              <p>
+                This cannot be undone. Back up your database first if you may need these records
+                later.
+              </p>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setClearOpen(true);
+                  setConfirmation("");
+                  setClearError("");
+                  setCleared(false);
+                }}
+              >
+                Delete all Udhaar data
+              </Button>
+              {cleared && (
+                <p role="status">
+                  All Udhaar loans and repayments have been deleted. Your contacts and other records
+                  are unchanged.
+                </p>
+              )}
+            </div>
+            <ResetBusinessData />
+          </SettingsCard>
         </div>
-      </section>
-      <section className="settings-section">
-        <h2>Credit / Udhaar data</h2>
-        <p>
-          Permanently delete all Udhaar loans and their repayment history, including archived
-          records. Contacts, partners, projects and other records are kept.
-        </p>
-        <p>
-          This cannot be undone. Back up your database first if you may need these records later.
-        </p>
-        <Button
-          variant="destructive"
-          onClick={() => {
-            setClearOpen(true);
-            setConfirmation("");
-            setClearError("");
-            setCleared(false);
-          }}
-        >
-          Delete all Udhaar data
-        </Button>
-        {cleared && (
-          <p role="status">
-            All Udhaar loans and repayments have been deleted. Your contacts and other records are
-            unchanged.
-          </p>
-        )}
-      </section>
+      </div>
       <Dialog
         open={clearOpen}
         onOpenChange={(open) => {
@@ -192,33 +264,6 @@ export function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <ResetBusinessData />
-      <div className="settings-grid">
-        <section className="settings-section">
-          <Database size={24} />
-          <h2>Your data</h2>
-          <p>
-            Business records are stored locally in the app's SQLite database. Receipt and document
-            files are stored in the attachments folder.
-          </p>
-          <p>
-            Use &quot;Backup to Google Drive&quot; above to keep a safe copy of both the database
-            and the attachments, manually or on a schedule.
-          </p>
-        </section>
-        <section className="settings-section">
-          <ShieldCheck size={24} />
-          <h2>Account access</h2>
-          <p>
-            Your local account protects access to the desktop workspace. Keep your password
-            somewhere safe.
-          </p>
-          <p>
-            You can change your password above. Password recovery is not available, so a forgotten
-            password cannot be reset.
-          </p>
-        </section>
-      </div>
     </div>
   );
 }

@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import type { BackupStatus, DataLocations, Profile } from "../api";
 import { formatBytes, formatDateTime, THEME_LABELS } from "../format";
-import "../settings-account.css";
+import { SettingsCard, type BadgeTone } from "./SettingsCard";
 
 interface CurrentSettingsProps {
     theme: string;
@@ -29,40 +30,108 @@ function lastBackupSummary(backup: BackupStatus): string {
     return "No backup yet";
 }
 
-/** A read-only summary of how the app is set up right now. */
-export function CurrentSettings({ theme, profile, backup, locations }: CurrentSettingsProps) {
-    const rows: Array<[string, string]> = [];
-    if (profile) {
-        rows.push(["Signed in as", profile.fullName ? `${profile.fullName} (${profile.username})` : profile.username]);
-        rows.push(["Email", profile.email || "Not added"]);
-    }
-    rows.push(["Appearance", THEME_LABELS[theme] ?? theme]);
-    if (backup) {
-        rows.push(["Google Drive", googleDriveSummary(backup)]);
-        rows.push(["Automatic backup", automaticSummary(backup)]);
-        rows.push(["Last backup", lastBackupSummary(backup)]);
-        if (backup.connected && backup.autoEnabled && backup.nextDueAt) {
-            rows.push(["Next automatic backup", formatDateTime(backup.nextDueAt)]);
+function health(backup: BackupStatus): { text: string; tone: BadgeTone } {
+    if (!backup.connected) return { text: "Backup not set up", tone: "warn" };
+    if (backup.lastStatus === "error") return { text: "Backup needs attention", tone: "bad" };
+    if (backup.lastStatus === "ok") return { text: "Backups healthy", tone: "ok" };
+    return { text: "Ready for first backup", tone: "warn" };
+}
+
+function initials(profile: Profile): string {
+    const source = (profile.fullName || profile.username).trim();
+    const parts = source.split(/\s+/).filter(Boolean);
+    const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : source.slice(0, 2);
+    return letters.toUpperCase();
+}
+
+function PathTile({ label, value }: { label: string; value: string }) {
+    const [copied, setCopied] = useState(false);
+    async function copy() {
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+            setCopied(false);
         }
     }
-    if (locations) {
-        rows.push(["Database file", locations.databasePath]);
-        rows.push(["Attachments folder", locations.attachmentsDir]);
-    }
-
     return (
-        <section className="settings-section" aria-labelledby="current-settings-heading">
-            <SlidersHorizontal size={24} />
-            <h2 id="current-settings-heading">Current settings</h2>
-            <p>A quick look at how the app is set up right now.</p>
-            <dl className="settings-facts settings-facts-wide">
-                {rows.map(([label, value]) => (
-                    <div key={label}>
-                        <dt>{label}</dt>
-                        <dd>{value}</dd>
+        <div className="sx-tile-wide sx-tile-path">
+            <div className="sx-tile-head">
+                <dt>{label}</dt>
+                <button
+                    type="button"
+                    className="sx-copy"
+                    onClick={() => void copy()}
+                    aria-label={`Copy ${label}`}
+                >
+                    {copied ? "Copied" : "Copy"}
+                </button>
+            </div>
+            <dd>{value}</dd>
+        </div>
+    );
+}
+
+/** A read-only summary of how the app is set up right now. */
+export function CurrentSettings({ theme, profile, backup, locations }: CurrentSettingsProps) {
+    return (
+        <SettingsCard
+            id="overview"
+            icon={SlidersHorizontal}
+            title="Current settings"
+            description="A quick look at how the app is set up right now."
+            badge={backup ? health(backup) : undefined}
+        >
+            <dl className="settings-facts">
+                {profile && (
+                    <div className="sx-tile-wide sx-who">
+                        <span className="sx-avatar" aria-hidden="true">
+                            {initials(profile)}
+                        </span>
+                        <div>
+                            <dt>Signed in as</dt>
+                            <dd>
+                                {profile.fullName ? `${profile.fullName} (${profile.username})` : profile.username}
+                            </dd>
+                        </div>
                     </div>
-                ))}
+                )}
+                {profile && (
+                    <div>
+                        <dt>Email</dt>
+                        <dd>{profile.email || "Not added"}</dd>
+                    </div>
+                )}
+                <div>
+                    <dt>Appearance</dt>
+                    <dd>{THEME_LABELS[theme] ?? theme}</dd>
+                </div>
+                {backup && (
+                    <>
+                        <div>
+                            <dt>Google Drive</dt>
+                            <dd>{googleDriveSummary(backup)}</dd>
+                        </div>
+                        <div>
+                            <dt>Automatic backup</dt>
+                            <dd>{automaticSummary(backup)}</dd>
+                        </div>
+                        <div>
+                            <dt>Last backup</dt>
+                            <dd>{lastBackupSummary(backup)}</dd>
+                        </div>
+                        {backup.connected && backup.autoEnabled && backup.nextDueAt && (
+                            <div>
+                                <dt>Next automatic backup</dt>
+                                <dd>{formatDateTime(backup.nextDueAt)}</dd>
+                            </div>
+                        )}
+                    </>
+                )}
+                {locations && <PathTile label="Database file" value={locations.databasePath} />}
+                {locations && <PathTile label="Attachments folder" value={locations.attachmentsDir} />}
             </dl>
-        </section>
+        </SettingsCard>
     );
 }

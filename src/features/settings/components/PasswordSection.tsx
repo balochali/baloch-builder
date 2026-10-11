@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorText, settingsApi } from "../api";
-import "../settings-account.css";
+import { SettingsCard } from "./SettingsCard";
 
 export const MIN_PASSWORD_LENGTH = 12;
 
@@ -53,51 +53,70 @@ export function PasswordSection() {
     }
 
     const type = show ? "text" : "password";
+    const length = Array.from(next).length;
+    const percent = Math.min(100, Math.round((length / MIN_PASSWORD_LENGTH) * 100));
     return (
-        <section className="settings-section" aria-labelledby="password-heading">
-            <KeyRound size={24} />
-            <h2 id="password-heading">Change password</h2>
-            <p>
-                Choose a new password of at least {MIN_PASSWORD_LENGTH} characters. There is no password
-                recovery, so keep it somewhere safe.
-            </p>
+        <SettingsCard
+            id="security"
+            icon={KeyRound}
+            title="Change password"
+            description="There is no password recovery, so keep your new password somewhere safe."
+        >
             <form className="settings-form" onSubmit={submit}>
-                <div className="settings-field">
-                    <Label htmlFor="password-current">Current password</Label>
-                    <Input
-                        id="password-current"
-                        type={type}
-                        value={current}
-                        autoComplete="current-password"
-                        onChange={(event) => setCurrent(event.target.value)}
-                        disabled={busy}
-                    />
-                </div>
-                <div className="settings-field">
-                    <Label htmlFor="password-new">New password</Label>
-                    <Input
-                        id="password-new"
-                        type={type}
-                        value={next}
-                        autoComplete="new-password"
-                        onChange={(event) => setNext(event.target.value)}
-                        disabled={busy}
-                    />
-                </div>
-                <div className="settings-field">
-                    <Label htmlFor="password-confirm">Confirm new password</Label>
-                    <Input
-                        id="password-confirm"
-                        type={type}
-                        value={confirm}
-                        autoComplete="new-password"
-                        onChange={(event) => setConfirm(event.target.value)}
-                        disabled={busy}
-                    />
+                <div className="sx-grid-2">
+                    <div className="settings-field sx-span-2">
+                        <Label htmlFor="password-current">Current password</Label>
+                        <Input
+                            id="password-current"
+                            type={type}
+                            value={current}
+                            autoComplete="current-password"
+                            onChange={(event) => setCurrent(event.target.value)}
+                            disabled={busy}
+                        />
+                    </div>
+                    <div className="settings-field">
+                        <Label htmlFor="password-new">New password</Label>
+                        <Input
+                            id="password-new"
+                            type={type}
+                            value={next}
+                            autoComplete="new-password"
+                            onChange={(event) => setNext(event.target.value)}
+                            disabled={busy}
+                        />
+                    </div>
+                    <div className="settings-field">
+                        <Label htmlFor="password-confirm">Confirm new password</Label>
+                        <Input
+                            id="password-confirm"
+                            type={type}
+                            value={confirm}
+                            autoComplete="new-password"
+                            onChange={(event) => setConfirm(event.target.value)}
+                            disabled={busy}
+                        />
+                    </div>
+                    <div className="sx-meter sx-span-2" aria-hidden="true">
+                        <div className="sx-meter-bar">
+                            <span
+                                className={percent === 100 ? "is-full" : undefined}
+                                style={{ width: `${percent}%` }}
+                            />
+                        </div>
+                        <small>
+                            {length >= MIN_PASSWORD_LENGTH
+                                ? "Long enough"
+                                : `${length} of ${MIN_PASSWORD_LENGTH} characters`}
+                        </small>
+                    </div>
                 </div>
                 <label className="settings-check">
-                    <input type="checkbox" checked={show} onChange={(event) => setShow(event.target.checked)} />
-                    Show passwords
+                    <input
+                        type="checkbox"
+                        checked={show}
+                        onChange={(event) => setShow(event.target.checked)}
+                    />                        Show passwords
                 </label>
                 {error && (
                     <p role="alert" className="settings-message settings-message-error">
@@ -115,6 +134,6 @@ export function PasswordSection() {
                     </Button>
                 </div>
             </form>
-        </section>
+        </SettingsCard>
     );
 }

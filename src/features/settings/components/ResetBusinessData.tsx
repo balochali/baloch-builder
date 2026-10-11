@@ -35,8 +35,8 @@ export function ResetBusinessData() {
     }
   }
   return (
-    <section className="settings-section">
-      <h2>Reset all business data</h2>
+    <div className="sx-danger-row">
+      <h3>Reset all business data</h3>
       <p>
         Start testing with an empty workspace. Permanently removes all projects, land, contacts,
         partners, contributions, loans, repayments, Amanat deposits and returns, purchases, estimates, document records, notes
@@ -99,6 +99,6 @@ export function ResetBusinessData() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </div>
   );
 }
