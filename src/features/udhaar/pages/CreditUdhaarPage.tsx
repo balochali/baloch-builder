@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { usePagination } from "@/components/Pagination";
 import { PaymentModalHeader } from "@/components/PaymentChoices";
 import "./credit-udhaar.css";
@@ -454,7 +455,7 @@ export function CreditUdhaarPage() {
 
   return (
     <main className="udhaar-page">
-      <div className="udhaar-heading">
+      <div className="udhaar-heading illustrated-heading"><WorkspaceIllustration scene="credit" />
         <div>
           <p className="projects-eyebrow">
             <HandCoins size={16} aria-hidden="true" /> YOUR LENDING & REPAYMENTS

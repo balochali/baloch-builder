@@ -3,7 +3,7 @@ import { CloudUpload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { errorText, settingsApi, type BackupStatus } from "../api";
+import { errorText, settingsApi, type BackupStatus, type LatestBackup } from "../api";
 import { formatBytes, formatDateTime } from "../format";
 import { SettingsCard, type BadgeTone } from "./SettingsCard";
 
@@ -11,6 +11,10 @@ type Busy = null | "credentials" | "connect" | "backup" | "disconnect" | "schedu
 type Notice = { kind: "ok" | "error"; text: string } | null;
 
 const KEEP_CHOICES = [5, 10, 20, 30];
+/** Gives the "restarting" message a moment on screen before the app closes. */
+const RESTART_DELAY_MS = 1200;
+
+type RestoreStep = "idle" | "checking" | "confirm" | "working" | "restarting";
 
 interface BackupSectionProps {
     status: BackupStatus;
@@ -24,8 +28,10 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
     const [clientSecret, setClientSecret] = useState("");
     const [editingCredentials, setEditingCredentials] = useState(false);
     const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+    const [restoreStep, setRestoreStep] = useState<RestoreStep>("idle");
+    const [latest, setLatest] = useState<LatestBackup | null>(null);
     const setupVisible = !status.credentialsSaved || editingCredentials;
-    const working = busy !== null || status.running;
+    const working = busy !== null || status.running || restoreStep !== "idle";
 
     async function run(
         kind: Exclude<Busy, null>,
@@ -64,6 +70,44 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
         if (saved) {
             setClientSecret("");
             setEditingCredentials(false);
+        }
+    }
+
+    function refreshStatus() {
+        // A failed restore may have signed Google out; pick up the current state.
+        void settingsApi
+            .getBackupStatus()
+            .then((fresh) => fresh && onStatus(fresh))
+            .catch(() => undefined);
+    }
+
+    async function findBackupToRestore() {
+        if (working) return;
+        setNotice(null);
+        setRestoreStep("checking");
+        try {
+            setLatest(await settingsApi.findLatestBackup());
+            setRestoreStep("confirm");
+        } catch (cause) {
+            setNotice({ kind: "error", text: errorText(cause) });
+            setRestoreStep("idle");
+            refreshStatus();
+        }
+    }
+
+    async function restoreNow() {
+        if (restoreStep !== "confirm") return;
+        setNotice(null);
+        setRestoreStep("working");
+        try {
+            await settingsApi.restoreLatestBackup();
+            setRestoreStep("restarting");
+            await new Promise((resolve) => setTimeout(resolve, RESTART_DELAY_MS));
+            await settingsApi.restartApp();
+        } catch (cause) {
+            setNotice({ kind: "error", text: errorText(cause) });
+            setRestoreStep("idle");
+            refreshStatus();
         }
     }
 
@@ -317,6 +361,59 @@ export function BackupSection({ status, onStatus }: BackupSectionProps) {
                         </p>
                         {status.autoEnabled && status.nextDueAt && (
                             <p>Next automatic backup: {formatDateTime(status.nextDueAt)} or soon after.</p>
+                        )}
+                    </div>
+
+                    <div className="settings-subsection">
+                        <h3>Restore from Google Drive</h3>
+                        <p>
+                            Use this on a new computer, or if your records are lost. It finds your newest backup
+                            in Google Drive and replaces everything in the app with it.
+                        </p>
+                        {restoreStep === "confirm" && latest && (
+                            <div className="sx-confirm">
+                                <p>
+                                    <strong>Newest backup: {formatDateTime(latest.createdAt)}</strong>
+                                </p>
+                                <p>
+                                    Restoring replaces all records and attachments on this computer with that backup.
+                                    Anything added after that time will be missing. A copy of your current data is
+                                    kept on this computer in case you need it, and the app restarts when the restore
+                                    is ready.
+                                </p>
+                                <div className="settings-actions">
+                                    <Button variant="destructive" onClick={() => void restoreNow()}>
+                                        Yes, restore and restart
+                                    </Button>
+                                    <Button variant="outline" onClick={() => setRestoreStep("idle")}>
+                                        Keep my current data
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                        {restoreStep === "working" && (
+                            <p className="settings-message">
+                                Downloading and checking your backup… This can take a few minutes. Keep the app
+                                open.
+                            </p>
+                        )}
+                        {restoreStep === "restarting" && (
+                            <p role="status" className="settings-message settings-message-ok">
+                                Your backup is ready. Restarting the app to finish…
+                            </p>
+                        )}
+                        {(restoreStep === "idle" || restoreStep === "checking") && (
+                            <div className="settings-actions">
+                                <Button
+                                    variant="outline"
+                                    disabled={working}
+                                    onClick={() => void findBackupToRestore()}
+                                >
+                                    {restoreStep === "checking"
+                                        ? "Looking for your backup…"
+                                        : "Restore latest backup"}
+                                </Button>
+                            </div>
                         )}
                     </div>
 

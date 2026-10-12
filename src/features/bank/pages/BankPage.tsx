@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { BankPrintButton } from "./BankPrintButton";
 import { paymentSummary } from "@/domain/udhaarPaymentDetails";
 import "./bank-page.css";
@@ -191,7 +192,7 @@ export function BankPage() {
 
   return (
     <main className="bank-page">
-      <header className="bank-heading">
+      <header className="bank-heading illustrated-heading"><WorkspaceIllustration scene="bank" />
         <div>
           <p className="bank-eyebrow">
             <Landmark size={16} /> YOUR MONEY MOVEMENT

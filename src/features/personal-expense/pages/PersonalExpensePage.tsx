@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { PaymentModalHeader } from "@/components/PaymentChoices";
 import "./personal-expense.css";
 import { accountName } from "@/domain/bankAccount";
@@ -358,7 +359,7 @@ export function PersonalExpensePage() {
 
   return (
     <main className="expense-page">
-      <header className="expense-heading">
+      <header className="expense-heading illustrated-heading"><WorkspaceIllustration scene="expense" />
         <div className="expense-heading-content">
           <p className="projects-eyebrow">
             <Wallet size={16} aria-hidden="true" /> PERSONAL PURCHASES

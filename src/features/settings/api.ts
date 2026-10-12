@@ -35,6 +35,23 @@ export interface DataLocations {
     attachmentsDir: string;
 }
 
+export interface LatestBackup {
+    name: string;
+    createdAt: string;
+}
+
+export interface RestoreReady {
+    name: string;
+    createdAt: string;
+    attachmentCount: number;
+}
+
+/** What happened to a restore that was applied while the app restarted. */
+export interface RestoreNotice {
+    ok: boolean;
+    message: string;
+}
+
 export const settingsApi = {
     getProfile: () => invoke<Profile | null>("get_profile"),
     updateProfile: (fullName: string, email: string) =>
@@ -51,6 +68,10 @@ export const settingsApi = {
     setBackupSchedule: (enabled: boolean, frequency: "daily" | "weekly", keep: number) =>
         invoke<BackupStatus>("set_backup_schedule", { enabled, frequency, keep }),
     runBackupNow: () => invoke<BackupStatus>("run_backup_now"),
+    findLatestBackup: () => invoke<LatestBackup>("find_latest_backup"),
+    restoreLatestBackup: () => invoke<RestoreReady>("restore_latest_backup"),
+    restartApp: () => invoke<void>("restart_app"),
+    takeRestoreNotice: () => invoke<RestoreNotice | null>("take_restore_notice"),
 };
 
 /** Tauri rejects with the plain error string from Rust; turn anything into readable text. */

@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { useState } from "react";
 import {
   Archive,
@@ -74,7 +75,7 @@ export function ContactsPage() {
 
   return (
     <main className="contacts-page">
-      <header className="contacts-heading">
+      <header className="contacts-heading illustrated-heading"><WorkspaceIllustration scene="contacts" />
         <div>
           <p className="contacts-eyebrow">
             <Users size={16} /> YOUR PEOPLE & CONNECTIONS

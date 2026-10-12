@@ -109,6 +109,14 @@ pub fn files_to_prune(files: &[DriveFile], keep: usize) -> Vec<String> {
         .collect()
 }
 
+/// The newest backup made by this app, if there is one.
+pub fn latest_backup(files: &[DriveFile]) -> Option<&DriveFile> {
+    files
+        .iter()
+        .filter(|file| file.name.starts_with(BACKUP_FILE_PREFIX) && file.name.ends_with(".zip"))
+        .max_by(|a, b| a.created_time.cmp(&b.created_time))
+}
+
 impl DriveClient {
     pub fn new(http: reqwest::Client, endpoints: Endpoints, access_token: String) -> Self {
         DriveClient {
@@ -375,6 +383,99 @@ impl DriveClient {
         let listing: Listing = serde_json::from_str(&reply.body)
             .map_err(|_| "Google Drive sent an unexpected reply.".to_string())?;
         Ok(listing.files)
+    }
+
+    /// Looks for the backup folder without creating it. `None` means it does not exist yet.
+    pub async fn find_folder(
+        &self,
+        name: &str,
+        known_id: Option<&str>,
+    ) -> Result<Option<String>, String> {
+        if let Some(id) = known_id.filter(|id| safe_id(id)) {
+            let reply = self
+                .send(
+                    self.http
+                        .get(format!("{}/files/{id}", self.endpoints.drive_api))
+                        .bearer_auth(&self.token)
+                        .query(&[("fields", "id,trashed")]),
+                )
+                .await?;
+            match reply.status {
+                200 => {
+                    let value: serde_json::Value =
+                        serde_json::from_str(&reply.body).unwrap_or_default();
+                    if value["trashed"] != serde_json::Value::Bool(true) {
+                        return Ok(Some(id.to_string()));
+                    }
+                }
+                404 => {}
+                status => return Err(api_error(status, &reply.body)),
+            }
+        }
+
+        let query = format!(
+            "name = '{name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+        );
+        let reply = self
+            .send(
+                self.http
+                    .get(format!("{}/files", self.endpoints.drive_api))
+                    .bearer_auth(&self.token)
+                    .query(&[
+                        ("q", query.as_str()),
+                        ("fields", "files(id,name)"),
+                        ("pageSize", "10"),
+                    ]),
+            )
+            .await?;
+        if reply.status != 200 {
+            return Err(api_error(reply.status, &reply.body));
+        }
+        let value: serde_json::Value = serde_json::from_str(&reply.body).unwrap_or_default();
+        if let Some(id) = value["files"][0]["id"].as_str() {
+            return Ok(Some(id.to_string()));
+        }
+        Ok(None)
+    }
+
+    /// Downloads a file's contents to `dest`, returning the number of bytes written.
+    pub async fn download_file(&self, id: &str, dest: &Path) -> Result<u64, String> {
+        use tokio::io::AsyncWriteExt;
+        if !safe_id(id) {
+            return Err("The file id is not valid.".into());
+        }
+        let mut response = self
+            .http
+            .get(format!("{}/files/{id}", self.endpoints.drive_api))
+            .bearer_auth(&self.token)
+            .query(&[("alt", "media")])
+            // The shared client gives up after three minutes, which is too short for a large backup.
+            .timeout(Duration::from_secs(60 * 60))
+            .send()
+            .await
+            .map_err(network_error)?;
+        let status = response.status().as_u16();
+        if status != 200 {
+            let body = response.text().await.unwrap_or_default();
+            return Err(api_error(status, &body));
+        }
+        let expected = response.content_length();
+        let mut file = tokio::fs::File::create(dest)
+            .await
+            .map_err(|e| format!("Could not save the downloaded backup: {e}"))?;
+        let mut written = 0u64;
+        while let Some(chunk) = response.chunk().await.map_err(network_error)? {
+            file.write_all(&chunk)
+                .await
+                .map_err(|e| format!("Could not save the downloaded backup: {e}"))?;
+            written += chunk.len() as u64;
+        }
+        file.flush().await.map_err(|e| e.to_string())?;
+        file.sync_all().await.map_err(|e| e.to_string())?;
+        if written == 0 || expected.is_some_and(|length| length != written) {
+            return Err("The download was cut short. Please try again.".into());
+        }
+        Ok(written)
     }
 
     pub async fn delete_file(&self, id: &str) -> Result<(), String> {
@@ -830,6 +931,97 @@ mod tests {
             vec!["/drive/v3/files/b1".to_string()]
         );
         assert!(drive.delete_file("../x").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn the_newest_backup_is_found_and_downloaded_intact() {
+        let content = pattern(300_000);
+        let served = content.clone();
+        let base = serve(move |req| {
+            if req.target.starts_with("/drive/v3/files/FILE1") && req.target.contains("alt=media") {
+                assert_eq!(req.headers["authorization"], "Bearer ACCESS");
+                return Resp {
+                    status: 200,
+                    headers: vec![],
+                    body: String::from_utf8_lossy(&served).to_string(),
+                };
+            }
+            status(404, "{}")
+        })
+        .await;
+        let _ = content;
+        let files = vec![
+            DriveFile {
+                id: "OLD".into(),
+                name: format!("{BACKUP_FILE_PREFIX}2026-10-01_09-00-00.zip"),
+                created_time: "2026-10-01T09:00:00Z".into(),
+            },
+            DriveFile {
+                id: "FILE1".into(),
+                name: format!("{BACKUP_FILE_PREFIX}2026-10-10_09-00-00.zip"),
+                created_time: "2026-10-10T09:00:00Z".into(),
+            },
+            DriveFile {
+                id: "OTHER".into(),
+                name: "holiday-photos.zip".into(),
+                created_time: "2026-10-11T09:00:00Z".into(),
+            },
+        ];
+        let newest = latest_backup(&files).unwrap();
+        assert_eq!(newest.id, "FILE1");
+        assert!(latest_backup(&files[2..]).is_none());
+        assert!(latest_backup(&[]).is_none());
+
+        let dest = std::env::temp_dir().join(format!("bb-download-{}.zip", std::process::id()));
+        let written = client(&base)
+            .download_file(&newest.id, &dest)
+            .await
+            .unwrap();
+        assert_eq!(written as usize, std::fs::read(&dest).unwrap().len());
+        let _ = std::fs::remove_file(&dest);
+    }
+
+    #[tokio::test]
+    async fn download_errors_are_clear() {
+        let base = serve(|req| {
+            if req.target.contains("EXPIRED") {
+                status(401, "{}")
+            } else {
+                status(404, "{\"error\":{\"message\":\"File not found\"}}")
+            }
+        })
+        .await;
+        let dest = std::env::temp_dir().join(format!("bb-download-err-{}.zip", std::process::id()));
+        let drive = client(&base);
+        assert_eq!(
+            drive.download_file("EXPIRED", &dest).await.unwrap_err(),
+            AUTH_EXPIRED
+        );
+        assert!(drive
+            .download_file("MISSING", &dest)
+            .await
+            .unwrap_err()
+            .contains("File not found"));
+        assert!(drive.download_file("bad id!", &dest).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn find_folder_does_not_create_anything() {
+        let created = Arc::new(Mutex::new(false));
+        let flag = created.clone();
+        let base = serve(move |req| {
+            if req.method == "POST" {
+                *flag.lock().unwrap() = true;
+            }
+            ok("{\"files\":[]}")
+        })
+        .await;
+        let found = client(&base)
+            .find_folder(BACKUP_FOLDER_NAME, None)
+            .await
+            .unwrap();
+        assert_eq!(found, None);
+        assert!(!*created.lock().unwrap());
     }
 
     #[test]

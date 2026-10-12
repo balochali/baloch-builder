@@ -44,9 +44,10 @@ const groups = [
 ];
 interface SidebarProps {
   onLogout: () => void;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ onLogout }: SidebarProps) {
+export function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   const { pathname } = useLocation();
   const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -60,7 +61,12 @@ export function Sidebar({ onLogout }: SidebarProps) {
       activeBounds.left - navBounds.left - (navBounds.width - activeBounds.width) / 2;
   }, [pathname]);
   return (
-    <aside className="app-sidebar">
+    <aside
+      className="app-sidebar"
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest("a")) onNavigate?.();
+      }}
+    >
       <NavLink to="/" className="brand-block" aria-label="Baloch Builders dashboard">
         <span className="workspace-logo">
           <Building2 size={25} />
@@ -116,8 +122,15 @@ export function Sidebar({ onLogout }: SidebarProps) {
           <span className="sidebar-link-label">Settings</span>
           <ArrowUpRight className="sidebar-settings-arrow" size={15} aria-hidden="true" />
         </NavLink>
-        <button type="button" className="workspace-nav-link sidebar-logout" aria-label="Log out" onClick={onLogout}>
-          <span className="sidebar-link-icon"><LogOut size={19} aria-hidden="true" /></span>
+        <button
+          type="button"
+          className="workspace-nav-link sidebar-logout"
+          aria-label="Log out"
+          onClick={onLogout}
+        >
+          <span className="sidebar-link-icon">
+            <LogOut size={19} aria-hidden="true" />
+          </span>
           <span className="sidebar-link-label">Log out</span>
         </button>
       </div>

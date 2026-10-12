@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { ContributionReceipts } from "@/features/partners/components/ContributionReceipts";
 import { PartnerProfileContent } from "@/features/partners/components/PartnerProfileContent";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -169,7 +170,7 @@ export function PartnersPage() {
 
   return (
     <main className="partners-page">
-      <header className="partners-heading">
+      <header className="partners-heading illustrated-heading"><WorkspaceIllustration scene="partners" />
         <div>
           <p className="partners-eyebrow">
             <Users size={16} /> PEOPLE BEHIND YOUR PROJECTS

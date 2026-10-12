@@ -8,7 +8,13 @@ import { SettingsCard } from "../components/SettingsCard";
 import { SettingsNav, type SettingsNavItem } from "../components/SettingsNav";
 import { ResetBusinessData } from "../components/ResetBusinessData";
 import { ProfileSection } from "../components/ProfileSection";
-import { settingsApi, type BackupStatus, type DataLocations, type Profile } from "../api";
+import {
+  settingsApi,
+  type BackupStatus,
+  type DataLocations,
+  type Profile,
+  type RestoreNotice,
+} from "../api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +41,7 @@ export function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [backup, setBackup] = useState<BackupStatus | null>(null);
   const [locations, setLocations] = useState<DataLocations | null>(null);
+  const [restoreNotice, setRestoreNotice] = useState<RestoreNotice | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -42,11 +49,13 @@ export function SettingsPage() {
       settingsApi.getProfile(),
       settingsApi.getBackupStatus(),
       settingsApi.getDataLocations(),
-    ]).then(([profileResult, backupResult, locationsResult]) => {
+      settingsApi.takeRestoreNotice(),
+    ]).then(([profileResult, backupResult, locationsResult, noticeResult]) => {
       if (!active) return;
       if (profileResult.status === "fulfilled") setProfile(profileResult.value ?? null);
       if (backupResult.status === "fulfilled") setBackup(backupResult.value ?? null);
       if (locationsResult.status === "fulfilled") setLocations(locationsResult.value ?? null);
+      if (noticeResult.status === "fulfilled") setRestoreNotice(noticeResult.value ?? null);
     });
     return () => {
       active = false;
@@ -99,12 +108,21 @@ export function SettingsPage() {
   return (
     <div className="settings-page">
       <PageHeader
+        scene="settings"
         title="Settings"
         description="Make your workspace comfortable and understand where your records live."
       />
       <div className="settings-layout">
         <SettingsNav items={navItems} />
         <div className="settings-stack">
+          {restoreNotice && (
+            <p
+              role={restoreNotice.ok ? "status" : "alert"}
+              className={`settings-message ${restoreNotice.ok ? "settings-message-ok" : "settings-message-error"}`}
+            >
+              {restoreNotice.message}
+            </p>
+          )}
           <CurrentSettings theme={theme} profile={profile} backup={backup} locations={locations} />
           {profile && <ProfileSection profile={profile} onSaved={setProfile} />}
           <PasswordSection />

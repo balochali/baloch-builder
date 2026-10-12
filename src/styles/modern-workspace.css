@@ -1,0 +1,959 @@
+/* Final presentation layer. Keep feature geometry and business behavior in their modules. */
+:root {
+  --radius: 0.875rem;
+  --background: #f5f6fb;
+  --foreground: #20253e;
+  --card: #fff;
+  --card-foreground: #20253e;
+  --popover: #fff;
+  --popover-foreground: #20253e;
+  --primary: #5954dc;
+  --primary-foreground: #fff;
+  --secondary: #eeedfc;
+  --secondary-foreground: #5144b5;
+  --muted: #f0f2f8;
+  --muted-foreground: #687089;
+  --accent: #eeedfc;
+  --accent-foreground: #5144b5;
+  --border: #e5e7f0;
+  --input: #d8dce9;
+  --ring: #7770ea;
+  --surface-shadow: 0 4px 24px #292b5705;
+}
+:root.dark {
+  --background: #111321;
+  --foreground: #eef0fc;
+  --card: #1b1f33;
+  --card-foreground: #eef0fc;
+  --popover: #23283e;
+  --popover-foreground: #eef0fc;
+  --primary: #aaa4ff;
+  --primary-foreground: #201b52;
+  --secondary: #302d4e;
+  --secondary-foreground: #d2ceff;
+  --muted: #252a41;
+  --muted-foreground: #adb4cf;
+  --accent: #353052;
+  --accent-foreground: #d2ceff;
+  --border: #333950;
+  --input: #49506b;
+  --ring: #aaa4ff;
+  --surface-shadow: 0 4px 24px #00000012;
+}
+body {
+  font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+::selection {
+  background: #d8d4ff;
+  color: #30266a;
+}
+.app-shell {
+  background: var(--background);
+}
+.app-main,
+.dark .app-main {
+  padding: 28px 34px 48px;
+  background: var(--background);
+  scrollbar-gutter: stable;
+}
+.app-main > div,
+.app-main > main {
+  max-width: 1560px;
+}
+.app-main h1 {
+  letter-spacing: -0.045em;
+  font-weight: 750;
+}
+.app-main h2 {
+  letter-spacing: -0.025em;
+}
+.app-main :is(article, section, header, form, [role="tabpanel"]) {
+  min-width: 0;
+}
+.app-main :is(h1, h2, h3) {
+  overflow-wrap: anywhere;
+}
+
+/* Compact, permanent desktop navigation; a proper modal drawer on small screens. */
+.app-shell > .app-sidebar {
+  flex-basis: 238px;
+  width: 238px;
+}
+.app-sidebar.app-sidebar {
+  background: #1c203b;
+  border-right: 1px solid #ffffff0d;
+  box-shadow: none;
+}
+.app-sidebar.app-sidebar .brand-block {
+  min-height: 88px;
+  padding: 22px 20px;
+  gap: 11px;
+}
+.app-sidebar.app-sidebar .workspace-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  border: 0;
+  background: #7770ed;
+  color: white;
+  box-shadow: 0 5px 18px #080b2520;
+}
+.app-sidebar.app-sidebar .brand-name strong {
+  font-size: 18px;
+  letter-spacing: 0.12em;
+}
+.app-sidebar.app-sidebar .brand-name small {
+  color: #abb1ce;
+  font-size: 6.8px;
+}
+.app-sidebar.app-sidebar nav {
+  padding: 23px 14px 16px;
+  flex: 1;
+}
+.app-sidebar.app-sidebar .sidebar-caption {
+  color: #9da5c8;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  margin-bottom: 12px;
+}
+.app-sidebar.app-sidebar .sidebar-caption::before {
+  display: none;
+}
+.app-sidebar.app-sidebar .nav-group + .nav-group {
+  margin-top: 25px;
+}
+.app-sidebar.app-sidebar .workspace-nav-link {
+  min-height: 45px;
+  margin: 4px 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: #c7cce0;
+  font-weight: 500;
+  font-size: 12px;
+  gap: 11px;
+}
+.app-sidebar.app-sidebar .workspace-nav-link:hover {
+  background: #ffffff0b;
+  transform: none;
+  color: #fff;
+}
+.app-sidebar.app-sidebar .workspace-nav-link.is-active {
+  background: #7770ed26;
+  color: #fff;
+  border-color: #958cf53b;
+  box-shadow: none;
+}
+.app-sidebar.app-sidebar .sidebar-link-icon {
+  width: 29px;
+  height: 29px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--nav-color, #aaa4ff) 13%, transparent);
+}
+.app-sidebar.app-sidebar .workspace-nav-link.is-active .sidebar-link-icon {
+  background: transparent;
+  color: #bcb5ff;
+  box-shadow: none;
+}
+.sidebar-building-scene {
+  margin: 8px 27px 20px;
+  padding: 0;
+}
+.sidebar-building-scene img {
+  opacity: 0.32;
+  max-height: 80px;
+}
+.sidebar-building-scene span {
+  color: #939cbd;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+.app-sidebar.app-sidebar .sidebar-bottom {
+  padding: 12px 14px;
+}
+.app-sidebar.app-sidebar .workspace-local {
+  border: 0;
+  padding: 10px;
+  background: #ffffff05;
+}
+.app-sidebar.app-sidebar .workspace-local strong {
+  font-size: 10px;
+}
+.app-sidebar.app-sidebar .workspace-local span {
+  font-size: 9px;
+}
+.app-topbar {
+  min-height: 72px;
+  padding: 16px 34px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+}
+.app-topbar .topbar-location {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.app-topbar .workspace-breadcrumb {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.workspace-breadcrumb strong {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-breadcrumb a {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--background);
+}
+.app-topbar .workspace-avatar {
+  width: 36px;
+  height: 36px;
+  background: #ece9ff;
+  color: #6555c6;
+  border: 3px solid var(--card);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.mobile-menu-toggle {
+  display: none;
+}
+
+/* Section identity: color is repeated in the hero, active tabs and small accents. */
+.builder-dashboard,
+.projects-page,
+.project-detail-page {
+  --section-color: #6656d9;
+  --section-soft: #efedff;
+  --hero-end: #4249ad;
+}
+.contacts-page {
+  --section-color: #137f96;
+  --section-soft: #e4f6fa;
+  --hero-end: #245fb0;
+}
+.land-page {
+  --section-color: #138271;
+  --section-soft: #e5f6f0;
+  --hero-end: #256a89;
+}
+.documents-page {
+  --section-color: #7253c4;
+  --section-soft: #f1ebfc;
+  --hero-end: #4f55b3;
+}
+.partners-page {
+  --section-color: #af642d;
+  --section-soft: #fff2e6;
+  --hero-end: #ac466b;
+}
+.expense-page {
+  --section-color: #b54376;
+  --section-soft: #fcebf3;
+  --hero-end: #864eb5;
+}
+.bank-page {
+  --section-color: #178166;
+  --section-soft: #e5f6ee;
+  --hero-end: #26778b;
+}
+.udhaar-page {
+  --section-color: #6850c5;
+  --section-soft: #efebfb;
+  --hero-end: #415fad;
+}
+.amanat-page {
+  --section-color: #137d91;
+  --section-soft: #e5f6fa;
+  --hero-end: #515cba;
+}
+.settings-page {
+  --section-color: #5865a6;
+  --section-soft: #eeeffa;
+  --hero-end: #7054a3;
+}
+/* The same layout, with a distinct illustration and tint for each workspace. */
+.app-main .illustrated-heading.illustrated-heading {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  justify-items: start;
+  gap: 18px;
+  overflow: hidden;
+  min-height: 236px;
+  padding: 28px 294px 28px 32px;
+  border: 1px solid color-mix(in srgb, var(--section-color) 14%, var(--border));
+  border-radius: 18px;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--section-color) 7%, var(--card));
+  box-shadow: none;
+}
+.app-main .illustrated-heading.illustrated-heading::before,
+.app-main .illustrated-heading.illustrated-heading::after {
+  content: none;
+}
+.app-main .illustrated-heading.illustrated-heading > div:not(.workspace-illustration) {
+  max-width: 620px;
+  background: transparent;
+  z-index: 1;
+}
+.app-main .illustrated-heading.illustrated-heading h1 {
+  color: var(--foreground);
+  font-size: clamp(27px, 2.5vw, 36px);
+  font-weight: 750;
+  line-height: 1.16;
+  letter-spacing: -0.04em;
+  margin: 9px 0 12px;
+  padding: 0;
+  border: 0;
+}
+.app-main .illustrated-heading.illustrated-heading p {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.65;
+  max-width: 530px;
+}
+.app-main .illustrated-heading.illustrated-heading :is([class*="eyebrow"], small) {
+  color: var(--section-color);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+.app-main
+  .illustrated-heading.illustrated-heading
+  :is([data-slot="button"], .dash-primary, .land-project-button) {
+  min-height: 40px;
+  padding: 10px 15px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: var(--section-color);
+  color: white;
+  font-size: 12px;
+  font-weight: 650;
+  box-shadow: none;
+}
+.app-main
+  .illustrated-heading.illustrated-heading
+  :is([data-slot="button"], .dash-primary, .land-project-button):hover {
+  filter: brightness(0.93);
+}
+.app-main .illustrated-heading > .amanat-heading-icon,
+.app-main .documents-heading > span {
+  display: none;
+}
+.app-main .projects-overview {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+.app-main .projects-summary {
+  margin-top: 0;
+}
+.workspace-illustration {
+  color: var(--section-color, #7062c6);
+  width: 260px;
+  pointer-events: none;
+  user-select: none;
+}
+.workspace-illustration svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.app-main .illustrated-heading.illustrated-heading > .workspace-illustration {
+  position: absolute;
+  right: 25px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 250px;
+  max-width: none;
+  background: none;
+  z-index: 0;
+}
+.app-main .project-heading-card {
+  position: relative;
+  overflow: hidden;
+}
+.app-main .project-heading-card > .workspace-illustration {
+  position: absolute;
+  width: 180px;
+  right: 26px;
+  top: 8px;
+  opacity: 0.22;
+}
+.app-main .project-heading-top {
+  position: relative;
+  z-index: 1;
+}
+.dark .app-main .illustrated-heading.illustrated-heading {
+  background: color-mix(in srgb, var(--section-color) 12%, var(--card));
+}
+.dark .app-main .illustrated-heading.illustrated-heading :is([class*="eyebrow"], small) {
+  color: color-mix(in srgb, var(--section-color) 45%, #fff);
+}
+.dark .workspace-illustration {
+  opacity: 0.85;
+}
+
+/* Shared surfaces, metrics and controls. */
+.app-main
+  :is(
+    .home-panel,
+    .contacts-directory,
+    .contacts-card,
+    .land-card,
+    .partners-visual,
+    .expense-chart,
+    .expense-share,
+    .expense-records,
+    .bank-panel,
+    .udhaar-chart,
+    .amanat-list,
+    .amanat-card,
+    .sx-card,
+    .documents-panel,
+    .document-project-card,
+    .project-card,
+    .project-heading-card,
+    [data-slot="card"]
+  ) {
+  border-color: var(--border);
+  border-radius: 17px;
+  box-shadow: var(--surface-shadow);
+  background-color: var(--card);
+}
+.app-main :is(.home-panel-head, .contacts-directory-top, .sx-card-head) {
+  border-color: var(--border);
+}
+.app-main
+  :is(
+    .dash-tabs,
+    .bank-tabs,
+    .partners-tabs,
+    .expense-tabs,
+    .udhaar-tabs,
+    .project-detail-tabs,
+    .documents-library-tabs
+  ) {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 6px;
+  gap: 5px;
+  box-shadow: var(--surface-shadow);
+}
+.app-main
+  :is(
+    .dash-tabs,
+    .bank-tabs,
+    .partners-tabs,
+    .expense-tabs,
+    .udhaar-tabs,
+    .project-detail-tabs,
+    .documents-library-tabs
+  )
+  button {
+  border: 0;
+  border-radius: 10px;
+  min-height: 44px;
+  color: var(--muted-foreground);
+  box-shadow: none;
+}
+.app-main
+  :is(
+    .dash-tabs,
+    .bank-tabs,
+    .partners-tabs,
+    .expense-tabs,
+    .udhaar-tabs,
+    .project-detail-tabs,
+    .documents-library-tabs
+  )
+  button:is([aria-selected="true"], [aria-pressed="true"]) {
+  background: color-mix(in srgb, var(--section-color) 12%, var(--card));
+  color: var(--primary);
+  box-shadow: none;
+}
+.app-main .dash-tabs button {
+  padding: 11px 12px;
+}
+.app-main .dash-tabs button[aria-selected="true"] strong {
+  color: var(--primary);
+}
+.app-main .dash-tabs button > svg {
+  padding: 8px;
+  width: 19px;
+  height: 19px;
+}
+.app-main
+  :is(
+    .dash-stat-card,
+    .contacts-metric,
+    .projects-summary-card,
+    .amanat-metrics article,
+    .expense-kpis article,
+    .bank-summary > div,
+    .udhaar-summary > div
+  ) {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--surface-shadow);
+}
+.app-main .contacts-metric {
+  background: var(--card);
+  border-top: 3px solid #54aec8;
+}
+.app-main .contacts-metric:nth-child(2) {
+  border-top-color: #49b99b;
+}
+.app-main .contacts-metric:nth-child(3) {
+  border-top-color: #9e7ce1;
+}
+.app-main :is(.home-record-avatar, .contacts-avatar, .sx-icon) {
+  background: var(--secondary);
+  color: var(--primary);
+  border-radius: 12px;
+}
+.app-main :is(.home-record-list > a, .contacts-card, .land-card, .project-card) {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.app-main :is(.contacts-card, .land-card, .project-card):hover {
+  border-color: color-mix(in srgb, var(--section-color) 35%, var(--border));
+  box-shadow: 0 6px 24px #24234b0c;
+}
+[data-slot="button"] {
+  border-radius: 10px;
+  min-height: 40px;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+[data-slot="input"],
+[data-slot="select-trigger"],
+textarea {
+  border-radius: 10px;
+  min-height: 42px;
+  background: var(--card);
+}
+[data-slot="input"]:focus-visible,
+[data-slot="select-trigger"]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 17%, transparent);
+}
+[data-slot="dialog-content"] {
+  border: 1px solid var(--border);
+  border-radius: 21px;
+  padding: 26px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  box-shadow: 0 25px 100px #15132f35;
+}
+[data-slot="dialog-overlay"] {
+  background: #17162e80;
+  backdrop-filter: blur(5px);
+}
+[data-slot="table-container"] {
+  border-radius: 13px;
+  border-color: var(--border);
+}
+[data-slot="table-head"] {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-weight: 650;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+[data-slot="table-cell"] {
+  padding-block: 14px;
+}
+.app-main .sx-nav {
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+.app-main .sx-nav button[aria-current="true"] {
+  background: var(--secondary);
+  color: var(--primary);
+  border-radius: 9px;
+}
+.app-main .project-heading-card {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--section-color) 9%, var(--card)),
+    var(--card)
+  );
+}
+.app-main .project-detail-title > span {
+  background: var(--secondary);
+  color: var(--primary);
+}
+
+/* Authentication shares the same palette while retaining the architectural photography. */
+.auth-page .auth-shell {
+  background: var(--card);
+}
+.auth-page .auth-form-side {
+  background:
+    radial-gradient(
+      ellipse at 100% 0%,
+      color-mix(in srgb, var(--primary) 9%, var(--card)),
+      transparent 65%
+    ),
+    var(--card);
+}
+.auth-page .auth-form-icon {
+  background: var(--secondary);
+  color: var(--primary);
+}
+.auth-page :is(.auth-form-eyebrow, .auth-mobile-brand) {
+  color: var(--primary);
+}
+.auth-page :is(.auth-panel h1, .auth-field label) {
+  color: var(--foreground);
+}
+.auth-page :is(.auth-form-intro, .auth-field-hint) {
+  color: var(--muted-foreground);
+}
+.auth-page .auth-field input {
+  color: var(--foreground);
+  background: var(--card);
+  border-color: var(--input);
+  border-radius: 12px;
+}
+.auth-page .auth-panel form [data-slot="button"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 12px;
+}
+.auth-page .auth-visual-shade {
+  background: linear-gradient(180deg, #20194a50, transparent 30%, #171338dc);
+}
+
+@media (min-width: 1025px) and (max-width: 1150px) {
+  .app-shell > .app-sidebar {
+    flex-basis: 205px;
+    width: 205px;
+  }
+  .app-sidebar.app-sidebar .brand-block {
+    padding-inline: 14px;
+    gap: 8px;
+  }
+  .app-sidebar.app-sidebar .brand-name strong {
+    font-size: 16px;
+  }
+  .app-sidebar.app-sidebar .brand-name small {
+    font-size: 6px;
+  }
+  .app-main,
+  .dark .app-main {
+    padding: 22px;
+  }
+  .app-topbar {
+    padding-inline: 22px;
+  }
+  .app-main .dash-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app-main .illustrated-heading.illustrated-heading {
+    padding-right: 210px;
+    padding-left: 24px;
+  }
+  .app-main .illustrated-heading.illustrated-heading > .workspace-illustration {
+    width: 185px;
+    right: 10px;
+  }
+}
+@media (max-width: 1024px) {
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .app-shell > .app-sidebar {
+    display: none;
+  }
+  .app-workspace {
+    width: 100%;
+    min-height: 0;
+  }
+  .app-topbar {
+    min-height: 64px;
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .mobile-menu-toggle {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--foreground);
+  }
+  .app-topbar .workspace-breadcrumb {
+    gap: 5px;
+  }
+  .workspace-breadcrumb > a,
+  .workspace-breadcrumb > svg {
+    display: none;
+  }
+  .app-topbar .workspace-date {
+    display: none;
+  }
+  .topbar-tools {
+    gap: 9px;
+    flex: none;
+  }
+  .app-main,
+  .dark .app-main {
+    padding: 18px 16px 32px;
+    overflow-x: hidden;
+    scrollbar-gutter: auto;
+  }
+  .app-main .illustrated-heading.illustrated-heading {
+    display: grid;
+    min-height: 0;
+    padding: 24px;
+    gap: 16px;
+    border-radius: 15px;
+  }
+  .app-main .illustrated-heading.illustrated-heading > .workspace-illustration {
+    width: 105px;
+    right: 9px;
+    top: 6px;
+    transform: none;
+    opacity: 0.8;
+  }
+  .app-main .illustrated-heading.illustrated-heading h1 {
+    max-width: calc(100% - 54px);
+    font-size: 27px;
+    margin-top: 12px;
+  }
+  .app-main .illustrated-heading.illustrated-heading :is([class*="eyebrow"], small) {
+    display: flex;
+    max-width: calc(100% - 68px);
+    font-size: 8px;
+  }
+  .app-main .illustrated-heading.illustrated-heading p {
+    font-size: 12px;
+  }
+  .app-main .amanat-heading-icon {
+    display: none;
+  }
+  .app-main .dash-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app-main .dash-tabs button {
+    gap: 8px;
+    padding: 10px 7px;
+  }
+  .app-main .dash-tabs small {
+    display: none;
+  }
+  .app-main .dash-tabs strong {
+    font-size: 12px;
+  }
+  .app-main
+    :is(
+      .bank-tabs,
+      .partners-tabs,
+      .expense-tabs,
+      .udhaar-tabs,
+      .project-detail-tabs,
+      .documents-library-tabs
+    ) {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    max-width: 100%;
+  }
+  .app-main
+    :is(
+      .bank-tabs,
+      .partners-tabs,
+      .expense-tabs,
+      .udhaar-tabs,
+      .project-detail-tabs,
+      .documents-library-tabs
+    )
+    > button {
+    flex: none;
+    white-space: nowrap;
+  }
+  .app-main
+    :is(
+      .contacts-metrics,
+      .amanat-metrics,
+      .projects-summary,
+      .expense-kpis,
+      .udhaar-summary,
+      .bank-summary
+    ) {
+    grid-template-columns: 1fr;
+  }
+  .app-main :is(.contacts-cards, .projects-grid, .land-grid, .amanat-grid, .document-project-grid) {
+    grid-template-columns: 1fr;
+  }
+  .app-main .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app-main .sx-nav {
+    display: flex;
+    position: static;
+    overflow-x: auto;
+    gap: 4px;
+  }
+  .app-main .sx-nav button {
+    flex: none;
+    white-space: nowrap;
+  }
+  .app-main :is(.bank-header-actions, .project-heading-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  [data-slot="dialog-content"] {
+    padding: 22px 18px;
+    border-radius: 17px;
+  }
+  .mobile-navigation[data-slot="dialog-content"] {
+    left: 0;
+    top: 0;
+    transform: none;
+    translate: none;
+    width: min(310px, calc(100vw - 32px));
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 0;
+    border: 0;
+    border-radius: 0 20px 20px 0;
+    overflow: hidden;
+    gap: 0;
+    background: #1c203b;
+    animation: none;
+  }
+  .mobile-navigation > button {
+    color: white;
+    z-index: 2;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar {
+    display: flex;
+    position: static;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .brand-block {
+    display: flex;
+    min-height: 88px;
+    padding-right: 35px;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar nav {
+    display: block;
+    overflow: visible;
+    padding: 20px 14px;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .nav-group {
+    display: block;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .nav-group + .nav-group {
+    margin-top: 24px;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .sidebar-caption {
+    display: block;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .sidebar-link-label {
+    display: block;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .sidebar-bottom {
+    display: block;
+    position: static;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .workspace-local {
+    display: flex;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .sidebar-settings-arrow {
+    display: block;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .workspace-nav-link {
+    display: flex;
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@media print {
+  .app-shell > .app-sidebar,
+  .app-topbar,
+  .mobile-navigation {
+    display: none;
+  }
+  .app-shell,
+  .app-workspace,
+  .app-main {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .app-main {
+    padding: 0;
+  }
+}
+/* Explicit specificity keeps legacy feature headings from overriding readable captions. */
+.app-main .illustrated-heading.illustrated-heading p:last-child {
+  color: var(--muted-foreground);
+  max-width: 530px;
+}
+.app-topbar > div.topbar-location {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+@media (max-width: 1024px) {
+  .app-main .dash-tabs button {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  .app-main .dash-tabs button > svg {
+    padding: 7px;
+  }
+  .app-main .illustrated-heading.illustrated-heading p:last-child {
+    max-width: none;
+  }
+  .app-topbar .workspace-breadcrumb strong {
+    max-width: calc(100vw - 170px);
+  }
+}
+
+.app-main .project-detail-tabs button[aria-selected="true"] > svg {
+  color: var(--primary);
+}

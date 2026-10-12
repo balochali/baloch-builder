@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { useEffect, useState, type FormEvent } from "react";
 import { format } from "date-fns";
@@ -118,7 +119,7 @@ export function PersonalDepositPage() {
   const returned = records.reduce((total, row) => total + row.returned_amount, 0);
   return (
     <div className="amanat-page">
-      <header className="amanat-heading">
+      <header className="amanat-heading illustrated-heading"><WorkspaceIllustration scene="deposit" />
         <span className="amanat-heading-icon">
           <ShieldCheck size={32} />
         </span>

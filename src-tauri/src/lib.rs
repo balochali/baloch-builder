@@ -122,9 +122,13 @@ pub fn run() {
         },
     ];
 
-    tauri::Builder::default()
+    // A backup made by a newer version of the app cannot be restored here.
+    let newest_migration = migrations.iter().map(|m| m.version).max().unwrap_or(0);
+
+    let app = tauri::Builder::default()
         .manage(Mutex::new(commands::auth::LoginAttempts::default()))
         .manage(commands::backup::BackupState::default())
+        .manage(commands::backup::RestoreConfig { newest_migration })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(
@@ -157,7 +161,17 @@ pub fn run() {
             commands::backup::disconnect_google_drive,
             commands::backup::set_backup_schedule,
             commands::backup::run_backup_now,
+            commands::backup::find_latest_backup,
+            commands::backup::restore_latest_backup,
+            commands::backup::restart_app,
+            commands::backup::take_restore_notice,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    // A restore chosen in Settings is applied here, before the window opens and before the
+    // database is opened by anything.
+    commands::backup::apply_pending_restore(app.handle());
+
+    app.run(|_app_handle, _event| {});
 }

@@ -3,6 +3,7 @@ import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { ProjectPrintButton } from "@/features/projects/components/ProjectPrintButton";
 import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
 import { BankAccountSelect } from "@/components/BankAccountSelect";
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import {
   listProjectCostDocuments,
   saveActualCostBill,
@@ -649,6 +650,7 @@ export function ProjectDetailPage() {
       {!loading && !error && project && (
         <>
           <section className="project-heading-card" aria-label="Project and status">
+            <WorkspaceIllustration scene="buildings" />
             <div className="project-heading-top">
               <div>
                 <Link to="/projects" className="project-heading-back">

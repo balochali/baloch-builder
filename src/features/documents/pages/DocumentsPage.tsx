@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { usePagination } from "@/components/Pagination";
 import { useEffect, useState } from "react";
 import {
@@ -75,7 +76,7 @@ export function DocumentsPage() {
   );
   return (
     <main className="documents-page documents-library">
-      <header className="documents-heading">
+      <header className="documents-heading illustrated-heading"><WorkspaceIllustration scene="documents" />
         <span>
           <FolderOpen size={26} />
         </span>

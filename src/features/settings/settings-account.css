@@ -548,6 +548,23 @@
     font-size: 13px;
 }
 
+/* ---------- Restore confirmation ---------- */
+.sx-confirm {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--destructive) 35%, var(--border));
+    border-radius: 12px;
+    background: var(--sx-bad-bg);
+}
+
+.sx-confirm p {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+
 /* ---------- Appearance ---------- */
 .sx-themes {
     display: grid;

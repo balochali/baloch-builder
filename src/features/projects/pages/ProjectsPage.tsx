@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import "./projects.css";
 import { useEffect, useState, type CSSProperties } from "react";
 import {
@@ -125,7 +126,7 @@ export function ProjectsPage() {
   return (
     <div className="projects-page">
       <section className="projects-overview" aria-label="Project overview">
-        <div className="projects-overview-heading">
+        <div className="projects-overview-heading illustrated-heading"><WorkspaceIllustration scene="buildings" />
           <div>
             <p className="projects-eyebrow">
               <Building2 size={16} aria-hidden="true" /> YOUR DEVELOPMENTS

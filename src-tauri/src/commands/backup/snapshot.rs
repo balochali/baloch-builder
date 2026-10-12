@@ -41,6 +41,21 @@ pub async fn snapshot_database(db_path: &Path, dest: &Path) -> Result<(), String
     verify_snapshot(dest).await
 }
 
+/// Opens a database read-only and runs SQLite's integrity check on it. `Ok(false)` means the
+/// database opened but is damaged.
+pub async fn integrity_ok(path: &Path) -> Result<bool, String> {
+    let mut connection = SqliteConnection::connect_with(&options(path).read_only(true))
+        .await
+        .map_err(|e| format!("The database could not be opened: {e}"))?;
+    let row = sqlx::query("PRAGMA integrity_check")
+        .fetch_one(&mut connection)
+        .await
+        .map_err(|e| format!("The database could not be checked: {e}"))?;
+    let verdict: String = row.try_get(0).map_err(|e| e.to_string())?;
+    let _ = connection.close().await;
+    Ok(verdict == "ok")
+}
+
 /// Opens the snapshot read-only and runs SQLite's integrity check on it.
 async fn verify_snapshot(path: &Path) -> Result<(), String> {
     let mut connection = SqliteConnection::connect_with(&options(path).read_only(true))

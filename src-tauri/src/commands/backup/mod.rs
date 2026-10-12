@@ -7,6 +7,7 @@
 mod archive;
 mod drive;
 mod oauth;
+mod restore;
 mod secrets;
 mod settings;
 mod snapshot;
@@ -444,4 +445,187 @@ pub fn spawn_scheduler(app: AppHandle) {
             tokio::time::sleep(SCHEDULER_INTERVAL).await;
         }
     });
+}
+// ---------------------------------------------------------------------------------------------
+// Restore from Google Drive
+// ---------------------------------------------------------------------------------------------
+
+/// The newest database migration this version of the app knows about. A backup made by a newer
+/// version cannot be restored here.
+#[derive(Default)]
+pub struct RestoreConfig {
+    pub newest_migration: i64,
+}
+
+fn pending_restore_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join(restore::PENDING_DIR))
+}
+
+fn restore_notice_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join(restore::NOTICE_FILE))
+}
+
+/// A signed-in Drive client, plus the saved settings. Forgets the Google sign-in when Google
+/// says it is no longer valid, so Settings asks the user to connect again.
+async fn authorized_client(
+    app: &AppHandle,
+) -> Result<(drive::DriveClient, BackupSettings), String> {
+    let result: Result<(drive::DriveClient, BackupSettings), String> = async {
+        let current = settings::load(&settings_path(app)?);
+        let refresh_token = secrets::get(secrets::REFRESH_TOKEN)?
+            .ok_or("Connect Google Drive in Settings first.")?;
+        let client_secret = secrets::get(secrets::CLIENT_SECRET)?.unwrap_or_default();
+        if current.client_id.is_empty() || client_secret.is_empty() {
+            return Err(
+                "Save your Google Client ID and Client Secret in Settings first.".to_string(),
+            );
+        }
+        let http = oauth::http_client()?;
+        let endpoints = oauth::Endpoints::default();
+        let access_token = oauth::refresh_access_token(
+            &http,
+            &endpoints,
+            &current.client_id,
+            &client_secret,
+            &refresh_token,
+        )
+        .await?;
+        Ok((
+            drive::DriveClient::new(http, endpoints, access_token),
+            current,
+        ))
+    }
+    .await;
+    forget_expired_sign_in(&result);
+    result
+}
+
+fn forget_expired_sign_in<T>(result: &Result<T, String>) {
+    if matches!(result, Err(message) if message == oauth::AUTH_EXPIRED) {
+        let _ = secrets::delete(secrets::REFRESH_TOKEN);
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatestBackup {
+    pub name: String,
+    pub created_at: String,
+}
+
+const NO_BACKUPS: &str = "No backups were found in your Google Drive. Check that you connected the same Google account that the backups were made with.";
+
+/// Looks in Google Drive for the newest backup, without downloading it.
+#[tauri::command]
+pub async fn find_latest_backup(app: AppHandle) -> Result<LatestBackup, String> {
+    let (client, current) = authorized_client(&app).await?;
+    let result: Result<LatestBackup, String> = async {
+        let folder = client
+            .find_folder(drive::BACKUP_FOLDER_NAME, current.folder_id.as_deref())
+            .await?
+            .ok_or(NO_BACKUPS)?;
+        let files = client.list_backups(&folder).await?;
+        let newest = drive::latest_backup(&files).ok_or(NO_BACKUPS)?;
+        Ok(LatestBackup {
+            name: newest.name.clone(),
+            created_at: newest.created_time.clone(),
+        })
+    }
+    .await;
+    forget_expired_sign_in(&result);
+    result
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreReady {
+    pub name: String,
+    pub created_at: String,
+    pub attachment_count: u32,
+}
+
+/// Downloads the newest backup, checks it and stages it. Nothing live is changed: the swap
+/// happens when the app restarts (see `apply_pending_restore`).
+#[tauri::command]
+pub async fn restore_latest_backup(app: AppHandle) -> Result<RestoreReady, String> {
+    let state = app.state::<BackupState>();
+    let _busy = Busy::acquire(&state.running)
+        .ok_or("A backup is running. Wait for it to finish, then try again.")?;
+    let newest_migration = app.state::<RestoreConfig>().newest_migration;
+
+    let (client, current) = authorized_client(&app).await?;
+    let result: Result<RestoreReady, String> = async {
+        let folder = client
+            .find_folder(drive::BACKUP_FOLDER_NAME, current.folder_id.as_deref())
+            .await?
+            .ok_or(NO_BACKUPS)?;
+        let files = client.list_backups(&folder).await?;
+        let newest = drive::latest_backup(&files).ok_or(NO_BACKUPS)?.clone();
+
+        let scratch = ScratchDir::create(data_dir(&app)?.join("restore-tmp"))?;
+        let zip_path = scratch.path().join("download.zip");
+        client.download_file(&newest.id, &zip_path).await?;
+
+        let staged = restore::stage(
+            &zip_path,
+            &pending_restore_dir(&app)?,
+            &attachments_dir(&app)?,
+            newest_migration,
+            &newest.name,
+        )
+        .await?;
+        Ok(RestoreReady {
+            name: newest.name,
+            created_at: newest.created_time,
+            attachment_count: staged.attachment_count,
+        })
+    }
+    .await;
+    forget_expired_sign_in(&result);
+    result
+}
+
+/// Restarts the app so a staged restore can be applied.
+#[tauri::command]
+pub fn restart_app(app: AppHandle) {
+    app.restart();
+}
+
+/// The outcome of a restore that was applied at start-up, shown once on the Settings page.
+#[tauri::command]
+pub fn take_restore_notice(app: AppHandle) -> Option<restore::Notice> {
+    restore::take_notice(&restore_notice_path(&app).ok()?)
+}
+
+/// Applies a staged restore, if there is one. Runs once at start-up, before the window opens and
+/// before anything opens the database.
+pub fn apply_pending_restore(app: &AppHandle) {
+    let (Ok(data), Ok(db), Ok(attachments)) =
+        (data_dir(app), database_path(app), attachments_dir(app))
+    else {
+        return;
+    };
+    let label = Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+    let notice = match restore::apply_pending(
+        &data.join(restore::PENDING_DIR),
+        &db,
+        &attachments,
+        &data.join(restore::SAFETY_DIR),
+        &label,
+    ) {
+        Ok(None) => return,
+        Ok(Some(applied)) => restore::Notice {
+            ok: true,
+            message: format!(
+                "Your data was restored from the backup \"{}\". A copy of what was here before is kept in {}.",
+                applied.backup_name,
+                applied.safety_dir.display()
+            ),
+        },
+        Err(message) => restore::Notice {
+            ok: false,
+            message: format!("The restore could not be completed. {message}"),
+        },
+    };
+    restore::write_notice(&data.join(restore::NOTICE_FILE), &notice);
 }
