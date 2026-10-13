@@ -58,7 +58,7 @@ export function ContactDialog({ open, onOpenChange, contact, onSubmit }: Contact
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="form-dialog sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Contact" : "Add Contact"}</DialogTitle>
         </DialogHeader>

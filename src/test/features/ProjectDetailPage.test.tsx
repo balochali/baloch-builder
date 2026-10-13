@@ -134,6 +134,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("button", { name: "Record sale" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Profit & Loss" }));
     expect(screen.getByRole("heading", { name: "Profit & Loss" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Loading project result…")).not.toBeInTheDocument());
   });
 
   it("requires acquired land before allowing Land Sold", async () => {

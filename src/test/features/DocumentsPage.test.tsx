@@ -19,6 +19,7 @@ it("opens project collections and separates construction, land, partners and sal
  expect(within(dialog).getByText("partner.png")).toBeInTheDocument();
  fireEvent.click(within(dialog).getByRole("button",{name:/^Sales/}));
  expect(within(dialog).getByText("sale.png")).toBeInTheDocument();
+ expect(await within(dialog).findByAltText("sale.png")).toHaveAttribute("src","blob:preview");
 });
 it("keeps same-name projects separate and personal files out of project collections",()=>{
  const rows=[doc("a","land_image","p1"),doc("b","land_image","p2"),doc("c","amanat_deposit_receipt","")];
@@ -36,6 +37,7 @@ it("starts at All and filters personal deposits using the main navigation",async
  expect(screen.queryByRole("button",{name:/Open Residency documents/})).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole("button",{name:/Open Personal Deposit documents/}));
  expect(within(screen.getByRole("dialog")).getByText("deposit.png")).toBeInTheDocument();
+ expect(await within(screen.getByRole("dialog")).findByAltText("deposit.png")).toHaveAttribute("src","blob:preview");
 });
 it("finds projects by filenames and preserves unlinked documents",async()=>{
  vi.mocked(listDocuments).mockResolvedValue([doc("plot","land_image"),doc("misc","unknown","")]);

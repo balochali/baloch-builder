@@ -129,7 +129,7 @@ export function ProjectsPage() {
         <div className="projects-overview-heading illustrated-heading"><WorkspaceIllustration scene="buildings" />
           <div>
             <p className="projects-eyebrow">
-              <Building2 size={16} aria-hidden="true" /> YOUR DEVELOPMENTS
+              YOUR DEVELOPMENTS
             </p>
             <h1>Projects</h1>
             <p>See where each development stands and open one to view its full details.</p>

@@ -50,7 +50,13 @@
 }
 
 body {
-  font-family: Inter, "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family:
+    Inter,
+    "Segoe UI Variable Display",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -96,8 +102,7 @@ body {
 .dark .app-main {
   background:
     radial-gradient(circle at 85% -10%, rgba(223, 183, 67, 0.05), transparent 40%),
-    radial-gradient(circle at 15% 110%, rgba(20, 36, 60, 0.4), transparent 45%),
-    var(--background);
+    radial-gradient(circle at 15% 110%, rgba(20, 36, 60, 0.4), transparent 45%), var(--background);
 }
 
 .app-main > div,
@@ -256,7 +261,7 @@ body {
   border-bottom-color: rgba(255, 255, 255, 0.07);
 }
 
-.app-topbar .topbar-location {
+.app-topbar .topbar-location.topbar-location {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -303,6 +308,10 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.mobile-menu-toggle {
+  display: none;
 }
 
 .workspace-date {
@@ -417,21 +426,33 @@ body {
   justify-items: start;
   gap: 16px;
   overflow: hidden;
-  min-height: 220px;
-  padding: 30px 290px 30px 34px;
+  min-height: 176px;
+  padding: 22px 240px 22px 26px;
   border: 1px solid color-mix(in srgb, var(--section-color) 25%, var(--border));
   border-radius: 20px;
   color: var(--foreground);
   background:
-    radial-gradient(ellipse at 85% 30%, color-mix(in srgb, var(--section-color) 16%, transparent), transparent 60%),
-    linear-gradient(135deg, color-mix(in srgb, var(--section-color) 9%, var(--card)) 0%, var(--card) 100%);
+    radial-gradient(
+      ellipse at 85% 30%,
+      color-mix(in srgb, var(--section-color) 16%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--section-color) 9%, var(--card)) 0%,
+      var(--card) 100%
+    );
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
 }
 
 .dark .app-main .illustrated-heading.illustrated-heading {
   border-color: color-mix(in srgb, var(--section-color) 28%, rgba(255, 255, 255, 0.08));
   background:
-    radial-gradient(ellipse at 85% 30%, color-mix(in srgb, var(--section-color) 20%, transparent), transparent 65%),
+    radial-gradient(
+      ellipse at 85% 30%,
+      color-mix(in srgb, var(--section-color) 20%, transparent),
+      transparent 65%
+    ),
     linear-gradient(135deg, color-mix(in srgb, var(--section-color) 12%, #0e1728) 0%, #0a1220 100%);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
@@ -443,7 +464,7 @@ body {
 
 .app-main .illustrated-heading.illustrated-heading h1 {
   color: var(--foreground);
-  font-size: clamp(28px, 2.6vw, 36px);
+  font-size: clamp(24px, 2.3vw, 32px);
   font-weight: 850;
   line-height: 1.15;
   letter-spacing: -0.035em;
@@ -464,7 +485,7 @@ body {
 }
 
 .app-main .illustrated-heading.illustrated-heading :is([class*="eyebrow"], small) {
-  color: var(--section-color);
+  color: color-mix(in srgb, var(--section-color) 45%, var(--foreground));
   font-size: 10px;
   letter-spacing: 0.14em;
   font-weight: 800;
@@ -513,7 +534,7 @@ body {
   right: 28px;
   top: 50%;
   transform: translateY(-50%);
-  width: 240px;
+  width: 190px;
   max-width: none;
   background: none;
   z-index: 0;
@@ -553,7 +574,8 @@ body {
     transform 0.18s ease;
 }
 
-.dark .app-main
+.dark
+  .app-main
   :is(
     .home-panel,
     .contacts-directory,
@@ -586,7 +608,9 @@ body {
 
 .dark .app-main :is(.contacts-card, .land-card, .project-card, .document-project-card):hover {
   border-color: rgba(223, 183, 67, 0.35);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(223, 183, 67, 0.2);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(223, 183, 67, 0.2);
 }
 
 /* ── Segmented Control Tabs ── */
@@ -609,7 +633,8 @@ body {
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
 }
 
-.dark .app-main
+.dark
+  .app-main
   :is(
     .dash-tabs,
     .bank-tabs,
@@ -707,7 +732,8 @@ body {
     box-shadow 0.18s ease;
 }
 
-.dark .app-main
+.dark
+  .app-main
   :is(
     .dash-stat-card,
     .contacts-metric,
@@ -735,7 +761,8 @@ body {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
 }
 
-.dark .app-main
+.dark
+  .app-main
   :is(
     .dash-stat-card,
     .contacts-metric,
@@ -878,9 +905,9 @@ textarea:focus-visible,
   border: 1px solid var(--border);
   border-top: 3px solid #dfb743 !important;
   border-radius: 20px;
-  padding: 28px;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100dvh - 32px);
+  padding: 22px;
+  /* Keep each dialog's width cap (including Tailwind sm:max-w-* utilities). */
+  max-height: min(84dvh, 800px);
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
   background: var(--card);
 }
@@ -1026,8 +1053,65 @@ textarea:focus-visible,
   color: #fce599;
 }
 
+/* Constrain form dialogs by available height, including browser/Windows zoom.
+   The navigation drawer deliberately retains its full-height layout. */
+[role="dialog"][data-slot="dialog-content"]:not(.mobile-navigation) {
+  max-height: min(84dvh, 800px);
+  overscroll-behavior: contain;
+}
+
+[role="dialog"][data-slot="dialog-content"].payment-modal {
+  width: min(720px, calc(100vw - 48px));
+  max-width: min(720px, calc(100vw - 48px));
+  padding: 0;
+  gap: 0;
+}
+
+[data-slot="dialog-content"].project-sale-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.project-sale-dialog > :is([data-slot="dialog-header"], .project-sale-steps, .project-sale-footer) {
+  flex: none;
+}
+
+.project-sale-dialog .project-sale-dialog-body {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+[data-slot="dialog-content"].form-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  gap: 16px;
+}
+
+.form-dialog > form {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px;
+}
+
+.form-dialog > :is([data-slot="dialog-header"], [data-slot="dialog-footer"]) {
+  flex: none;
+}
+
+.projects-create-dialog .projects-dialog-icon {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 0;
+  border-radius: 10px;
+}
+
 /* ── Responsive Polish ── */
-@media (min-width: 1025px) and (max-width: 1150px) {
+@media (min-width: 1025px) and (max-width: 1280px) {
   .app-shell > .app-sidebar {
     flex-basis: 210px;
     width: 210px;
@@ -1076,20 +1160,20 @@ textarea:focus-visible,
     padding: 18px 16px 36px;
   }
   .app-main .illustrated-heading.illustrated-heading {
-    padding: 24px;
-    min-height: auto;
+    padding: 20px 156px 20px 22px;
+    min-height: 150px;
   }
   .app-main .illustrated-heading.illustrated-heading > .workspace-illustration {
-    width: 110px;
-    right: 10px;
-    top: 8px;
-    transform: none;
-    opacity: 0.75;
+    width: 124px;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
   }
   .mobile-navigation[data-slot="dialog-content"] {
     left: 0;
     top: 0;
     transform: none;
+    translate: none;
     width: min(310px, calc(100vw - 32px));
     height: 100dvh;
     max-height: 100dvh;
@@ -1101,8 +1185,134 @@ textarea:focus-visible,
   }
   .mobile-navigation .app-sidebar.app-sidebar {
     display: flex;
+    flex-direction: column;
     width: 100%;
     height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar nav {
+    display: block;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .nav-group {
+    display: block;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .sidebar-bottom {
+    position: static;
+    flex: none;
+    display: block;
+    padding: 12px;
+  }
+  .mobile-navigation .app-sidebar.app-sidebar .sidebar-link-label {
+    display: block;
+  }
+  .mobile-navigation .sidebar-building-scene {
+    display: none;
+  }
+  .mobile-navigation > button {
+    color: #f8fafc;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-main :is(.dash-tabs, .bank-tabs, .partners-tabs) {
+    flex-wrap: wrap;
+  }
+
+  .app-main :is(.dash-tabs, .bank-tabs, .partners-tabs) button {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    padding-inline: 8px;
+    white-space: normal;
+  }
+
+  .app-main .illustrated-heading.illustrated-heading {
+    padding: 18px;
+    padding-right: 104px;
+    min-height: 0;
+    gap: 12px;
+  }
+
+  .app-main .illustrated-heading.illustrated-heading > .workspace-illustration {
+    width: 80px;
+    right: 12px;
+    top: 20px;
+    transform: none;
+  }
+}
+
+@media (max-height: 720px) and (min-width: 641px) {
+  .app-main .illustrated-heading.illustrated-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 140px;
+    padding-block: 16px;
+    gap: 10px;
+  }
+
+  .app-topbar {
+    min-height: 52px;
+    padding-block: 8px;
+  }
+
+  .projects-page.projects-page,
+  .projects-page.projects-page .projects-overview {
+    gap: 14px;
+  }
+}
+
+@media (max-height: 720px) {
+  .payment-modal > .payment-modal-header {
+    padding: 14px 48px 14px 20px;
+    gap: 12px;
+  }
+
+  .payment-modal .payment-modal-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .payment-modal .payment-modal-header h2 {
+    font-size: 20px;
+  }
+
+  .payment-modal > :is(form, .payment-modal-scroll, .partner-manage-body) {
+    padding: 16px 20px;
+    gap: 14px;
+  }
+
+  .payment-modal > [data-slot="dialog-footer"] {
+    padding: 12px 20px;
+  }
+
+  .payment-modal .expense-step-status {
+    margin: 10px 20px 0;
+  }
+
+  .payment-modal .expense-wizard-steps {
+    margin: 10px 20px 0;
+  }
+
+  .payment-modal .expense-wizard-steps li {
+    min-height: 40px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .payment-modal .udhaar-entry-progress {
+    padding: 10px 20px 0;
+  }
+}
+
+@media (max-height: 560px) {
+  [role="dialog"][data-slot="dialog-content"]:not(.mobile-navigation) {
+    overflow-y: auto;
   }
 }
 

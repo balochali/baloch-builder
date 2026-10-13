@@ -13,5 +13,6 @@ it("selects content and labels the print preview with project and property",asyn
  fireEvent.click(screen.getByRole("button",{name:"Preview report"}));
  const frame=await screen.findByTitle("Land print preview");
  const html=frame.getAttribute("srcdoc") || "";
+ expect(new DOMParser().parseFromString(html,"text/html").title).toBe("Residency — Land documents");
  expect(html).toContain("Residency");expect(html).toContain("Corner plot");expect(html).toContain("Payment details");expect(html).not.toContain("Purchase price");
 });

@@ -51,7 +51,7 @@ export function ProjectDialog({ open, onOpenChange, onSubmit }: ProjectDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="projects-create-dialog sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="projects-create-dialog form-dialog sm:max-w-lg">
         <DialogHeader>
           <span className="projects-dialog-icon">
             <Building2 size={27} aria-hidden="true" />

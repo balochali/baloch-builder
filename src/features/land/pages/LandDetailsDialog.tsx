@@ -78,7 +78,7 @@ export function LandDetailsDialog({
     >
       <DialogContent className="land-details-dialog" aria-describedby={undefined}>
         <DialogHeader className="land-modal-hero">
-          <Building2 size={26} />
+          <Building2 size={26} aria-hidden="true" />
           <small>{land.projectName}</small>
           <DialogTitle>{land.title}</DialogTitle>
         </DialogHeader>

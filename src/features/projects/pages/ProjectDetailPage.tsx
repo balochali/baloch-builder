@@ -650,7 +650,6 @@ export function ProjectDetailPage() {
       {!loading && !error && project && (
         <>
           <section className="project-heading-card" aria-label="Project and status">
-            <WorkspaceIllustration scene="buildings" />
             <div className="project-heading-top">
               <div>
                 <Link to="/projects" className="project-heading-back">
@@ -658,18 +657,15 @@ export function ProjectDetailPage() {
                   Back to Projects
                 </Link>
                 <div className="project-detail-title">
-                  <span>
-                    <Building2 size={30} />
-                  </span>
+                  <WorkspaceIllustration scene="buildings" />
                   <div>
-                    <small>PROJECT WORKSPACE</small>
                     <h1>{project.name}</h1>
+                    <p className="project-detail-location">
+                      <MapPin size={16} aria-hidden="true" />
+                      {project.location || "No address"}
+                    </p>
                   </div>
                 </div>
-                <p className="project-detail-location">
-                  <MapPin size={16} />
-                  {project.location || "No address"}
-                </p>
               </div>
               <div className="project-heading-actions">
                 <ProjectPrintButton

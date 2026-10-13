@@ -332,7 +332,7 @@ export function buildProjectReport(
       <html lang="en">
         <head>
           <meta charSet="utf-8" />
-          <title>{project.name} — Project report</title>
+          <title>{`${project.name} — Project report`}</title>
           <style>{reportStyles}</style>
         </head>
         <body>
