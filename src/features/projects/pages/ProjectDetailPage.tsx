@@ -1,4 +1,5 @@
 import { LandSaleForm } from "../components/LandSaleForm";
+import { ProjectWorkbook } from "@/features/sheet/ProjectWorkbook";
 import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { ProjectPrintButton } from "@/features/projects/components/ProjectPrintButton";
 import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
@@ -47,6 +48,7 @@ import {
   Clock3,
   HandCoins,
   FolderOpen,
+  Table2,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -128,7 +130,7 @@ import {
   updateProjectPartner,
 } from "@/data/repositories/projectPartnersRepository";
 
-type Tab = "dashboard" | "building" | "partners" | "estimate" | "costs" | "sales" | "profit";
+type Tab = "dashboard" | "building" | "partners" | "estimate" | "costs" | "sales" | "profit" | "sheet";
 type BuildingTab = "overview" | "floors" | "areas";
 type EntryMode = "estimate" | "actual" | "construction";
 const projectTabs: { id: Tab; label: string; icon: LucideIcon }[] = [
@@ -139,6 +141,7 @@ const projectTabs: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "costs", label: "Costs", icon: Wallet },
   { id: "sales", label: "Sales", icon: Store },
   { id: "profit", label: "Profit & Loss", icon: PieChart },
+  { id: "sheet", label: "Sheet view", icon: Table2 },
 ];
 const buildingTabs: { id: BuildingTab; label: string; description: string; icon: LucideIcon }[] = [
   {
@@ -187,6 +190,8 @@ function landPurchaseCost(projectId: string, land: ProjectLand | null): Transact
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
+  const [sheetRevision, setSheetRevision] = useState(0);
+  const [sheetBusy, setSheetBusy] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
   const [buildingDetails, setBuildingDetails] = useState<ProjectBuildingDetails | null>(null);
   const [buildingDialogOpen, setBuildingDialogOpen] = useState(false);
@@ -282,7 +287,7 @@ export function ProjectDetailPage() {
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [projectId, sheetRevision]);
 
   async function saveEstimate(value: EstimateInput) {
     if (editingEstimate) {
@@ -733,6 +738,7 @@ export function ProjectDetailPage() {
                 aria-selected={tab === id}
                 aria-controls={`project-panel-${id}`}
                 tabIndex={tab === id ? 0 : -1}
+                disabled={sheetBusy}
                 onClick={() => setTab(id)}
                 onKeyDown={(event) => {
                   const next =
@@ -758,6 +764,11 @@ export function ProjectDetailPage() {
             ))}
           </div>
 
+          {tab === "sheet" && projectId && (
+            <div id="project-panel-sheet" role="tabpanel" aria-labelledby="project-tab-sheet">
+              <ProjectWorkbook key={projectId} projectId={projectId} onBusy={setSheetBusy} onSaved={() => setSheetRevision(v => v + 1)} />
+            </div>
+          )}
           {tab === "dashboard" && (
             <ProjectDashboard
               project={project}

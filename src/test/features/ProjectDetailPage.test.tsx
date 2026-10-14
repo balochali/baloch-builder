@@ -105,7 +105,7 @@ describe("ProjectDetailPage", () => {
     vi.mocked(saveActualCostBill).mockResolvedValue({ id: "actual-bill", title: "actual-bill.png", owner_id: "actual-1", owner_type: "transaction", doc_type: "project_cost_bill", doc_date: "2026-10-04", notes: null, file_path: "actual-bill.png", mime: "image/png", size: 10, project_name: "Baloch Residency", created_at: "2026-10-04" });
     vi.mocked(listProjectPartners).mockResolvedValue([]);
     vi.mocked(listPartnerContributions).mockResolvedValue([]);
-    vi.mocked(addProjectPartner).mockResolvedValue(undefined);
+    vi.mocked(addProjectPartner).mockResolvedValue("partnership-1");
     vi.mocked(addPartnerContribution).mockResolvedValue("contribution-1");
     vi.mocked(updateProjectPartner).mockReset();
   });
@@ -127,7 +127,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
     expect(screen.getByText(/Record actual project costs to see a line chart/)).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "Dashboard", "Building", "Partners", "Estimate", "Costs", "Sales", "Profit & Loss",
+      "Dashboard", "Building", "Partners", "Estimate", "Costs", "Sales", "Profit & Loss", "Sheet view",
     ]);
     fireEvent.click(screen.getByRole("tab", { name: "Sales" }));
     expect(screen.getByRole("heading", { name: "Project sales" })).toBeInTheDocument();
@@ -135,6 +135,11 @@ describe("ProjectDetailPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Profit & Loss" }));
     expect(screen.getByRole("heading", { name: "Profit & Loss" })).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText("Loading project result…")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("tab", { name: "Sheet view" }));
+    expect(await screen.findByLabelText("Project name row 1")).toHaveValue("Baloch Residency");
+    expect(screen.getByRole("tab", { name: "Construction costs" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Contributions" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Stage row 1")).toHaveAttribute("readonly");
   });
 
   it("requires acquired land before allowing Land Sold", async () => {

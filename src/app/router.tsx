@@ -55,6 +55,7 @@ export function AppRouter() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/land" element={<LandPage />} />
+          <Route path="/sheet" element={<Navigate to="/projects" replace />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/partners" element={<PartnersPage />} />

@@ -260,7 +260,7 @@ async function insertContribution(
   return id;
 }
 
-export async function addProjectPartner(input: AddProjectPartnerInput): Promise<void> {
+export async function addProjectPartner(input: AddProjectPartnerInput): Promise<string> {
   const value = AddProjectPartnerSchema.parse(input);
   if (value.initial_amount !== null) BankAccountSchema.parse(value.account_key);
   const existing = await listProjectPartners(value.project_id);
@@ -354,6 +354,7 @@ export async function addProjectPartner(input: AddProjectPartnerInput): Promise<
     }
     throw cause;
   }
+  return partnershipId;
 }
 
 export async function addPartnerContribution(input: PartnerContributionInput): Promise<string> {

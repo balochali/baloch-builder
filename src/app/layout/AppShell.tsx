@@ -17,20 +17,21 @@ export function AppShell({ onLogout }: AppShellProps) {
   const section = pathname.startsWith("/projects/")
     ? "Project details"
     : ((
-        {
-          "/": "Dashboard",
-          "/contacts": "Contacts",
-          "/land": "Land",
-          "/documents": "Documents",
-          "/projects": "Projects",
-          "/partners": "Partners",
-          "/personal-expense": "Personal Expense",
-          "/credit-udhaar": "Credit / Udhaar",
-          "/personal-deposit": "Personal Deposit / Amanat",
-          "/bank": "Bank",
-          "/settings": "Settings",
-        } as Record<string, string>
-      )[pathname] ?? "Workspace");
+      {
+        "/": "Dashboard",
+        "/contacts": "Contacts",
+        "/land": "Land",
+        "/sheet": "Sheet Entry",
+        "/documents": "Documents",
+        "/projects": "Projects",
+        "/partners": "Partners",
+        "/personal-expense": "Personal Expense",
+        "/credit-udhaar": "Credit / Udhaar",
+        "/personal-deposit": "Personal Deposit / Amanat",
+        "/bank": "Bank",
+        "/settings": "Settings",
+      } as Record<string, string>
+    )[pathname] ?? "Workspace");
   return (
     <div className="app-shell">
       <a
