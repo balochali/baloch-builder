@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from "react";
 import { Plus, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import { tidyCell, parseWhole } from "./sheetParsing";
 import "./sheet.css";
@@ -58,8 +58,10 @@ interface SheetGridProps {
   onRows: (rows: SheetRow[]) => void;
   disabled?: boolean;
   allowAdd?: boolean;
+  onDelete?: (row: SheetRow) => void;
   canDelete?: (row: SheetRow) => boolean;
   onOpen?: (row: SheetRow) => void;
+  rowStatus?: (row: SheetRow) => string;
 }
 
 export function SheetGrid({
@@ -70,7 +72,9 @@ export function SheetGrid({
   disabled,
   allowAdd = true,
   canDelete,
+  onDelete,
   onOpen,
+  rowStatus,
 }: SheetGridProps) {
   const refs = useRef(new Map<string, HTMLInputElement>());
   const pendingFocus = useRef<[number, number] | null>(null);
@@ -164,82 +168,93 @@ export function SheetGrid({
           <thead>
             <tr>
               <th className="sheet-num">#</th>
+              <th className="sheet-actions-head">Row</th>
               {columns.map((column) => (
                 <th key={column.key} style={{ minWidth: column.width }}>
                   {column.label}
                   {column.required && <span className="sheet-req"> *</span>}
                 </th>
               ))}
-              <th className="sheet-status-head">Status</th>
-              <th className="sheet-del" />
             </tr>
           </thead>
           <tbody>
             {rows.map((row, r) => (
-              <tr key={row.id} className={row.error ? "sheet-row-bad" : undefined}>
-                <td className="sheet-num">{r + 1}</td>
-                {columns.map((column, c) => {
-                  const listId = column.options ? `${name}-${column.key}-list` : undefined;
-                  return (
-                    <td key={column.key}>
-                      <input
-                        ref={(node) => {
-                          if (node) refs.current.set(`${r}:${c}`, node);
-                          else refs.current.delete(`${r}:${c}`);
-                        }}
-                        className={`sheet-cell${column.kind === "number" ? " is-number" : ""}`}
-                        aria-label={`${column.label} row ${r + 1}`}
-                        value={row.cells[column.key] ?? ""}
-                        placeholder={column.placeholder}
-                        list={listId}
+              <Fragment key={row.id}>
+                <tr className={row.error ? "sheet-row-bad" : undefined}>
+                  <td className="sheet-num">{r + 1}</td>
+                  <td className="sheet-row-actions">
+                    {!row.error && rowStatus?.(row) && (
+                      <span className={`workbook-row-state is-${rowStatus(row).toLowerCase()}`}>
+                        {rowStatus(row)}
+                      </span>
+                    )}
+                    {onOpen && (
+                      <button
+                        type="button"
+                        className="sheet-add"
                         disabled={disabled}
-                        readOnly={column.readOnly}
-                        aria-readonly={column.readOnly}
-                        autoComplete="off"
-                        inputMode={column.kind === "number" ? "numeric" : undefined}
-                        onChange={(event) => setCell(r, column.key, event.target.value)}
-                        onBlur={(event) => {
-                          const tidy = tidyCell(column.kind, event.target.value);
-                          if (tidy !== event.target.value) setCell(r, column.key, tidy);
-                        }}
-                        onKeyDown={(event) => onKeyDown(event, r, c)}
-                        onPaste={(event) => onPaste(event, r, c)}
-                      />
-                    </td>
-                  );
-                })}
-                <td className="sheet-status">
-                  {onOpen && (
+                        onClick={() => onOpen(row)}
+                      >
+                        Open file
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className="sheet-add"
-                      disabled={disabled}
-                      onClick={() => onOpen(row)}
+                      className="sheet-icon"
+                      aria-label={`Delete row ${r + 1}`}
+                      disabled={disabled || (canDelete && !canDelete(row))}
+                      onClick={() => {
+                        if (onDelete) return onDelete(row);
+                        const left = rows.filter((_, i) => i !== r);
+                        onRows(left.length ? left : [emptyRow()]);
+                      }}
                     >
-                      Open file
+                      <Trash2 size={15} aria-hidden />
+                      <span>Delete</span>
                     </button>
-                  )}
-                  {row.error ? (
-                    <span className="sheet-error" role="alert">
-                      <AlertCircle size={14} aria-hidden /> {row.error}
-                    </span>
-                  ) : null}
-                </td>
-                <td className="sheet-del">
-                  <button
-                    type="button"
-                    className="sheet-icon"
-                    aria-label={`Delete row ${r + 1}`}
-                    disabled={disabled || (canDelete && !canDelete(row))}
-                    onClick={() => {
-                      const left = rows.filter((_, i) => i !== r);
-                      onRows(left.length ? left : [emptyRow()]);
-                    }}
-                  >
-                    <Trash2 size={15} aria-hidden />
-                  </button>
-                </td>
-              </tr>
+                  </td>
+                  {columns.map((column, c) => {
+                    const listId = column.options ? `${name}-${column.key}-list` : undefined;
+                    return (
+                      <td key={column.key}>
+                        <input
+                          ref={(node) => {
+                            if (node) refs.current.set(`${r}:${c}`, node);
+                            else refs.current.delete(`${r}:${c}`);
+                          }}
+                          className={`sheet-cell${column.kind === "number" ? " is-number" : ""}`}
+                          aria-label={`${column.label} row ${r + 1}`}
+                          value={row.cells[column.key] ?? ""}
+                          placeholder={column.placeholder}
+                          list={listId}
+                          disabled={disabled}
+                          readOnly={column.readOnly}
+                          aria-readonly={column.readOnly}
+                          autoComplete="off"
+                          inputMode={column.kind === "number" ? "numeric" : undefined}
+                          onChange={(event) => setCell(r, column.key, event.target.value)}
+                          onBlur={(event) => {
+                            const tidy = tidyCell(column.kind, event.target.value);
+                            if (tidy !== event.target.value) setCell(r, column.key, tidy);
+                          }}
+                          onKeyDown={(event) => onKeyDown(event, r, c)}
+                          onPaste={(event) => onPaste(event, r, c)}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+                {row.error && (
+                  <tr className="sheet-error-row">
+                    <td colSpan={columns.length + 2}>
+                      <div className="sheet-error-line" role="alert">
+                        <AlertCircle size={15} aria-hidden /> <span>Row {r + 1}:</span>{" "}
+                        <span>{row.error}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -254,36 +269,42 @@ export function SheetGrid({
             ),
         )}
       </div>
-      <div className="sheet-foot">
-        <button
-          type="button"
-          className="sheet-add"
-          disabled={disabled || !allowAdd}
-          onClick={() => {
-            pendingFocus.current = [rows.length, 0];
-            onRows([...rows, emptyRow()]);
-          }}
-        >
-          <Plus size={15} aria-hidden /> Add row
-        </button>
-        <button
-          type="button"
-          className="sheet-add"
-          disabled={disabled || !allowAdd}
-          onClick={() => {
-            pendingFocus.current = [rows.length, 0];
-            onRows([...rows, ...Array.from({ length: 10 }, emptyRow)]);
-          }}
-        >
-          <Plus size={15} aria-hidden /> Add 10 rows
-        </button>
-        {totals.map((item) => (
-          <span key={item.label} className="sheet-total">
-            <CheckCircle2 size={14} aria-hidden /> Total {item.label}:{" "}
-            <strong>Rs {item.total.toLocaleString("en-PK")}</strong>
-          </span>
-        ))}
-      </div>
+      {(allowAdd || totals.length > 0) && (
+        <div className="sheet-foot">
+          {allowAdd && (
+            <>
+              <button
+                type="button"
+                className="sheet-add"
+                disabled={disabled || !allowAdd}
+                onClick={() => {
+                  pendingFocus.current = [rows.length, 0];
+                  onRows([...rows, emptyRow()]);
+                }}
+              >
+                <Plus size={15} aria-hidden /> Add row
+              </button>
+              <button
+                type="button"
+                className="sheet-add"
+                disabled={disabled || !allowAdd}
+                onClick={() => {
+                  pendingFocus.current = [rows.length, 0];
+                  onRows([...rows, ...Array.from({ length: 10 }, emptyRow)]);
+                }}
+              >
+                <Plus size={15} aria-hidden /> Add 10 rows
+              </button>
+            </>
+          )}
+          {totals.map((item) => (
+            <span key={item.label} className="sheet-total">
+              <CheckCircle2 size={14} aria-hidden /> Total {item.label}:{" "}
+              <strong>Rs {item.total.toLocaleString("en-PK")}</strong>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

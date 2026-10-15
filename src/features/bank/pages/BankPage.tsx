@@ -1,3 +1,5 @@
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { bankSheets } from "@/features/sheet/moduleSheets";
 import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { BankPrintButton } from "./BankPrintButton";
 import { paymentSummary } from "@/domain/udhaarPaymentDetails";
@@ -200,7 +202,7 @@ export function BankPage() {
           <h1>Bank & accounts</h1>
           <p>Follow money coming in and going out across your personal and builder accounts.</p>
         </div>
-        <div className="bank-header-actions"><BankPrintButton entries={entries} disabled={loading || !!error}/><Button onClick={refresh} disabled={loading} variant="secondary">
+        <div className="bank-header-actions"><SheetViewButton title="Bank sheet" storageId="bank" createSheets={bankSheets} /><BankPrintButton entries={entries} disabled={loading || !!error}/><Button onClick={refresh} disabled={loading} variant="secondary">
           <RefreshCw size={16} /> Refresh
         </Button></div>
       </header>

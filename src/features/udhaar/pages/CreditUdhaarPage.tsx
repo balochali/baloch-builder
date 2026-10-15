@@ -1,3 +1,5 @@
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { udhaarSheets } from "@/features/sheet/moduleSheets";
 import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { usePagination } from "@/components/Pagination";
 import { PaymentModalHeader } from "@/components/PaymentChoices";
@@ -463,10 +465,13 @@ export function CreditUdhaarPage() {
           <h1>Credit / Udhaar</h1>
           <p>See who owes you money, how much has come back, and what is still due.</p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus size={18} />
-          Give Udhaar
-        </Button>
+        <div className="sheet-header-actions">
+          <SheetViewButton title="Udhaar sheet" storageId="udhaar" createSheets={udhaarSheets} />
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus size={18} />
+            Give Udhaar
+          </Button>
+        </div>
       </div>
       <div className="udhaar-tabs" role="tablist" aria-label="Credit and Udhaar views">
         {(["overview", "people"] as const).map((tab, index) => (

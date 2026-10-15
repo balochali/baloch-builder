@@ -135,13 +135,13 @@ type BuildingTab = "overview" | "floors" | "areas";
 type EntryMode = "estimate" | "actual" | "construction";
 const projectTabs: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "sheet", label: "Sheet view", icon: Table2 },
   { id: "building", label: "Building", icon: Building2 },
   { id: "partners", label: "Partners", icon: Users },
   { id: "estimate", label: "Estimate", icon: Calculator },
   { id: "costs", label: "Costs", icon: Wallet },
   { id: "sales", label: "Sales", icon: Store },
   { id: "profit", label: "Profit & Loss", icon: PieChart },
-  { id: "sheet", label: "Sheet view", icon: Table2 },
 ];
 const buildingTabs: { id: BuildingTab; label: string; description: string; icon: LucideIcon }[] = [
   {

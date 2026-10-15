@@ -189,7 +189,7 @@ describe("CreditUdhaarPage", () => {
         notes: null,
       },
     ]);
-    vi.mocked(createUdhaar).mockResolvedValue(undefined);
+    vi.mocked(createUdhaar).mockResolvedValue("new-udhaar");
     vi.mocked(addPersonUdhaarPayment).mockResolvedValue(undefined);
   });
 

@@ -29,6 +29,8 @@ import {
   type CreateProjectInput,
 } from "@/data/repositories/projectsRepository";
 import { ProjectDialog } from "@/features/projects/components/ProjectDialog";
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { projectsPageSheets } from "@/features/sheet/moduleSheets";
 
 const projectStages = [
   {
@@ -134,10 +136,13 @@ export function ProjectsPage() {
             <h1>Projects</h1>
             <p>See where each development stands and open one to view its full details.</p>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="size-4" />
-            Add Project
-          </Button>
+          <div className="sheet-header-actions">
+            <SheetViewButton title="Projects sheet" storageId="projects" createSheets={projectsPageSheets} />
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="size-4" />
+              Add Project
+            </Button>
+          </div>
         </div>
         {!loading && !error && projects.length > 0 && (
           <div className="projects-summary">

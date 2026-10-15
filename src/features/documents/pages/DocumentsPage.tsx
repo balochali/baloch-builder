@@ -1,3 +1,5 @@
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { documentsPageSheets } from "@/features/sheet/moduleSheets";
 import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { usePagination } from "@/components/Pagination";
 import { useEffect, useState } from "react";
@@ -84,6 +86,9 @@ export function DocumentsPage() {
           <small>YOUR PROPERTY & BUSINESS RECORDS</small>
           <h1>Documents</h1>
           <p>Open a project to explore its files, or find your personal payment records.</p>
+        </div>
+        <div className="sheet-header-actions">
+          <SheetViewButton title="Documents sheet" storageId="documents" createSheets={documentsPageSheets} />
         </div>
       </header>
       <div className="documents-library-tabs" role="group" aria-label="Document categories">

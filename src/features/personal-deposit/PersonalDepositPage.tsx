@@ -1,3 +1,5 @@
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { depositSheets } from "@/features/sheet/moduleSheets";
 import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { useEffect, useState, type FormEvent } from "react";
@@ -70,12 +72,25 @@ const blank = (): DepositInput => ({
 });
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+// Match conservatively: equal names alone must not merge different phone numbers.
+function groupDeposits(records: PersonalDeposit[]) {
+  const groups = new Map<string, PersonalDeposit & { entries: PersonalDeposit[] }>();
+  for (const entry of [...records].sort((a, b) => b.deposit_date.localeCompare(a.deposit_date) || b.created_at.localeCompare(a.created_at))) {
+    const key = JSON.stringify([entry.holder_name.trim().replace(/\s+/g, " ").toLocaleLowerCase(), entry.phone.trim().replace(/[\s()-]/g, "")]);
+    const group = groups.get(key);
+    if (group) { group.amount += entry.amount; group.returned_amount += entry.returned_amount; group.entries.push(entry); }
+    else groups.set(key, { ...entry, id: key, entries: [entry] });
+  }
+  return [...groups.values()];
+}
+
 export function PersonalDepositPage() {
   const [records, setRecords] = useState<PersonalDeposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"held" | "returned" | "all">("held");
   const [editor, setEditor] = useState<PersonalDeposit | "new" | null>(null);
+  const [moreFor, setMoreFor] = useState<PersonalDeposit | null>(null);
   const [returnFor, setReturnFor] = useState<PersonalDeposit | null>(null);
   const [historyFor, setHistoryFor] = useState<PersonalDeposit | null>(null);
   useEffect(() => {
@@ -102,18 +117,19 @@ export function PersonalDepositPage() {
       setError("Could not refresh deposits. Reopen this page to load the latest records.");
     }
   }
-  const filtered = records.filter(
+  const people = groupDeposits(records);
+  const filtered = people.filter(
     (row) =>
       tab === "all" ||
       (tab === "held" ? row.returned_amount < row.amount : row.returned_amount >= row.amount),
   );
   const filters = useRecordFilters(filtered, {
-    label: "deposits",
-    searchText: (row) => [row.holder_name, row.phone, row.reason, row.source_details].join(" "),
+    label: "people",
+    searchText: (row) => [row.holder_name, row.phone, ...row.entries.map((entry) => entry.reason + " " + entry.source_details)].join(" "),
     date: (row) => row.deposit_date,
-    dateLabel: "Deposited",
+    dateLabel: "Latest deposit",
     amount: (row) => row.amount,
-    facets: [{ label: "Money source", value: (row) => sourceNames[row.source] }],
+
   });
   const deposited = records.reduce((total, row) => total + row.amount, 0);
   const returned = records.reduce((total, row) => total + row.returned_amount, 0);
@@ -128,9 +144,12 @@ export function PersonalDepositPage() {
           <h1>Personal Deposit / Amanat</h1>
           <p>Keep a record of money you leave with someone for safekeeping.</p>
         </div>
-        <Button onClick={() => setEditor("new")}>
-          <Plus size={18} /> Add deposit
-        </Button>
+        <div className="sheet-header-actions">
+          <SheetViewButton title="Amanat sheet" storageId="deposits" createSheets={depositSheets} onChanged={() => void refresh()} />
+          <Button onClick={() => setEditor("new")}>
+            <Plus size={18} /> Add deposit
+          </Button>
+        </div>
       </header>
       {loading ? (
         <p role="status">Loading personal deposits…</p>
@@ -163,9 +182,9 @@ export function PersonalDepositPage() {
             <div>
               <small>YOUR SAFEKEEPING RECORDS</small>
               <h2>Money with people</h2>
-              <p>See who holds your money and what has been returned.</p>
+              <p>One person, one balance. Give more money on any date and keep every deposit in their history.</p>
             </div>
-            <span>{records.length} deposits</span>
+            <span>{people.length} people · {records.length} deposits</span>
           </div>
           <div className="amanat-toolbar">
             <div role="group" aria-label="Deposit status">
@@ -191,7 +210,7 @@ export function PersonalDepositPage() {
                 </button>
               ))}
             </div>
-            <span>{filters.visible.length} deposits</span>
+            <span>{filters.visible.length} people shown</span>
           </div>
           <details className="amanat-filters">
             <summary>Search & filter deposits</summary>
@@ -229,50 +248,33 @@ export function PersonalDepositPage() {
                     value={row.returned_amount}
                     max={row.amount}
                   />
-                  <dl>
-                    <div>
-                      <dt>Deposited</dt>
-                      <dd>{formatPKR(row.amount)}</dd>
-                    </div>
-                    <div>
-                      <dt>Returned</dt>
-                      <dd>{formatPKR(row.returned_amount)}</dd>
-                    </div>
-                    <div>
-                      <dt>Date</dt>
-                      <dd>{formatDate(row.deposit_date)}</dd>
-                    </div>
-                    <div>
-                      <dt>Paid from</dt>
-                      <dd>
-                        {accountName(row.account_key)} · {row.method}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Source of money</dt>
-                      <dd>
-                        {sourceNames[row.source]}
-                        {row.source_details && ` · ${row.source_details}`}
-                      </dd>
-                    </div>
-                  </dl>
-                  <div className="amanat-reason">
-                    <small>Reason / note</small>
-                    <p>{row.reason || "No reason added"}</p>
+                  <div className="amanat-person-totals">
+                    <div><small>Total given</small><strong>{formatPKR(row.amount)}</strong></div>
+                    <div><small>Total returned</small><strong>{formatPKR(row.returned_amount)}</strong></div>
+                    <div><small>Latest deposit</small><strong>{formatDate(row.deposit_date)}</strong></div>
                   </div>
-                  <footer>
-                    <Button variant="outline" onClick={() => setEditor(row)}>
-                      <Pencil size={15} /> Edit
-                    </Button>
-                    <Button variant="outline" onClick={() => setHistoryFor(row)}>
-                      <History size={15} /> History
-                    </Button>
-                    {row.returned_amount < row.amount && (
-                      <Button onClick={() => setReturnFor(row)}>
-                        <ArrowDownLeft size={16} /> Record return
-                      </Button>
-                    )}
-                  </footer>
+                  <Button className="amanat-give-more" onClick={() => setMoreFor(row.entries[0])}>
+                    <Plus size={17} /> Give more money
+                  </Button>
+                  <details className="amanat-deposit-ledger" open>
+                    <summary>{row.entries.length} dated deposit{row.entries.length === 1 ? "" : "s"} <span>View payments & returns</span></summary>
+                    <div className="amanat-deposit-entries">
+                      {row.entries.map((entry) => (
+                        <section className="amanat-deposit-entry" key={entry.id} aria-label={"Deposit on " + formatDate(entry.deposit_date)}>
+                          <div className="amanat-entry-title"><time dateTime={entry.deposit_date}>{formatDate(entry.deposit_date)}</time><strong>{formatPKR(entry.amount)}</strong></div>
+                          <p>{accountName(entry.account_key)} · {entry.method} · {sourceNames[entry.source]}</p>
+                          {entry.source_details && <p>{entry.source_details}</p>}
+                          {entry.reason && <p className="amanat-entry-note">{entry.reason}</p>}
+                          <div className="amanat-entry-balance"><span>Returned {formatPKR(entry.returned_amount)}</span><b>Held {formatPKR(entry.amount - entry.returned_amount)}</b></div>
+                          <footer>
+                            <Button variant="outline" onClick={() => setEditor(entry)}><Pencil size={15} /> Edit</Button>
+                            <Button variant="outline" onClick={() => setHistoryFor(entry)}><History size={15} /> History</Button>
+                            {entry.returned_amount < entry.amount && <Button onClick={() => setReturnFor(entry)}><ArrowDownLeft size={16} /> Record return</Button>}
+                          </footer>
+                        </section>
+                      ))}
+                    </div>
+                  </details>
                 </article>
               ))}
             </div>
@@ -300,6 +302,9 @@ export function PersonalDepositPage() {
           }}
         />
       )}
+      {moreFor && (
+        <DepositEditor recipient={moreFor} onClose={() => setMoreFor(null)} onSaved={() => { setMoreFor(null); void refresh(); }} />
+      )}
       {returnFor && (
         <ReturnEditor
           record={returnFor}
@@ -317,17 +322,20 @@ export function PersonalDepositPage() {
 
 function DepositEditor({
   record,
+  recipient,
   onClose,
   onSaved,
 }: {
   record?: PersonalDeposit;
+  recipient?: PersonalDeposit;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [value, setValue] = useState<DepositInput>(record || blank());
+  const [value, setValue] = useState<DepositInput>(record || { ...blank(), holder_name: recipient?.holder_name ?? "", phone: recipient?.phone ?? "" });
   const [details, setDetails] = useState(() => ({
     ...initialDetails(record?.payment_details),
     method: record?.method || ("cash" as const),
+    ...(!record && recipient ? { received_by: recipient.holder_name } : {}),
   }));
   const [files, setFiles] = useState<File[]>([]);
   const [savedId, setSavedId] = useState<string>();
@@ -399,10 +407,9 @@ function DepositEditor({
           <span className="amanat-dialog-icon">
             <ShieldCheck size={26} aria-hidden="true" />
           </span>
-          <DialogTitle>{record ? "Edit deposit" : "Add personal deposit"}</DialogTitle>
+          <DialogTitle>{record ? "Edit deposit" : recipient ? "Give more money to " + recipient.holder_name : "Add personal deposit"}</DialogTitle>
           <DialogDescription>
-            Record money given to someone to keep safely. A source note does not create another
-            partner payment.
+            {recipient ? "Add a new payment with its own date, amount and receipt. Earlier deposits stay unchanged." : "Record money given to someone to keep safely. A source note does not create another partner payment."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit}>
@@ -415,7 +422,8 @@ function DepositEditor({
               <label>
                 Who is keeping the money? *
                 <input
-                  autoFocus
+                  autoFocus={!recipient}
+                  readOnly={!!recipient}
                   required
                   maxLength={120}
                   list="amanat-contacts"
@@ -435,6 +443,7 @@ function DepositEditor({
                 Phone (optional)
                 <input
                   maxLength={40}
+                  readOnly={!!recipient}
                   value={value.phone}
                   onChange={(event) => setValue({ ...value, phone: event.target.value })}
                 />
@@ -442,6 +451,7 @@ function DepositEditor({
               <label>
                 Amount (Rs) *
                 <input
+                  autoFocus={!!recipient}
                   type="number"
                   min={1}
                   step={1}

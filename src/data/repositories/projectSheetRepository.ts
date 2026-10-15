@@ -12,6 +12,7 @@ import {
 import { PartnerPayoutSchema, type PartnerPayoutInput } from "./projectPayoutsRepository";
 import { LandAcquisitionSchema, type LandAcquisitionInput } from "./projectStageRepository";
 import { listDocuments } from "./documentsRepository";
+import { LandSaleSchema, type LandSaleInput } from "./landSalesRepository";
 
 function found(result: { rowsAffected: number }) {
   if (result.rowsAffected !== 1)
@@ -56,6 +57,37 @@ export async function updateSheetProject(
         v.start_date || null,
         now(),
         projectId,
+      ],
+    ),
+  );
+}
+
+export async function updateSheetLandSale(id: string, input: LandSaleInput) {
+  const v = LandSaleSchema.parse(input);
+  const land = await query<{ id: string }>(
+    "SELECT id FROM land WHERE project_id = ? AND archived = 0 AND status = 'acquired' AND purchase_date <= ?",
+    [v.project_id, v.sale_date],
+  );
+  if (!land.length)
+    throw new Error("Acquire the land first. Sale date cannot precede acquisition.");
+  found(
+    await execute(
+      `UPDATE project_sales SET buyer_name = ?, buyer_phone = ?, buyer_address = ?, sale_date = ?, price = ?, notes = ?, custom = json_set(custom, '$.received', ?, '$.account_key', ?, '$.method', ?, '$.reference', ?, '$.payment_details', json(?)), updated_at = ? WHERE id = ? AND project_id = ? AND kind = 'land' AND archived = 0`,
+      [
+        v.buyer_name,
+        v.buyer_phone,
+        v.buyer_address,
+        v.sale_date,
+        v.price,
+        v.notes,
+        v.received,
+        v.account_key,
+        v.method,
+        v.reference,
+        JSON.stringify(v.payment_details),
+        now(),
+        id,
+        v.project_id,
       ],
     ),
   );
@@ -181,6 +213,11 @@ export async function updateSheetPayout(id: string, input: PartnerPayoutInput) {
 /** Editing purchase details must not rewind a project's construction/completion stage. */
 export async function updateSheetLand(projectId: string, id: string, input: LandAcquisitionInput) {
   const v = LandAcquisitionSchema.parse(input);
+  const earlierSale = await query<{ id: string }>(
+    "SELECT id FROM project_sales WHERE project_id = ? AND kind = 'land' AND archived = 0 AND sale_date < ?",
+    [projectId, v.purchase_date],
+  );
+  if (earlierSale.length) throw new Error("Purchase date cannot be after the recorded land sale");
   found(
     await execute(
       `UPDATE land SET title = ?, location = ?, purchase_date = ?, area_value = ?, area_unit = ?, price = ?, account_key = ?, notes = ?, custom = json_set(custom, '$.seller_name', ?, '$.payment_details', json(?)), updated_at = ? WHERE id = ? AND project_id = ? AND archived = 0`,

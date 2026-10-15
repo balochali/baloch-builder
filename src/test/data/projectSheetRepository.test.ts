@@ -4,9 +4,52 @@ import {
   updateSheetCost,
   updateSheetLand,
   updateSheetSale,
+  updateSheetLandSale,
 } from "@/data/repositories/projectSheetRepository";
+import { emptyPaymentDetails } from "@/data/repositories/projectPartnersRepository";
 const projectId = "11111111-1111-4111-8111-111111111111";
 beforeEach(() => vi.restoreAllMocks());
+it("keeps land-sale receipts and bank fields on the existing sale", async () => {
+  vi.spyOn(client, "query").mockResolvedValue([{ id: "land-1" }]);
+  const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
+  await updateSheetLandSale("sale-1", {
+    project_id: projectId,
+    buyer_name: "Ali",
+    buyer_phone: "",
+    buyer_address: "",
+    sale_date: "2026-10-14",
+    price: 1000,
+    received: 500,
+    account_key: "builder",
+    method: "cash",
+    reference: "",
+    payment_details: emptyPaymentDetails,
+    notes: "",
+  });
+  expect(execute.mock.calls[0][0]).toContain("json_set(custom, '$.received'");
+  expect(execute.mock.calls[0][0]).toContain("AND kind = 'land'");
+  expect(execute.mock.calls[0][1]).toEqual(expect.arrayContaining(["sale-1", projectId, 500]));
+});
+it("rejects a land sale receipt larger than the sale price", async () => {
+  const execute = vi.spyOn(client, "execute");
+  await expect(
+    updateSheetLandSale("sale-1", {
+      project_id: projectId,
+      buyer_name: "Ali",
+      buyer_phone: "",
+      buyer_address: "",
+      sale_date: "2026-10-14",
+      price: 1000,
+      received: 1500,
+      account_key: "builder",
+      method: "cash",
+      reference: "",
+      payment_details: emptyPaymentDetails,
+      notes: "",
+    }),
+  ).rejects.toThrow();
+  expect(execute).not.toHaveBeenCalled();
+});
 it("scopes cost corrections to the project and transaction type, preserving attachments and other metadata", async () => {
   const execute = vi.spyOn(client, "execute").mockResolvedValue({ rowsAffected: 1 });
   await updateSheetCost(

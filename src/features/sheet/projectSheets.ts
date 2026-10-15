@@ -10,11 +10,14 @@ import {
   parseWhole,
 } from "./sheetParsing";
 import { getProjectById } from "@/data/repositories/projectsRepository";
+import { newId } from "@/data/ids";
+import { recordLandSale } from "@/data/repositories/landSalesRepository";
 import { addProjectSale, listProjectSales } from "@/data/repositories/projectSalesRepository";
 import {
   addActualProjectCost,
   addConstructionCost,
   addProjectEstimate,
+  archiveProjectEstimate,
   listActualProjectCosts,
   listProjectEstimates,
   updateProjectEstimate,
@@ -51,7 +54,12 @@ import {
   updateSheetProject,
   updateSheetSale,
   updateSheetDocument,
+  updateSheetLandSale,
 } from "@/data/repositories/projectSheetRepository";
+import {
+  archiveSheetSale,
+  archiveSheetTransaction,
+} from "@/data/repositories/sheetRecordsRepository";
 import type { Transaction } from "@/domain/types";
 
 export interface ProjectSheet {
@@ -65,43 +73,45 @@ export interface ProjectSheet {
   upload?: (file: File) => Promise<void>;
   open?: (cells: Record<string, string>) => Promise<void>;
   load: () => Promise<SheetRow[]>;
+  /** Removes (archives) a saved record. Leave out when deleting is not allowed. */
+  remove?: (id: string) => Promise<void>;
   save: (cells: Record<string, string>, existingId?: string) => Promise<string>;
 }
-const col = (key: string, label: string, extra: Partial<SheetColumn> = {}): SheetColumn => ({
+export const col = (key: string, label: string, extra: Partial<SheetColumn> = {}): SheetColumn => ({
   key,
   label,
   width: 160,
   ...extra,
 });
-const num = (key: string, label: string, extra: Partial<SheetColumn> = {}) =>
+export const num = (key: string, label: string, extra: Partial<SheetColumn> = {}) =>
   col(key, label, { kind: "number", ...extra });
-const money = (key: string, label: string) => num(key, label, { sum: true });
-const date = (key: string, label: string) =>
+export const money = (key: string, label: string) => num(key, label, { sum: true });
+export const date = (key: string, label: string) =>
   col(key, label, { kind: "date", placeholder: "DD/MM/YYYY" });
-const row = (id: string, values: Record<string, unknown>): SheetRow => ({
+export const row = (id: string, values: Record<string, unknown>): SheetRow => ({
   id,
   cells: Object.fromEntries(
     Object.entries(values).map(([k, v]) => [k, v == null ? "" : String(v)]),
   ),
 });
-const whole = (c: Record<string, string>, key: string) =>
+export const whole = (c: Record<string, string>, key: string) =>
   parseWhole(key.replace(/_/g, " "), c[key] ?? "");
-const decimal = (c: Record<string, string>, key: string) =>
+export const decimal = (c: Record<string, string>, key: string) =>
   parseDecimal(key.replace(/_/g, " "), c[key] ?? "");
-const iso = (value: string | undefined, optional = false) => {
+export const iso = (value: string | undefined, optional = false) => {
   if (!value?.trim() && optional) return "";
   const parsed = parseDate(value ?? "");
   if (!parsed) throw new Error("Enter a valid date, for example 14/10/2026");
   return parsed;
 };
-const json = (value: string): Record<string, unknown> => {
+export const json = (value: string): Record<string, unknown> => {
   try {
     return JSON.parse(value);
   } catch {
     return {};
   }
 };
-const paymentColumns = [
+export const paymentColumns = [
   col("account_key", "Account", { options: ["personal", "builder"], required: true }),
   col("method", "Method", {
     options: ["cash", "bank", "digital", "cheque", "other"],
@@ -112,7 +122,7 @@ const paymentColumns = [
     k === "cheque_date" ? date(k, "Cheque date") : col(k, k.replace(/_/g, " ")),
   ),
 ];
-function payment(c: Record<string, string>) {
+export function payment(c: Record<string, string>) {
   return {
     account_key: parseAccount(c.account_key ?? ""),
     method: parseMethod(c.method ?? ""),
@@ -410,6 +420,7 @@ export function projectSheets(projectId: string): ProjectSheet[] {
         };
         return (id ? await updateProjectEstimate(id, value) : await addProjectEstimate(value)).id;
       },
+      remove: (id) => archiveProjectEstimate(projectId, id),
     },
     ...(["construction_cost", "project_cost"] as const).map((type) => ({
       id: type,
@@ -443,6 +454,7 @@ export function projectSheets(projectId: string): ProjectSheet[] {
             : addActualProjectCost(input))
         ).id;
       },
+      remove: (id: string) => archiveSheetTransaction(projectId, id, type),
     })),
     {
       id: "sales",
@@ -485,6 +497,7 @@ export function projectSheets(projectId: string): ProjectSheet[] {
         }
         return (await addProjectSale(input)).id;
       },
+      remove: (id) => archiveSheetSale(projectId, id),
     },
     ...(["contributions", "payouts"] as const).map((type) => ({
       id: type,
@@ -555,6 +568,12 @@ export function projectSheets(projectId: string): ProjectSheet[] {
         }
         return addPartnerPayout(payout);
       },
+      remove: (id: string) =>
+        archiveSheetTransaction(
+          projectId,
+          id,
+          type === "contributions" ? "partner_contribution" : "partner_payout",
+        ),
     })),
     {
       id: "land",
@@ -626,22 +645,44 @@ export function projectSheets(projectId: string): ProjectSheet[] {
     {
       id: "land_sales",
       label: "Land sales",
-      readOnly: true,
-      help: "Land sales are linked to the project stage and payment records. Add a land sale through Change status in the project header.",
+      singleton: true,
+      help: "Record the sale of acquired land or correct its details. A new sale marks the project Land sold. Received money updates the Bank; received amount cannot exceed the price.",
       columns: [
         col("buyer_name", "Buyer"),
         col("buyer_phone", "Phone"),
         col("buyer_address", "Address"),
         date("sale_date", "Sale date"),
         money("price", "Price (Rs)"),
+        money("received", "Received (Rs)"),
+        ...paymentColumns,
         col("notes", "Notes"),
       ],
       load: async () =>
         (await listProjectSales(projectId))
           .filter((s) => s.kind === "land")
-          .map((s) => row(s.id, { ...s })),
-      save: async () => {
-        throw new Error("Use Change status for land sales");
+          .map((s) => row(s.id, { ...s, ...json(s.custom), ...readPaymentDetails(s.custom) })),
+      save: async (c, id) => {
+        const details = payment(c);
+        if (!details.account_key) throw new Error("Choose the receiving account");
+        const input = {
+          ...details,
+          account_key: details.account_key,
+          project_id: projectId,
+          buyer_name: c.buyer_name ?? "",
+          buyer_phone: c.buyer_phone ?? "",
+          buyer_address: c.buyer_address ?? "",
+          sale_date: iso(c.sale_date),
+          price: whole(c, "price") ?? 0,
+          received: whole(c, "received") ?? 0,
+          notes: c.notes ?? "",
+        };
+        if (id) {
+          await updateSheetLandSale(id, input);
+          return id;
+        }
+        const saleId = newId();
+        await recordLandSale(saleId, input);
+        return saleId;
       },
     },
     {

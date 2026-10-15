@@ -1,3 +1,5 @@
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { expenseSheets } from "@/features/sheet/moduleSheets";
 import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { PaymentModalHeader } from "@/components/PaymentChoices";
 import "./personal-expense.css";
@@ -367,16 +369,19 @@ export function PersonalExpensePage() {
           <h1>Personal Expense</h1>
           <p>Cars, watches, property & more. See what you bought and where your money went.</p>
         </div>
-        <Button
-          className="expense-add-btn"
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus size={18} />
-          Add purchase
-        </Button>
+        <div className="sheet-header-actions">
+          <SheetViewButton title="Personal expenses sheet" storageId="expenses" createSheets={expenseSheets} />
+          <Button
+            className="expense-add-btn"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus size={18} />
+            Add purchase
+          </Button>
+        </div>
       </header>
 
       <div className="expense-tabs" role="tablist" aria-label="Personal Expense views">

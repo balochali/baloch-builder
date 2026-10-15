@@ -1,5 +1,7 @@
 import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { LandPrintDialog } from "./LandPrintDialog";
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { landPageSheets } from "@/features/sheet/moduleSheets";
 import { LandPhotoSlider } from "./LandPhotoSlider";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -65,7 +67,7 @@ export function LandPage() {
   const totalPrice = records.reduce((sum, land) => sum + (land.price ?? 0), 0);
   const pricedCount = records.filter((land) => land.price !== null).length;
   return <main className="land-page">
-    <header className="land-hero illustrated-heading"><WorkspaceIllustration scene="land" /><div><span className="land-eyebrow">YOUR PROJECT PROPERTY</span><h1>Land & acquisitions</h1><p>Your land, purchase details and project connections in one place.</p></div><Link to="/projects" className="land-project-button">Open projects <ArrowUpRight size={18}/></Link></header>
+    <header className="land-hero illustrated-heading"><WorkspaceIllustration scene="land" /><div><span className="land-eyebrow">YOUR PROJECT PROPERTY</span><h1>Land & acquisitions</h1><p>Your land, purchase details and project connections in one place.</p></div><div className="sheet-header-actions"><SheetViewButton title="Land sheet" storageId="land" createSheets={landPageSheets} /><Link to="/projects" className="land-project-button">Open projects <ArrowUpRight size={18}/></Link></div></header>
     {loading ? <p role="status" className="land-state">Loading land records…</p> : <>
       {error && <p role="alert" className="land-error">{error}</p>}
       <div className="land-metrics">

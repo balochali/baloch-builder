@@ -20,6 +20,8 @@ Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { partnersPageSheets } from "@/features/sheet/moduleSheets";
 import { EmptyState } from "@/components/EmptyState";
 import { TimeSeriesChart, chartColors } from "@/components/charts/TimeSeriesChart";
 import { useRecordFilters } from "@/components/RecordFilters";
@@ -177,6 +179,9 @@ export function PartnersPage() {
           </p>
           <h1>Partners</h1>
           <p>See ownership, promised funding and every contribution in one place.</p>
+        </div>
+        <div className="sheet-header-actions">
+          <SheetViewButton title="Partners sheet" storageId="partners" createSheets={partnersPageSheets} />
         </div>
       </header>
       {loading && <p className="py-8 text-sm text-muted-foreground">Loading partners…</p>}

@@ -78,7 +78,7 @@ it("checkpoints a completed save after unmount and waits before reopening that w
   fireEvent.click(screen.getByRole("button", { name: "Save changes (1)" }));
   view.unmount();
   render(<WorkbookEditor {...props} />);
-  expect(screen.getByText("Loading project records…")).toBeInTheDocument();
+  expect(screen.getByText("Loading records…")).toBeInTheDocument();
   release();
   await screen.findByLabelText("Name row 2");
   expect(screen.getByLabelText("Name row 2")).toHaveValue("New");

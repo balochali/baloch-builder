@@ -37,7 +37,7 @@ describe("PersonalExpensePage", () => {
   });
 
   it("walks through purchase, payment and review while preserving entries", async () => {
-    vi.mocked(createPersonalExpense).mockResolvedValue();
+    vi.mocked(createPersonalExpense).mockResolvedValue("new-expense");
     render(<PersonalExpensePage />);
     await screen.findByRole("heading", { name: "Where your money went" });
     fireEvent.click(screen.getByRole("button", { name: "Add purchase" }));

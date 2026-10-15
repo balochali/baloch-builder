@@ -127,7 +127,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
     expect(screen.getByText(/Record actual project costs to see a line chart/)).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "Dashboard", "Building", "Partners", "Estimate", "Costs", "Sales", "Profit & Loss", "Sheet view",
+      "Dashboard", "Sheet view", "Building", "Partners", "Estimate", "Costs", "Sales", "Profit & Loss",
     ]);
     fireEvent.click(screen.getByRole("tab", { name: "Sales" }));
     expect(screen.getByRole("heading", { name: "Project sales" })).toBeInTheDocument();

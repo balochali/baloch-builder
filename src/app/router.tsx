@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
 import { LandPage } from "@/features/land/pages/LandPage";
+import { RefreshablePage } from "@/features/sheet/PageRefresh";
 import { AuthPage } from "@/features/auth/AuthPage";
 
 // Feature pages
@@ -53,18 +54,18 @@ export function AppRouter() {
           setAuth("login");
         }} />}>
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/land" element={<LandPage />} />
+          <Route path="/contacts" element={<RefreshablePage><ContactsPage /></RefreshablePage>} />
+          <Route path="/land" element={<RefreshablePage><LandPage /></RefreshablePage>} />
           <Route path="/sheet" element={<Navigate to="/projects" replace />} />
-          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects" element={<RefreshablePage><ProjectsPage /></RefreshablePage>} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-          <Route path="/partners" element={<PartnersPage />} />
-          <Route path="/personal-expense" element={<PersonalExpensePage />} />
-          <Route path="/credit-udhaar" element={<CreditUdhaarPage />} />
-          <Route path="/personal-deposit" element={<PersonalDepositPage />} />
+          <Route path="/partners" element={<RefreshablePage><PartnersPage /></RefreshablePage>} />
+          <Route path="/personal-expense" element={<RefreshablePage><PersonalExpensePage /></RefreshablePage>} />
+          <Route path="/credit-udhaar" element={<RefreshablePage><CreditUdhaarPage /></RefreshablePage>} />
+          <Route path="/personal-deposit" element={<RefreshablePage><PersonalDepositPage /></RefreshablePage>} />
           <Route path="/ledger" element={<Navigate to="/credit-udhaar" replace />} />
-          <Route path="/documents" element={<DocumentsPage />} />
-          <Route path="/bank" element={<BankPage />} />
+          <Route path="/documents" element={<RefreshablePage><DocumentsPage /></RefreshablePage>} />
+          <Route path="/bank" element={<RefreshablePage><BankPage /></RefreshablePage>} />
           <Route path="/settings" element={<SettingsPage />} />
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
