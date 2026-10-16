@@ -75,11 +75,20 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 // Match conservatively: equal names alone must not merge different phone numbers.
 function groupDeposits(records: PersonalDeposit[]) {
   const groups = new Map<string, PersonalDeposit & { entries: PersonalDeposit[] }>();
-  for (const entry of [...records].sort((a, b) => b.deposit_date.localeCompare(a.deposit_date) || b.created_at.localeCompare(a.created_at))) {
-    const key = JSON.stringify([entry.holder_name.trim().replace(/\s+/g, " ").toLocaleLowerCase(), entry.phone.trim().replace(/[\s()-]/g, "")]);
+  for (const entry of [...records].sort(
+    (a, b) =>
+      b.deposit_date.localeCompare(a.deposit_date) || b.created_at.localeCompare(a.created_at),
+  )) {
+    const key = JSON.stringify([
+      entry.holder_name.trim().replace(/\s+/g, " ").toLocaleLowerCase(),
+      entry.phone.trim().replace(/[\s()-]/g, ""),
+    ]);
     const group = groups.get(key);
-    if (group) { group.amount += entry.amount; group.returned_amount += entry.returned_amount; group.entries.push(entry); }
-    else groups.set(key, { ...entry, id: key, entries: [entry] });
+    if (group) {
+      group.amount += entry.amount;
+      group.returned_amount += entry.returned_amount;
+      group.entries.push(entry);
+    } else groups.set(key, { ...entry, id: key, entries: [entry] });
   }
   return [...groups.values()];
 }
@@ -125,17 +134,22 @@ export function PersonalDepositPage() {
   );
   const filters = useRecordFilters(filtered, {
     label: "people",
-    searchText: (row) => [row.holder_name, row.phone, ...row.entries.map((entry) => entry.reason + " " + entry.source_details)].join(" "),
+    searchText: (row) =>
+      [
+        row.holder_name,
+        row.phone,
+        ...row.entries.map((entry) => entry.reason + " " + entry.source_details),
+      ].join(" "),
     date: (row) => row.deposit_date,
     dateLabel: "Latest deposit",
     amount: (row) => row.amount,
-
   });
   const deposited = records.reduce((total, row) => total + row.amount, 0);
   const returned = records.reduce((total, row) => total + row.returned_amount, 0);
   return (
     <div className="amanat-page">
-      <header className="amanat-heading illustrated-heading"><WorkspaceIllustration scene="deposit" />
+      <header className="amanat-heading illustrated-heading">
+        <WorkspaceIllustration scene="deposit" />
         <span className="amanat-heading-icon">
           <ShieldCheck size={32} />
         </span>
@@ -145,7 +159,12 @@ export function PersonalDepositPage() {
           <p>Keep a record of money you leave with someone for safekeeping.</p>
         </div>
         <div className="sheet-header-actions">
-          <SheetViewButton title="Amanat sheet" storageId="deposits" createSheets={depositSheets} onChanged={() => void refresh()} />
+          <SheetViewButton
+            title="Amanat sheet"
+            storageId="deposits"
+            createSheets={depositSheets}
+            onChanged={() => void refresh()}
+          />
           <Button onClick={() => setEditor("new")}>
             <Plus size={18} /> Add deposit
           </Button>
@@ -182,9 +201,14 @@ export function PersonalDepositPage() {
             <div>
               <small>YOUR SAFEKEEPING RECORDS</small>
               <h2>Money with people</h2>
-              <p>One person, one balance. Give more money on any date and keep every deposit in their history.</p>
+              <p>
+                One person, one balance. Give more money on any date and keep every deposit in their
+                history.
+              </p>
             </div>
-            <span>{people.length} people · {records.length} deposits</span>
+            <span>
+              {people.length} people · {records.length} deposits
+            </span>
           </div>
           <div className="amanat-toolbar">
             <div role="group" aria-label="Deposit status">
@@ -249,27 +273,62 @@ export function PersonalDepositPage() {
                     max={row.amount}
                   />
                   <div className="amanat-person-totals">
-                    <div><small>Total given</small><strong>{formatPKR(row.amount)}</strong></div>
-                    <div><small>Total returned</small><strong>{formatPKR(row.returned_amount)}</strong></div>
-                    <div><small>Latest deposit</small><strong>{formatDate(row.deposit_date)}</strong></div>
+                    <div>
+                      <small>Total given</small>
+                      <strong>{formatPKR(row.amount)}</strong>
+                    </div>
+                    <div>
+                      <small>Total returned</small>
+                      <strong>{formatPKR(row.returned_amount)}</strong>
+                    </div>
+                    <div>
+                      <small>Latest deposit</small>
+                      <strong>{formatDate(row.deposit_date)}</strong>
+                    </div>
                   </div>
                   <Button className="amanat-give-more" onClick={() => setMoreFor(row.entries[0])}>
                     <Plus size={17} /> Give more money
                   </Button>
                   <details className="amanat-deposit-ledger" open>
-                    <summary>{row.entries.length} dated deposit{row.entries.length === 1 ? "" : "s"} <span>View payments & returns</span></summary>
+                    <summary>
+                      {row.entries.length} dated deposit{row.entries.length === 1 ? "" : "s"}{" "}
+                      <span>View payments & returns</span>
+                    </summary>
                     <div className="amanat-deposit-entries">
                       {row.entries.map((entry) => (
-                        <section className="amanat-deposit-entry" key={entry.id} aria-label={"Deposit on " + formatDate(entry.deposit_date)}>
-                          <div className="amanat-entry-title"><time dateTime={entry.deposit_date}>{formatDate(entry.deposit_date)}</time><strong>{formatPKR(entry.amount)}</strong></div>
-                          <p>{accountName(entry.account_key)} · {entry.method} · {sourceNames[entry.source]}</p>
+                        <section
+                          className="amanat-deposit-entry"
+                          key={entry.id}
+                          aria-label={"Deposit on " + formatDate(entry.deposit_date)}
+                        >
+                          <div className="amanat-entry-title">
+                            <time dateTime={entry.deposit_date}>
+                              {formatDate(entry.deposit_date)}
+                            </time>
+                            <strong>{formatPKR(entry.amount)}</strong>
+                          </div>
+                          <p>
+                            {accountName(entry.account_key)} · {entry.method} ·{" "}
+                            {sourceNames[entry.source]}
+                          </p>
                           {entry.source_details && <p>{entry.source_details}</p>}
                           {entry.reason && <p className="amanat-entry-note">{entry.reason}</p>}
-                          <div className="amanat-entry-balance"><span>Returned {formatPKR(entry.returned_amount)}</span><b>Held {formatPKR(entry.amount - entry.returned_amount)}</b></div>
+                          <div className="amanat-entry-balance">
+                            <span>Returned {formatPKR(entry.returned_amount)}</span>
+                            <b>Held {formatPKR(entry.amount - entry.returned_amount)}</b>
+                          </div>
                           <footer>
-                            <Button variant="outline" onClick={() => setEditor(entry)}><Pencil size={15} /> Edit</Button>
-                            <Button variant="outline" onClick={() => setHistoryFor(entry)}><History size={15} /> History</Button>
-                            {entry.returned_amount < entry.amount && <Button onClick={() => setReturnFor(entry)}><ArrowDownLeft size={16} /> Record return</Button>}
+                            <Button variant="outline" onClick={() => setEditor(entry)}>
+                              <Pencil size={15} /> Edit
+                            </Button>
+                            <Button variant="outline" onClick={() => setHistoryFor(entry)}>
+                              <History size={15} /> History
+                            </Button>
+                            {entry.returned_amount < entry.amount && (
+                              <Button onClick={() => setReturnFor(entry)}>
+                                <ArrowDownLeft size={16} /> Record return
+                              </Button>
+                            )}
                           </footer>
                         </section>
                       ))}
@@ -303,7 +362,14 @@ export function PersonalDepositPage() {
         />
       )}
       {moreFor && (
-        <DepositEditor recipient={moreFor} onClose={() => setMoreFor(null)} onSaved={() => { setMoreFor(null); void refresh(); }} />
+        <DepositEditor
+          recipient={moreFor}
+          onClose={() => setMoreFor(null)}
+          onSaved={() => {
+            setMoreFor(null);
+            void refresh();
+          }}
+        />
       )}
       {returnFor && (
         <ReturnEditor
@@ -331,7 +397,13 @@ function DepositEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [value, setValue] = useState<DepositInput>(record || { ...blank(), holder_name: recipient?.holder_name ?? "", phone: recipient?.phone ?? "" });
+  const [value, setValue] = useState<DepositInput>(
+    record || {
+      ...blank(),
+      holder_name: recipient?.holder_name ?? "",
+      phone: recipient?.phone ?? "",
+    },
+  );
   const [details, setDetails] = useState(() => ({
     ...initialDetails(record?.payment_details),
     method: record?.method || ("cash" as const),
@@ -407,9 +479,17 @@ function DepositEditor({
           <span className="amanat-dialog-icon">
             <ShieldCheck size={26} aria-hidden="true" />
           </span>
-          <DialogTitle>{record ? "Edit deposit" : recipient ? "Give more money to " + recipient.holder_name : "Add personal deposit"}</DialogTitle>
+          <DialogTitle>
+            {record
+              ? "Edit deposit"
+              : recipient
+                ? "Give more money to " + recipient.holder_name
+                : "Add personal deposit"}
+          </DialogTitle>
           <DialogDescription>
-            {recipient ? "Add a new payment with its own date, amount and receipt. Earlier deposits stay unchanged." : "Record money given to someone to keep safely. A source note does not create another partner payment."}
+            {recipient
+              ? "Add a new payment with its own date, amount and receipt. Earlier deposits stay unchanged."
+              : "Record money given to someone to keep safely. A source note does not create another partner payment."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit}>

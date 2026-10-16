@@ -100,17 +100,72 @@ it("shows fully returned deposits separately and keeps history available", async
 });
 
 it("retries failed images without recording a second return", async () => {
- vi.mocked(addDepositReturn).mockClear();
- vi.mocked(saveAmanatReceipt).mockRejectedValueOnce(new Error("Disk unavailable")).mockResolvedValue(undefined);
- render(<PersonalDepositPage />);
- await screen.findByRole("heading", {name: "Ahmed"});
- fireEvent.click(screen.getByRole("button", {name: "Record return"}));
- fireEvent.change(screen.getByLabelText("Received by *"), {target: {value: "Myself"}});
- fireEvent.change(screen.getByLabelText(/Add transaction receipt/), {target: {files: [new File(["image"], "receipt.png", {type: "image/png"})]}});
- fireEvent.click(screen.getByRole("button", {name: "Save return"}));
- await screen.findByText(/these images could not be saved/);
- fireEvent.click(screen.getByRole("button", {name: "Retry images"}));
- await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
- expect(addDepositReturn).toHaveBeenCalledTimes(1);
- expect(saveAmanatReceipt).toHaveBeenCalledTimes(2);
+  vi.mocked(addDepositReturn).mockClear();
+  vi.mocked(saveAmanatReceipt)
+    .mockRejectedValueOnce(new Error("Disk unavailable"))
+    .mockResolvedValue(undefined);
+  render(<PersonalDepositPage />);
+  await screen.findByRole("heading", { name: "Ahmed" });
+  fireEvent.click(screen.getByRole("button", { name: "Record return" }));
+  fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Myself" } });
+  fireEvent.change(screen.getByLabelText(/Add transaction receipt/), {
+    target: { files: [new File(["image"], "receipt.png", { type: "image/png" })] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save return" }));
+  await screen.findByText(/these images could not be saved/);
+  fireEvent.click(screen.getByRole("button", { name: "Retry images" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(addDepositReturn).toHaveBeenCalledTimes(1);
+  expect(saveAmanatReceipt).toHaveBeenCalledTimes(2);
+});
+
+it("adds another dated deposit to the same person's balance without editing the first", async () => {
+  vi.mocked(savePersonalDeposit).mockClear();
+  const extra = {
+    ...record,
+    id: "22222222-2222-4222-8222-222222222222",
+    amount: 40000,
+    returned_amount: 0,
+    deposit_date: "2026-10-15",
+  };
+  vi.mocked(savePersonalDeposit).mockImplementation(async () => {
+    vi.mocked(listPersonalDeposits).mockResolvedValue([extra, record]);
+    return extra.id;
+  });
+  render(<PersonalDepositPage />);
+  await screen.findByRole("heading", { name: "Ahmed" });
+  fireEvent.click(screen.getByRole("button", { name: "Give more money" }));
+  expect(screen.getByLabelText(/Who is keeping/)).toHaveValue("Ahmed");
+  fireEvent.change(screen.getByLabelText("Amount (Rs) *"), { target: { value: "40000" } });
+  fireEvent.change(screen.getByLabelText("Deposit date *"), { target: { value: "2026-10-15" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save deposit" }));
+  await waitFor(() =>
+    expect(savePersonalDeposit).toHaveBeenCalledWith(
+      expect.objectContaining({ holder_name: "Ahmed", amount: 40000, deposit_date: "2026-10-15" }),
+      undefined,
+    ),
+  );
+  await screen.findByText(/2 dated deposits/);
+  expect(screen.getAllByRole("heading", { name: "Ahmed" })).toHaveLength(1);
+  expect(record.amount).toBe(100000);
+});
+
+it("refreshes the main person balance after a sheet edit is saved and closed", async () => {
+  localStorage.clear();
+  vi.mocked(savePersonalDeposit).mockImplementation(async (input, id) => {
+    vi.mocked(listPersonalDeposits).mockResolvedValue([{ ...record, ...input }]);
+    return id!;
+  });
+  render(<PersonalDepositPage />);
+  await screen.findByRole("heading", { name: "Ahmed" });
+  fireEvent.click(screen.getByRole("button", { name: "Sheet view" }));
+  const amount = await screen.findByLabelText("Amount (Rs) row 1");
+  fireEvent.change(amount, { target: { value: "150000" } });
+  fireEvent.click(screen.getByRole("button", { name: /Save changes/ }));
+  await screen.findByText(/1 row saved/);
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() =>
+    expect(screen.getByText(/Still with Ahmed/).parentElement).toHaveTextContent(/125,000/),
+  );
 });

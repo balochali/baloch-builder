@@ -1,3 +1,4 @@
+import { listFundingRounds } from "@/data/repositories/partnerFundingRepository";
 import type { SheetColumn, SheetRow } from "./SheetGrid";
 import {
   parseAccount,
@@ -238,7 +239,7 @@ export function projectSheets(projectId: string): ProjectSheet[] {
         col("phone2", "Other phone"),
         col("address", "Address"),
         num("share", "Share (%)", { required: true }),
-        money("agreed_contribution", "Agreed (Rs)"),
+        money("agreed_contribution", "Land agreed (Rs)"),
         money("contributed", "Received (Rs)"),
         col("notes", "Notes"),
       ].map((c) => (c.key === "contributed" ? { ...c, readOnly: true } : c)),
@@ -502,14 +503,14 @@ export function projectSheets(projectId: string): ProjectSheet[] {
     ...(["contributions", "payouts"] as const).map((type) => ({
       id: type,
       label: type === "contributions" ? "Contributions" : "Partner payouts",
-      help: "Choose a partner by their exact name. If names repeat, use the partner ID shown on existing payments. These entries update partner and bank totals.",
+      help: "Choose a partner by exact name or ID. Contributions: choose land or construction; construction requires a saved request from Partners. Existing unlabelled payments are land contributions. These entries update partner and bank totals.",
       columns: [
         col("partner", "Partner", { required: true }),
         date("date", "Date"),
         money("amount", "Amount (Rs)"),
         ...(type === "payouts"
           ? [col("purpose", "Purpose", { options: ["profit", "capital_return"] })]
-          : []),
+          : [col("contribution_purpose", "Payment for", { options: ["land", "construction"] }), col("funding_round", "Construction request name or ID")]),
         col("description", "Notes"),
         ...paymentColumns,
       ],
@@ -529,6 +530,8 @@ export function projectSheets(projectId: string): ProjectSheet[] {
                 ? p.name
                 : t.partner_id,
             purpose: json(t.custom).purpose ?? "profit",
+            contribution_purpose: json(t.custom).contribution_purpose ?? "land",
+            funding_round: json(t.custom).funding_round_id ?? "",
           });
         });
       },
@@ -549,11 +552,16 @@ export function projectSheets(projectId: string): ProjectSheet[] {
           description: c.description ?? "",
         };
         if (type === "contributions") {
+          const purpose = c.contribution_purpose?.trim() || "land";
+          if (purpose !== "land" && purpose !== "construction") throw new Error("Payment for must be land or construction");
+          const rounds = purpose === "construction" ? (await listFundingRounds(projectId)).filter(r => r.id === c.funding_round?.trim() || r.title.toLowerCase() === c.funding_round?.trim().toLowerCase()) : [];
+          if (purpose === "construction" && rounds.length !== 1) throw new Error("Enter one existing construction request name or ID from Partners");
+          const contribution = {...input, contribution_purpose: purpose as "land" | "construction", funding_round_id: rounds[0]?.id};
           if (id) {
-            await updateSheetContribution(id, input);
+            await updateSheetContribution(id, contribution);
             return id;
           }
-          return addPartnerContribution(input);
+          return addPartnerContribution(contribution);
         }
         if (!input.account_key) throw new Error("Choose the paying account");
         const payout = {

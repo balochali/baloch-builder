@@ -92,7 +92,7 @@ export function PartnersPage() {
         value: (partner) =>
           partner.agreed_contribution === null
             ? "No target set"
-            : partner.contributed >= partner.agreed_contribution
+            : (partner.land_contributed ?? partner.contributed) >= partner.agreed_contribution
               ? "Fully funded"
               : "Balance remaining",
       },
@@ -142,7 +142,7 @@ export function PartnersPage() {
   );
   const totalRemaining = partners.reduce(
     (total, partner) =>
-      total + Math.max(0, (partner.agreed_contribution ?? 0) - partner.contributed),
+      total + Math.max(0, (partner.agreed_contribution ?? 0) - (partner.land_contributed ?? partner.contributed)),
     0,
   );
   const projectTotals = [
@@ -154,7 +154,7 @@ export function PartnersPage() {
         count: 0,
       };
       row.agreed += partner.agreed_contribution ?? 0;
-      row.received += partner.contributed;
+      row.received += partner.land_contributed ?? partner.contributed;
       row.count += 1;
       map.set(partner.project_id, row);
       return map;
@@ -409,13 +409,13 @@ export function PartnersPage() {
                     const remaining =
                       partner.agreed_contribution === null
                         ? null
-                        : Math.max(0, partner.agreed_contribution - partner.contributed);
+                        : Math.max(0, partner.agreed_contribution - (partner.land_contributed ?? partner.contributed));
                     const status =
                       partner.agreed_contribution === null
                         ? "no-target"
                         : remaining === 0
                           ? "settled"
-                          : partner.contributed > 0
+                          : (partner.land_contributed ?? partner.contributed) > 0
                             ? "partial"
                             : "unpaid";
                     return (

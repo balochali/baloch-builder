@@ -166,7 +166,7 @@ export async function updateSheetContribution(id: string, input: PartnerContribu
   const contact = await partnerContact(v.project_id, v.partner_id);
   found(
     await execute(
-      `UPDATE transactions SET date = ?, amount = ?, description = ?, method = ?, reference = ?, account_key = ?, partner_id = ?, contact_id = ?, custom = json_set(custom, '$.payment_details', json(?)), updated_at = ? WHERE id = ? AND project_id = ? AND type = 'partner_contribution' AND direction = 'in' AND archived = 0`,
+      `UPDATE transactions SET date = ?, amount = ?, description = ?, method = ?, reference = ?, account_key = ?, partner_id = ?, contact_id = ?, custom = json_set(custom, '$.payment_details', json(?), '$.contribution_purpose', ?, '$.funding_round_id', ?), updated_at = ? WHERE id = ? AND project_id = ? AND type = 'partner_contribution' AND direction = 'in' AND archived = 0`,
       [
         v.date,
         v.amount,
@@ -177,6 +177,8 @@ export async function updateSheetContribution(id: string, input: PartnerContribu
         v.partner_id,
         contact,
         JSON.stringify(v.payment_details),
+        v.contribution_purpose ?? "land",
+        v.contribution_purpose === "construction" ? v.funding_round_id ?? null : null,
         now(),
         id,
         v.project_id,

@@ -12,9 +12,9 @@ import { formatPKR, formatPKRInLakhCrore } from "@/domain/money";
 import { formatDate } from "@/lib/dates";
 export function PartnerProfileContent({partner, payments, onContribution}: {partner:PartnerOverviewRow; payments:Transaction[]; onContribution:(value:PartnerContributionInput)=>Promise<string>}) {
 const [tab,setTab]=useState("overview");
-const remaining=partner.agreed_contribution === null ? null : Math.max(0,partner.agreed_contribution-partner.contributed);
-const progress=partner.agreed_contribution ? Math.min(100,partner.contributed/partner.agreed_contribution*100) : partner.agreed_contribution === 0 ? 100 : 0;
-const status=remaining === null ? "no-target" : remaining === 0 ? "settled" : partner.contributed > 0 ? "partial" : "unpaid";
+const remaining=partner.agreed_contribution === null ? null : Math.max(0,partner.agreed_contribution-(partner.land_contributed ?? partner.contributed));
+const progress=partner.agreed_contribution ? Math.min(100,(partner.land_contributed ?? partner.contributed)/partner.agreed_contribution*100) : partner.agreed_contribution === 0 ? 100 : 0;
+const status=remaining === null ? "no-target" : remaining === 0 ? "settled" : (partner.land_contributed ?? partner.contributed) > 0 ? "partial" : "unpaid";
 return <>
 <div className="partner-modal-project">{partner.project_name} · {(partner.share_bp/100).toFixed(2)}% ownership</div>
 <div className="partner-modal-tabs" role="tablist" aria-label="Partner details sections">{[{id:"overview",label:"Overview",icon:LayoutDashboard},{id:"contribution",label:"Record contribution",icon:HandCoins},{id:"history",label:"Payment history",icon:History},{id:"documents",label:"Documents",icon:Paperclip}].map(({id,label,icon:Icon})=><button key={id} type="button" role="tab" id={"partner-detail-tab-"+id} aria-controls={"partner-detail-panel-"+id} aria-selected={tab===id} onClick={()=>setTab(id)}><Icon size={17}/>{label}</button>)}</div>
@@ -43,11 +43,12 @@ return <>
                                 ? "No amount agreed"
                                 : "Awaiting payment"}
                         </div>
+                        <div className="partners-card-balance"><small>Construction funding</small><strong>{formatPKR(partner.construction_contributed ?? 0)} received</strong><small>{formatPKR(Math.max(0,(partner.construction_required ?? 0)-(partner.construction_contributed ?? 0)))} still to receive</small></div>
                         <div className="partners-card-balance">
                           <small>
-                            {remaining === null ? "Received so far" : "Still to receive"}
+                            {remaining === null ? "Land money received" : "Land still to receive"}
                           </small>
-                          <strong>{formatPKRInLakhCrore(remaining ?? partner.contributed)}</strong>
+                          <strong>{formatPKRInLakhCrore(remaining ?? (partner.land_contributed ?? partner.contributed))}</strong>
                         </div>
                         {remaining !== null && (
                           <>
@@ -66,7 +67,7 @@ return <>
                         )}
                         <div className="partners-card-split">
                           <span>
-                            Agreed{" "}
+                            Land agreed{" "}
                             <strong>
                               {partner.agreed_contribution === null
                                 ? "Not set"
@@ -74,7 +75,7 @@ return <>
                             </strong>
                           </span>
                           <span>
-                            Received <strong>{formatPKR(partner.contributed)}</strong>
+                            Land received <strong>{formatPKR(partner.land_contributed ?? partner.contributed)}</strong>
                           </span>
                         </div>
                         <div className="partners-card-project">

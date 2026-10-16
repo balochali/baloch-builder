@@ -47,7 +47,7 @@ export function calculateProjectResult(
 }
 
 export function calculatePartnerPosition(
-  partner: Pick<ProjectPartnerRow, "agreed_contribution" | "contributed">,
+  partner: Pick<ProjectPartnerRow, "agreed_contribution" | "contributed" | "land_contributed">,
   allocation: number,
   payouts: Pick<PartnerPayout, "amount" | "payout_purpose">[],
 ) {
@@ -62,7 +62,7 @@ export function calculatePartnerPosition(
     promisedRemaining:
       partner.agreed_contribution === null
         ? null
-        : Math.max(0, partner.agreed_contribution - partner.contributed),
+        : Math.max(0, partner.agreed_contribution - (partner.land_contributed ?? partner.contributed)),
     profitPaid,
     capitalReturned,
     received: profitPaid + capitalReturned,

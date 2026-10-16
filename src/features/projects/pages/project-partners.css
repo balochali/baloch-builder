@@ -285,7 +285,7 @@
 }
 .project-detail-page .partner-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 .project-detail-page .partner-cards .partner-card,
@@ -542,6 +542,11 @@
   font-size: 12px;
   color: var(--muted-foreground);
 }
+@media (max-width: 1200px) {
+  .project-detail-page .partner-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 @media (max-width: 1100px) {
   .project-detail-page .project-partner-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -651,3 +656,82 @@
     width: 100%;
   }
 }
+
+/* Keep incoming contributions and outgoing profit visually distinct. */
+.project-detail-page .project-partner-balances-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+  align-items: start;
+}
+.project-detail-page .project-partner-balances-row .project-partner-card-balance {
+  min-width: 0;
+}
+.project-detail-page .project-partner-balances-row strong {
+  font-size: clamp(18px, 1.5vw, 24px);
+  overflow-wrap: anywhere;
+}
+.project-detail-page .project-partner-card-balance.is-contribution {
+  --balance-color: #0f766e;
+}
+.project-detail-page .project-partner-card-balance.is-profit-payout {
+  --balance-color: #7c3aed;
+}
+.dark .project-detail-page .project-partner-card-balance.is-contribution {
+  --balance-color: #5eead4;
+}
+.dark .project-detail-page .project-partner-card-balance.is-profit-payout {
+  --balance-color: #c4b5fd;
+}
+.project-detail-page .project-partner-card-balance.is-contribution strong,
+.project-detail-page .project-partner-card-balance.is-profit-payout strong,
+.project-detail-page .project-partner-card-balance.is-contribution small,
+.project-detail-page .project-partner-card-balance.is-profit-payout small {
+  color: var(--balance-color);
+}
+
+.partner-construction-funding { padding:24px; margin-bottom:24px; border:1px solid var(--border); border-radius:16px; background:var(--card); }
+.partner-funding-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.partner-construction-funding h3 { font-size:18px; font-weight:700; }
+.partner-construction-funding p { color:var(--muted-foreground); font-size:14px; line-height:1.6; margin:10px 0; }
+.partner-funding-fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:20px 0; }
+.partner-funding-allocations { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:16px 0; }
+.partner-funding-allocations > div { display:flex; flex-direction:column; gap:6px; padding:12px; border:1px solid var(--border); border-radius:10px; }
+.partner-construction-funding details { margin-top:16px; }
+.partner-construction-funding summary { cursor:pointer; font-weight:600; }
+@media(max-width:700px) { .partner-funding-heading { align-items:flex-start; flex-direction:column; } .partner-funding-fields { grid-template-columns:1fr; } }
+
+.project-detail-page .partner-ledger-card { border-top-color:var(--border); background:var(--card); }
+.partner-ledger-values { display:flex; flex-direction:column; width:100%; text-align:left; }
+.partner-ledger-line { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:15px 0; border-bottom:1px solid var(--border); }
+.partner-ledger-line > span { font-size:14px; font-weight:600; }
+.partner-ledger-line small { display:block; font-size:11px; line-height:1.5; color:var(--muted-foreground); font-weight:400; margin-top:4px; }
+.partner-ledger-line strong { font-size:20px; line-height:1.4; text-align:right; overflow-wrap:anywhere; }
+.partner-ledger-line.is-credit strong { color:#0f766e; }
+.partner-ledger-line.is-debit strong { color:#b45309; }
+.partner-ledger-line.is-profit strong { color:#7c3aed; }
+.partner-ledger-line.is-balance { border-bottom:0; padding-top:20px; }
+.dark .partner-ledger-line.is-credit strong { color:#5eead4; }
+.dark .partner-ledger-line.is-debit strong { color:#fbbf24; }
+.dark .partner-ledger-line.is-profit strong { color:#c4b5fd; }
+
+.project-detail-page .partner-ledger-card .partner-profile-toggle { cursor:default; }
+.partner-account-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:0 24px 24px; }
+.partner-account-actions .partner-account-action { white-space:normal; height:auto; min-height:46px; padding:10px 12px; line-height:1.4; text-align:center; }
+.partner-account-actions .is-edit { grid-column:1 / -1; }
+.partner-account-actions .is-land, .partner-account-actions .is-construction { color:var(--primary); }
+@media(max-width:400px) { .partner-account-actions { grid-template-columns:1fr; padding:0 18px 18px; } }
+
+/* Compact action tiles with a clear verb and supporting label. */
+.partner-account-actions { padding:18px 24px 24px; border-top:1px solid var(--border); gap:10px; }
+.partner-account-actions .partner-account-action { justify-content:flex-start; align-items:center; gap:10px; text-align:left; min-height:64px; padding:12px; background:var(--card); }
+.partner-account-actions .partner-account-action > svg { flex-shrink:0; color:var(--muted-foreground); }
+.partner-account-actions .partner-account-action > span { min-width:0; }
+.partner-account-actions .partner-account-action strong { display:block; font-size:13px; font-weight:650; color:var(--foreground); }
+.partner-account-actions .partner-account-action small { display:block; font-size:11px; color:var(--muted-foreground); margin-top:3px; }
+.partner-account-actions .is-edit { grid-column:auto; }
+.partner-account-actions .is-land > svg,.partner-account-actions .is-construction > svg { color:#0f766e; }
+.partner-account-actions .is-profit > svg { color:#7c3aed; }
+.partner-account-actions .is-capital > svg { color:#b45309; }
+.partner-account-actions .partner-account-action:hover { background:var(--muted); border-color:var(--ring); }

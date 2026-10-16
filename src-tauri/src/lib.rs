@@ -120,6 +120,24 @@ pub fn run() {
             sql: include_str!("../migrations/019_land_sales.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 20,
+            description: "020_project_contractors",
+            sql: include_str!("../migrations/020_project_contractors.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 21,
+            description: "021_partner_construction_funding",
+            sql: include_str!("../migrations/021_partner_construction_funding.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 22,
+            description: "022_sale_payments",
+            sql: include_str!("../migrations/022_sale_payments.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     // A backup made by a newer version of the app cannot be restored here.

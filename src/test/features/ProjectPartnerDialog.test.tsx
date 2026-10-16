@@ -151,13 +151,13 @@ describe("ProjectPartnerDialog payment methods", () => {
     expect(onUpdatePartner).not.toHaveBeenCalled();
     expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Project share (%) *")).toHaveValue(30);
-    expect(screen.getByLabelText("Agreed contribution (Rs)")).toHaveValue("27000000");
-    await user.click(screen.getByLabelText("Agreed contribution (Rs)"));
+    expect(screen.getByLabelText("Agreed land contribution (Rs)")).toHaveValue("27000000");
+    await user.click(screen.getByLabelText("Agreed land contribution (Rs)"));
     await user.keyboard("{Enter}");
     expect(onUpdatePartner).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Project share (%) *")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Project share (%) *"), { target: { value: "35" } });
-    fireEvent.change(screen.getByLabelText("Agreed contribution (Rs)"), {
+    fireEvent.change(screen.getByLabelText("Agreed land contribution (Rs)"), {
       target: { value: "30000000" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));

@@ -1,0 +1,313 @@
+.thekedar-panel {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+  --contract-accent: #0f766e;
+}
+.dark .thekedar-panel {
+  --contract-accent: #5eead4;
+}
+.thekedar-heading {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--contract-accent) 8%, var(--card)),
+    var(--card)
+  );
+}
+.thekedar-heading-icon,
+.thekedar-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 14px;
+  color: var(--contract-accent);
+  background: color-mix(in srgb, var(--contract-accent) 10%, var(--card));
+  border-radius: 14px;
+}
+.thekedar-heading > div {
+  flex: 1;
+}
+.thekedar-heading small {
+  color: var(--contract-accent);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  font-weight: 750;
+}
+.thekedar-heading h2 {
+  font-size: 24px;
+  margin: 5px 0;
+  font-weight: 750;
+}
+.thekedar-heading p,
+.thekedar-help,
+.thekedar-contact,
+.thekedar-note {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.thekedar-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.thekedar-totals > div {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px;
+  background: var(--card);
+}
+.thekedar-totals strong {
+  font-size: clamp(20px, 2vw, 28px);
+  font-variant-numeric: tabular-nums;
+}
+.thekedar-totals small,
+.thekedar-card-money small {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.thekedar-totals span {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.thekedar-panel .is-paid strong {
+  color: var(--contract-accent);
+}
+.thekedar-panel .is-due strong {
+  color: #b45309;
+}
+.dark .thekedar-panel .is-due strong {
+  color: #fbbf24;
+}
+.thekedar-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 20px;
+}
+.thekedar-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  background: var(--card);
+  min-width: 0;
+}
+.thekedar-card-title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.thekedar-card-title > div {
+  flex: 1;
+  min-width: 0;
+}
+.thekedar-card h3 {
+  font-size: 20px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.thekedar-card-title small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.thekedar-badge {
+  font-size: 10px;
+  font-weight: 650;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.thekedar-badge.is-settled {
+  color: var(--contract-accent);
+}
+.thekedar-contact {
+  display: grid;
+  gap: 7px;
+  margin: 18px 0;
+}
+.thekedar-contact span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.thekedar-contact svg {
+  flex-shrink: 0;
+}
+.thekedar-scope {
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.thekedar-scope small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.thekedar-scope p {
+  font-size: 13px;
+  margin-top: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.thekedar-card-money {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 14px;
+}
+.thekedar-card-money > div {
+  display: grid;
+  gap: 6px;
+}
+.thekedar-card-money strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.thekedar-card progress {
+  width: 100%;
+  height: 7px;
+  accent-color: var(--contract-accent);
+}
+.thekedar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.thekedar-history {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.thekedar-history summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 16px 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.thekedar-history summary span {
+  margin-left: auto;
+  color: var(--muted-foreground);
+}
+.thekedar-payment {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.thekedar-payment > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+.thekedar-payment time,
+.thekedar-payment p {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.thekedar-empty {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
+  padding: 40px 24px;
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-radius: 18px;
+}
+.thekedar-empty p {
+  max-width: 520px;
+  color: var(--muted-foreground);
+}
+[data-slot="dialog-content"].thekedar-dialog {
+  width: min(760px, 96vw);
+  max-width: 760px;
+  max-height: 92vh;
+  overflow: auto;
+}
+.thekedar-dialog fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.thekedar-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+.thekedar-fields label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.thekedar-fields .full {
+  grid-column: 1/-1;
+}
+.thekedar-fields input,
+.thekedar-fields textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+}
+.thekedar-fields input:focus-visible,
+.thekedar-fields textarea:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.thekedar-error {
+  color: var(--destructive);
+  padding: 12px 0;
+  font-size: 13px;
+}
+@media (max-width: 1000px) {
+  .thekedar-cards {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .thekedar-heading {
+    flex-wrap: wrap;
+    padding: 18px;
+  }
+  .thekedar-heading > button {
+    width: 100%;
+  }
+  .thekedar-totals {
+    grid-template-columns: 1fr;
+  }
+  .thekedar-fields {
+    grid-template-columns: 1fr;
+  }
+  .thekedar-card {
+    padding: 18px;
+  }
+  .thekedar-card-title {
+    flex-wrap: wrap;
+  }
+  .thekedar-card-money {
+    gap: 8px;
+  }
+  .thekedar-card-money strong {
+    font-size: 13px;
+  }
+}

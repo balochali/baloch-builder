@@ -127,7 +127,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
     expect(screen.getByText(/Record actual project costs to see a line chart/)).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "Dashboard", "Sheet view", "Building", "Partners", "Estimate", "Costs", "Sales", "Profit & Loss",
+      "Dashboard", "Sheet view", "Building", "Partners", "Estimate", "Costs", "Thekedar", "Sales", "Profit & Loss",
     ]);
     fireEvent.click(screen.getByRole("tab", { name: "Sales" }));
     expect(screen.getByRole("heading", { name: "Project sales" })).toBeInTheDocument();
@@ -1010,6 +1010,8 @@ describe("ProjectDetailPage", () => {
         share_bp: 2500,
         agreed_contribution: 500_000,
         contributed: 200_000,
+        profit_paid: 75_000,
+        capital_returned: 50_000,
       },
     ]);
     render(
@@ -1028,16 +1030,25 @@ describe("ProjectDetailPage", () => {
     expect(partnerFilters).not.toHaveAttribute("open");
     fireEvent.click(screen.getByText("Search & filter partners"));
     expect(partnerFilters).toHaveAttribute("open");
-    expect(screen.getByText("Partly received")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "View Ali's details" })).toBeInTheDocument();
+    expect(screen.getByText("Profit paid").closest(".partner-ledger-line")).toHaveTextContent("75,000");
+    expect(screen.getByText("Investment still held").closest(".partner-ledger-line")).toHaveTextContent("Rs 1.5 lakh");
+    expect(screen.queryByText(/Estimated profit \/ loss share/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit details" })).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "Ali owns 25.00 percent of this project" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Record Payment" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "View Ali's details" }));
+    for (const [label, title] of [["Land payment", "Receive land payment"], ["Construction", "Receive construction payment"], ["Return capital", "Return capital"], ["Pay profit", "Pay profit"], ["Payment history", "Payment history"]]) {
+      fireEvent.click(screen.getByRole("button", { name: label }));
+      expect(screen.getByRole("dialog")).toHaveTextContent(title);
+      expect(screen.queryByRole("button", {name:"Next"})).not.toBeInTheDocument();
+      if(label === "Construction") expect(screen.getByLabelText(/Construction request/)).toHaveValue("choose-construction");
+      fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Edit partner details");
-    expect(screen.getByRole("button", { name: /Record payment/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Profit given/i })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", {name:"Partner actions"})).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Project estimate" })).not.toBeInTheDocument();
     vi.mocked(updateProjectPartner).mockResolvedValue({
       partnership_id: "share-1",
@@ -1054,7 +1065,7 @@ describe("ProjectDetailPage", () => {
     });
     expect(screen.getByLabelText("Partner name *")).toHaveValue("Ali");
     fireEvent.change(screen.getByLabelText("Project share (%) *"), { target: { value: "30" } });
-    fireEvent.change(screen.getByLabelText("Promised amount (Rs)"), {
+    fireEvent.change(screen.getByLabelText("Agreed land amount (Rs)"), {
       target: { value: "600000" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save details" }));
@@ -1067,7 +1078,9 @@ describe("ProjectDetailPage", () => {
         }),
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getAllByRole("button", {name:"Close"})[0]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", {name:"Land payment"}));
     expect(screen.getByText("Record a payment from this partner")).toBeInTheDocument();
     expect(screen.getByText("Add transaction receipt")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Amount (Rs) *"), { target: { value: "50000" } });
@@ -1078,15 +1091,25 @@ describe("ProjectDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save payment" }));
     await waitFor(() => expect(addPartnerContribution).toHaveBeenCalledWith(expect.objectContaining({ amount: 50_000, account_key: "builder", method: "cash" })));
     await waitFor(() => expect(savePartnerContributionReceipt).toHaveBeenCalledWith("contribution-1", expect.objectContaining({ name: "contribution.png" }), expect.any(String), "cash"));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Record profit given to this partner")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", {name:"Close"})[0]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", {name:"Pay profit"}));
+    expect(screen.getByText("Record money paid to this partner")).toBeInTheDocument();
     expect(screen.getByText("Add transaction receipt")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Amount (Rs) *"), { target: { value: "12000" } });
     fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
     const payoutUpload = screen.getByText("Add transaction receipt").closest("label")?.querySelector('input[type="file"]');
     fireEvent.change(payoutUpload!, { target: { files: [new File(["proof"], "payout.png", { type: "image/png" })] } });
-    fireEvent.click(screen.getByRole("button", { name: "Save profit payout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save profit payment" }));
     await waitFor(() => expect(addPartnerPayout).toHaveBeenCalledWith(expect.objectContaining({ amount: 12_000, account_key: "personal", purpose: "profit" })));
     await waitFor(() => expect(savePartnerPayoutReceipt).toHaveBeenCalledWith("payout-1", expect.objectContaining({ name: "payout.png" }), expect.any(String), "cash"));
+    fireEvent.click(screen.getAllByRole("button", {name:"Close"})[0]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", {name:"Return capital"}));
+    fireEvent.click(screen.getByRole("radio", {name:"Personal Account"}));
+    fireEvent.change(screen.getByLabelText("Amount (Rs) *"), { target: { value: "10000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save capital return" }));
+    await waitFor(() => expect(addPartnerPayout).toHaveBeenCalledWith(expect.objectContaining({ amount: 10_000, purpose: "capital_return" })));
+
   });
 });

@@ -1,6 +1,8 @@
-import { AttachmentUpload } from "@/components/AttachmentUpload";
+import { SalePaymentFields, newSalePayment, paymentInput } from "./SalePaymentForm";
+import { SalePaymentDialog } from "./SalePaymentDialog";
+import { listSalePayments, SalePaymentSchema, type SalePayment, type SalePaymentInput } from "@/data/repositories/salePaymentsRepository";
 import { usePagination } from "@/components/Pagination";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import {
   Building2,
@@ -25,7 +27,6 @@ import {
 import { SavedImageGallery } from "@/components/attachments/ImageGallery";
 import {
   listProjectSaleDocuments,
-  saveProjectSaleImage,
   type DocumentRecord,
 } from "@/data/repositories/documentsRepository";
 import {
@@ -54,6 +55,8 @@ interface Props {
 
 export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false, refreshKey }: Props) {
   const [sales, setSales] = useState<ProjectSale[]>([]);
+  const [payments, setPayments] = useState<SalePayment[]>([]);
+  const [paymentSale, setPaymentSale] = useState<ProjectSale | null>(null);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,10 +67,11 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
 
   useEffect(() => {
     let active = true;
-    Promise.all([listProjectSales(projectId), listProjectSaleDocuments(projectId)])
-      .then(([saleRows, documentRows]) => {
+    Promise.all([listProjectSales(projectId), listProjectSaleDocuments(projectId), listSalePayments(projectId)])
+      .then(([saleRows, documentRows, paymentRows]) => {
         if (active) {
           setSales(saleRows);
+          setPayments(paymentRows);
           setDocuments(documentRows);
         }
       })
@@ -99,23 +103,14 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
     JSON.stringify([projectId, filter, search, visible.map((row) => row.id)]),
     "sales",
   );
-  async function saveSale(value: ProjectSaleInput, files: File[]) {
-    const row = await addProjectSale(value);
-    setSales((current) => [row, ...current]);
-    toast.success(`${row.kind === "flat" ? "Flat" : "Shop"} sale recorded`);
-    if (files.length) {
-      const results = await Promise.allSettled(
-        files.map((file) => saveProjectSaleImage(row.id, file, row.sale_date)),
-      );
-      const saved = results.flatMap((result) =>
-        result.status === "fulfilled" ? [result.value] : [],
-      );
-      setDocuments((current) => [...saved, ...current]);
-      if (saved.length !== files.length)
-        toast.error(
-          `${files.length - saved.length} image${files.length - saved.length === 1 ? "" : "s"} could not be saved. You can still see the sale here.`,
-        );
+  async function saveSale(value: ProjectSaleInput, firstPayment: SalePaymentInput | null) {
+    const row = await addProjectSale(value, firstPayment);
+    setSales(current => [row,...current]);
+    if(firstPayment) {
+      const initial = JSON.parse(row.custom).initial_payment;
+      setPayments(current => [{...firstPayment,id:initial.id,sale_id:row.id,project_id:projectId,direction:"in",type:"sale_payment",created_at:row.created_at,updated_at:row.updated_at,archived:0,custom:JSON.stringify({sale_id:row.id,payment_details:firstPayment.payment_details}),description:"First payment",partner_id:null,contact_id:null} as SalePayment,...current]);
     }
+    toast.success(firstPayment ? "Sale and first payment recorded" : "Sale recorded; payment is still due");
   }
 
   return (
@@ -198,7 +193,7 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
       <div className="project-sales-list-heading">
         <div>
           <h3>Recorded sales</h3>
-          <p>Search buyers or unit numbers, then open any saved document image.</p>
+          <p>Find a buyer or unit, check the balance, and record the next instalment.</p>
         </div>
         <span>
           {visible.length} of {sales.length} sales
@@ -277,6 +272,11 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
               )}
               {sale.notes && <p className="project-sales-card-note">{sale.notes}</p>}
               {sale.kind === "land" && <LandSalePaymentSummary sale={sale} />}
+              {sale.kind !== "land" && <div className="sale-payment-summary">
+                <div><span>Received<strong>{formatPKR(payments.filter(p=>p.sale_id===sale.id).reduce((sum,p)=>sum+p.amount,0))}</strong></span><span>Still to receive<strong>{formatPKR(sale.price-payments.filter(p=>p.sale_id===sale.id).reduce((sum,p)=>sum+p.amount,0))}</strong></span></div>
+                <button type="button" className="project-sales-primary" disabled={payments.filter(p=>p.sale_id===sale.id).reduce((sum,p)=>sum+p.amount,0)>=sale.price} onClick={()=>setPaymentSale(sale)}>{payments.filter(p=>p.sale_id===sale.id).reduce((sum,p)=>sum+p.amount,0)>=sale.price?"Fully paid":"Record payment"}</button>
+                <details><summary>Payment history ({payments.filter(p=>p.sale_id===sale.id).length})</summary>{payments.filter(p=>p.sale_id===sale.id).map(p=><div className="sale-payment-history-row" key={p.id}><span>{formatDate(p.date)} · {p.method}{p.reference && ` · ${p.reference}`}</span><strong>{formatPKR(p.amount)}</strong></div>)}</details>
+              </div>}
               {documents.some(
                 (document) =>
                   document.owner_id === sale.id && document.doc_type !== "land_sale_receipt",
@@ -328,6 +328,7 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
           )}
         </div>
       )}
+      {paymentSale && <SalePaymentDialog sale={paymentSale} received={payments.filter(p=>p.sale_id===paymentSale.id).reduce((sum,p)=>sum+p.amount,0)} onClose={()=>setPaymentSale(null)} onSaved={payment=>setPayments(current=>[payment,...current])} />}
       {open && (
         <SaleDialog
           projectId={projectId}
@@ -355,7 +356,7 @@ function SaleDialog({
   flatGroups: ReturnType<typeof plannedFlatGroups>;
   sales: ProjectSale[];
   onClose: () => void;
-  onSave: (value: ProjectSaleInput, files: File[]) => Promise<void>;
+  onSave: (value: ProjectSaleInput, payment: SalePaymentInput | null) => Promise<void>;
 }) {
   const [step, setStep] = useState(0);
   const [kind, setKind] = useState<Kind>("flat");
@@ -368,7 +369,9 @@ function SaleDialog({
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [paymentDraft, setPaymentDraft] = useState(() => newSalePayment(format(new Date(), "yyyy-MM-dd")));
+  const [payLater, setPayLater] = useState(false);
+  const saveLock = useRef(false);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const plannedFloors = [...new Set(flatGroups.map((group) => group.floor_index))].sort(
@@ -417,6 +420,7 @@ function SaleDialog({
   }
 
   async function save() {
+    if (saveLock.current) return;
     const parsed = ProjectSaleSchema.safeParse({
       project_id: projectId,
       kind,
@@ -432,16 +436,21 @@ function SaleDialog({
     });
     if (!parsed.success)
       return setFormError(parsed.error.issues[0]?.message || "Check the sale details.");
+    const payment = payLater ? null : SalePaymentSchema.safeParse(paymentInput(paymentDraft));
+    if(payment && !payment.success) return setFormError(payment.error.issues[0]?.message ?? "Check the first payment");
+    if(payment?.success && (payment.data.amount > parsed.data.price || payment.data.date < parsed.data.sale_date)) return setFormError("First payment must not exceed the price or predate the sale.");
+    saveLock.current = true;
     setSaving(true);
     setFormError("");
     try {
-      await onSave(parsed.data, files);
+      await onSave(parsed.data, payment?.success ? payment.data : null);
       onClose();
     } catch (cause) {
       setFormError(
         cause instanceof Error ? cause.message : "Could not save this sale. Please try again.",
       );
     } finally {
+      saveLock.current = false;
       setSaving(false);
     }
   }
@@ -462,12 +471,12 @@ function SaleDialog({
             <div>
               <small>PROJECT SALE</small>
               <DialogTitle>Record a flat or shop sale</DialogTitle>
-              <p>Save the unit, buyer, agreed price and optional document images.</p>
+              <p>Save the unit and buyer, then record the first payment.</p>
             </div>
           </div>
         </DialogHeader>
         <div className="project-sale-steps">
-          {["Unit", "Buyer & price", "Documents"].map((label, index) => (
+          {["Unit", "Buyer & price", "First payment"].map((label, index) => (
             <div
               key={label}
               className={index === step ? "is-current" : index < step ? "is-done" : ""}
@@ -640,20 +649,10 @@ function SaleDialog({
           {step === 2 && (
             <>
               <div className="project-sale-step-intro">
-                <h3>Add sale documents</h3>
-                <p>
-                  Upload images of the sale agreement, buyer ID, receipts or other proof. This step
-                  is optional.
-                </p>
+                <h3>First payment</h3><p>Record the booking amount or first instalment received from the buyer.</p>
               </div>
-              <AttachmentUpload
-                files={files}
-                onChange={setFiles}
-                title="Sale documents (optional)"
-                label="Choose document images"
-                description="Sale agreement, buyer ID, receipts or other proof."
-                onError={setFormError}
-              />
+              <label className="sale-pay-later"><input type="checkbox" checked={payLater} onChange={e=>setPayLater(e.target.checked)} disabled={saving}/> No payment received yet — record it later</label>
+              {!payLater && <SalePaymentFields value={paymentDraft} onChange={setPaymentDraft} disabled={saving}/>}
               <div className="project-sale-review">
                 <strong>Ready to save</strong>
                 <span>

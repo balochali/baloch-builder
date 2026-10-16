@@ -69,7 +69,9 @@ export function validateMethod(
             ["cheque_date", "Cheque date is required"],
             ["cheque_payee", "Cheque payee is required"],
           ]
-        : method === "digital" ? [["from_bank", "Wallet or service is required"]] : [];
+        : method === "digital"
+          ? [["from_bank", "Wallet or service is required"]]
+          : [];
   for (const [key, message] of required) {
     if (!details[key]) ctx.addIssue({ code: "custom", path: ["payment_details", key], message });
   }
@@ -122,6 +124,8 @@ export const AddProjectPartnerSchema = z
 
 export const PartnerContributionSchema = z
   .object({
+    contribution_purpose: z.enum(["land", "construction"]).optional(),
+    funding_round_id: z.string().optional(),
     account_key: BankAccountSchema.optional(),
     project_id: z.string().uuid(),
     partner_id: z.string().uuid(),
@@ -163,6 +167,11 @@ export interface ProjectPartnerRow {
   share_bp: number;
   agreed_contribution: number | null;
   contributed: number;
+  profit_paid?: number;
+  capital_returned?: number;
+  land_contributed?: number;
+  construction_contributed?: number;
+  construction_required?: number;
 }
 
 export interface PartnerOverviewRow extends ProjectPartnerRow {
@@ -185,7 +194,18 @@ export async function listAllProjectPartners(): Promise<PartnerOverviewRow[]> {
        c.address, p.notes, pp.share_bp, pp.agreed_contribution,
        COALESCE((SELECT SUM(t.amount) FROM transactions t
          WHERE t.project_id = pp.project_id AND t.partner_id = p.id
-           AND t.type = 'partner_contribution' AND t.direction = 'in' AND t.archived = 0), 0) AS contributed
+           AND t.type = 'partner_contribution' AND t.direction = 'in' AND t.archived = 0), 0) AS contributed,
+       COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.project_id = pp.project_id AND t.partner_id = p.id AND t.type = 'partner_contribution' AND t.direction = 'in' AND t.archived = 0 AND COALESCE(json_extract(t.custom, '$.contribution_purpose'), 'land') = 'land'), 0) AS land_contributed,
+       COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.project_id = pp.project_id AND t.partner_id = p.id AND t.type = 'partner_contribution' AND t.direction = 'in' AND t.archived = 0 AND json_extract(t.custom, '$.contribution_purpose') = 'construction'), 0) AS construction_contributed,
+       COALESCE((SELECT SUM(json_extract(a.value, '$.amount')) FROM partner_funding_rounds r, json_each(r.allocations) a WHERE r.project_id = pp.project_id AND json_extract(a.value, '$.partner_id') = p.id), 0) AS construction_required,
+       COALESCE((SELECT SUM(t.amount) FROM transactions t
+         WHERE t.project_id = pp.project_id AND t.partner_id = p.id
+           AND t.type = 'partner_payout' AND t.direction = 'out' AND t.archived = 0
+           AND COALESCE(json_extract(t.custom, '$.purpose'), 'profit') = 'profit'), 0) AS profit_paid,
+       COALESCE((SELECT SUM(t.amount) FROM transactions t
+         WHERE t.project_id = pp.project_id AND t.partner_id = p.id
+           AND t.type = 'partner_payout' AND t.direction = 'out' AND t.archived = 0
+           AND json_extract(t.custom, '$.purpose') = 'capital_return'), 0) AS capital_returned
      FROM partnerships pp
      JOIN projects pr ON pr.id = pp.project_id AND pr.archived = 0
      JOIN partners p ON p.id = pp.partner_id AND p.archived = 0
@@ -213,7 +233,18 @@ export async function listProjectPartners(projectId: string): Promise<ProjectPar
        c.name, c.phone, c.phone2, c.address, p.notes, pp.share_bp, pp.agreed_contribution,
        COALESCE((SELECT SUM(t.amount) FROM transactions t
          WHERE t.project_id = pp.project_id AND t.partner_id = p.id
-           AND t.type = 'partner_contribution' AND t.direction = 'in' AND t.archived = 0), 0) AS contributed
+           AND t.type = 'partner_contribution' AND t.direction = 'in' AND t.archived = 0), 0) AS contributed,
+       COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.project_id = pp.project_id AND t.partner_id = p.id AND t.type = 'partner_contribution' AND t.direction = 'in' AND t.archived = 0 AND COALESCE(json_extract(t.custom, '$.contribution_purpose'), 'land') = 'land'), 0) AS land_contributed,
+       COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.project_id = pp.project_id AND t.partner_id = p.id AND t.type = 'partner_contribution' AND t.direction = 'in' AND t.archived = 0 AND json_extract(t.custom, '$.contribution_purpose') = 'construction'), 0) AS construction_contributed,
+       COALESCE((SELECT SUM(json_extract(a.value, '$.amount')) FROM partner_funding_rounds r, json_each(r.allocations) a WHERE r.project_id = pp.project_id AND json_extract(a.value, '$.partner_id') = p.id), 0) AS construction_required,
+       COALESCE((SELECT SUM(t.amount) FROM transactions t
+         WHERE t.project_id = pp.project_id AND t.partner_id = p.id
+           AND t.type = 'partner_payout' AND t.direction = 'out' AND t.archived = 0
+           AND COALESCE(json_extract(t.custom, '$.purpose'), 'profit') = 'profit'), 0) AS profit_paid,
+       COALESCE((SELECT SUM(t.amount) FROM transactions t
+         WHERE t.project_id = pp.project_id AND t.partner_id = p.id
+           AND t.type = 'partner_payout' AND t.direction = 'out' AND t.archived = 0
+           AND json_extract(t.custom, '$.purpose') = 'capital_return'), 0) AS capital_returned
      FROM partnerships pp
      JOIN partners p ON p.id = pp.partner_id AND p.archived = 0
      JOIN contacts c ON c.id = p.contact_id AND c.archived = 0
@@ -253,7 +284,7 @@ async function insertContribution(
       contactId,
       timestamp,
       timestamp,
-      JSON.stringify({ payment_details: value.payment_details }),
+      JSON.stringify({ payment_details: value.payment_details, contribution_purpose: value.contribution_purpose ?? "land", funding_round_id: value.contribution_purpose === "construction" ? value.funding_round_id : null }),
       BankAccountSchema.parse(value.account_key),
     ],
   );
