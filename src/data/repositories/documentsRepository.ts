@@ -367,3 +367,12 @@ export async function listTransactionReceipts(transactionId: string): Promise<Do
     [transactionId],
   );
 }
+
+export async function saveProjectDocument(projectId: string, file: File): Promise<void> {
+  validateAttachment(file, true);
+  const projects = await query<{ id: string }>("SELECT id FROM projects WHERE id = ? AND archived = 0", [projectId]);
+  if (!projects.length) throw new Error("Project not found");
+  const path = await invoke<string>("save_image_attachment", { bytes: Array.from(new Uint8Array(await file.arrayBuffer())), mime: file.type });
+  const stamp = now();
+  await execute("INSERT INTO documents (id, title, doc_type, file_path, mime, size, owner_type, owner_id, created_at, updated_at, archived, custom) VALUES (?, ?, 'project_document', ?, ?, ?, 'project', ?, ?, ?, 0, '{}')", [newId(), file.name, path, file.type, file.size, projectId, stamp, stamp]);
+}

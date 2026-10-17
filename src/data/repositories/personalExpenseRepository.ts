@@ -37,15 +37,16 @@ export async function listPersonalExpenses(): Promise<PersonalExpense[]> {
   }));
 }
 
-export async function createPersonalExpense(input: PersonalExpenseInput): Promise<void> {
+export async function createPersonalExpense(input: PersonalExpenseInput): Promise<string> {
   const value = PersonalExpenseSchema.parse(input);
   const timestamp = now();
+  const id = newId();
   await execute(
     `INSERT INTO personal_expenses
     (id, category, item_name, amount, purchase_date, notes, created_at, updated_at, account_key, payment_details)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      newId(),
+      id,
       value.category,
       value.item_name,
       value.amount,
@@ -57,6 +58,7 @@ export async function createPersonalExpense(input: PersonalExpenseInput): Promis
       value.payment_details ? JSON.stringify(value.payment_details) : null,
     ],
   );
+  return id;
 }
 
 export async function updatePersonalExpense(

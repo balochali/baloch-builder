@@ -149,7 +149,9 @@ describe("CreditUdhaarPage", () => {
 
   it("validates each step and preserves values when going back", async () => {
     render(<CreditUdhaarPage />);
+    await waitFor(() => expect(screen.queryByText("Loading udhaar records…")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Give Udhaar" }));
+    await waitFor(() => expect(screen.queryByText("Loading saved people…")).not.toBeInTheDocument());
     expect(screen.queryByLabelText("Amount given (Rs) *")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save udhaar" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Person's name *"), { target: { value: "Ali" } });
@@ -187,7 +189,7 @@ describe("CreditUdhaarPage", () => {
         notes: null,
       },
     ]);
-    vi.mocked(createUdhaar).mockResolvedValue(undefined);
+    vi.mocked(createUdhaar).mockResolvedValue("new-udhaar");
     vi.mocked(addPersonUdhaarPayment).mockResolvedValue(undefined);
   });
 

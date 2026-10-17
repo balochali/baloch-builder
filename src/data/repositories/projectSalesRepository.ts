@@ -1,3 +1,4 @@
+import { SalePaymentSchema, type SalePaymentInput } from "./salePaymentsRepository";
 import { z } from "zod";
 import { execute, query } from "@/data/client";
 import { newId, now } from "@/data/ids";
@@ -35,26 +36,30 @@ export async function listProjectSales(projectId: string): Promise<ProjectSale[]
   );
 }
 
-export async function addProjectSale(input: ProjectSaleInput): Promise<ProjectSale> {
+export async function addProjectSale(input: ProjectSaleInput, initialPayment?: SalePaymentInput | null): Promise<ProjectSale> {
   const value = ProjectSaleSchema.parse(input);
   if (value.kind === "land") throw new Error("Record land sales from Change project status");
   const id = newId();
   const timestamp = now();
+  const payment = initialPayment ? SalePaymentSchema.parse(initialPayment) : null;
+  if (payment && (payment.amount > value.price || payment.date < value.sale_date)) throw new Error("First payment must not exceed the sale price or predate the sale");
+  const custom = JSON.stringify(payment ? {initial_payment: {...payment, id:newId()}} : {});
   try {
     await execute(
       `INSERT INTO project_sales
        (id, project_id, kind, floor_index, unit_number, rooms, buyer_name, buyer_phone, buyer_address,
         sale_date, price, notes, created_at, updated_at, archived, custom)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '{}')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
       [id, value.project_id, value.kind, value.floor_index, value.unit_number, value.rooms,
         value.buyer_name, value.buyer_phone || null, value.buyer_address || null,
-        value.sale_date, value.price, value.notes || null, timestamp, timestamp],
+        value.sale_date, value.price, value.notes || null, timestamp, timestamp, custom],
     );
   } catch (cause) {
     if (/UNIQUE constraint failed/i.test(String(cause)))
       throw Object.assign(new Error("This unit is already recorded as sold on the selected floor."), { cause });
     throw cause;
   }
+  if (initialPayment !== undefined) return {...value, id, created_at:timestamp, updated_at:timestamp, archived:0, custom};
   const rows = await query<ProjectSale>(`SELECT * FROM project_sales WHERE id = ?`, [id]);
   if (!rows[0]) throw new Error("Sale was saved but could not be loaded");
   return rows[0];

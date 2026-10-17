@@ -45,6 +45,7 @@ describe("project print reports", () => {
     ]);
     expect(doc.querySelector("script")).toBeNull();
     expect(doc.querySelector("h1")?.textContent).toBe(data.project.name);
+    expect(doc.title).toBe(`${data.project.name} — Project report`);
     expect(doc.body.textContent).not.toContain("A residential development");
   });
   it("prints all rows instead of the screen pagination and provides page-break rules", () => {

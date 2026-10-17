@@ -1,3 +1,4 @@
+import { listFundingRounds, type FundingRound, type FundingAllocation } from "@/data/repositories/partnerFundingRepository";
 import { PartnerPaymentFields } from "@/components/PartnerPaymentFields";
 import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { savePartnerContributionReceipt } from "@/data/repositories/documentsRepository";
@@ -5,7 +6,7 @@ import { savePartnerContributionReceipt } from "@/data/repositories/documentsRep
 import { BankAccountSelect } from "@/components/BankAccountSelect";
 import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
 import "./project-partner-dialog.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Building2,
   ChevronLeft,
@@ -83,6 +84,10 @@ export function ProjectPartnerDialog({
   const [savedPayment, setSavedPayment] = useState<string>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [fundingRoundId, setFundingRoundId] = useState("");
+  const [fundingRounds, setFundingRounds] = useState<FundingRound[]>([]);
+  useEffect(() => { if (!partner) return; let active = true; listFundingRounds(projectId).then(rows => {if(active) setFundingRounds(rows);}).catch(() => {if(active) setError("Could not load construction requests. Reopen this profile to retry.");}); return () => {active=false;}; }, [projectId, partner]);
+
 
   function relevantDetails(): PaymentDetails {
     const details = { ...emptyPaymentDetails, receipt_no: paymentDetails.receipt_no };
@@ -148,6 +153,8 @@ export function ProjectPartnerDialog({
     setError("");
     if (partner) {
       const parsed = PartnerContributionSchema.safeParse({
+        contribution_purpose: fundingRoundId ? "construction" : "land",
+        funding_round_id: fundingRoundId || undefined,
         account_key: accountKey,
         project_id: projectId,
         partner_id: partner.partner_id,
@@ -373,14 +380,14 @@ export function ProjectPartnerDialog({
                 />
                 <Field
                   id="partner-agreed"
-                  label="Agreed contribution (Rs)"
+                  label="Agreed land contribution (Rs)"
                   inputMode="numeric"
                   value={agreed}
                   onChange={setAgreed}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Available share: {(remainingShareBp / 100).toFixed(2)}%. Agreed contribution is a
+                Available share: {(remainingShareBp / 100).toFixed(2)}%. Agreed land contribution is a
                 commitment, not money received.
               </p>
               <Field id="partner-notes" label="Notes" value={notes} onChange={setNotes} />
@@ -396,6 +403,7 @@ export function ProjectPartnerDialog({
                     : "Optional. You can add the partner now and record a payment later."}
                 </p>
               </div>
+              {partner && <label className="grid gap-2">Payment is for<select className="rounded-md border bg-background p-3" value={fundingRoundId} onChange={event=>setFundingRoundId(event.target.value)} disabled={pending || !!savedPayment}><option value="">Land investment</option>{fundingRounds.filter(r=>(JSON.parse(r.allocations) as FundingAllocation[]).some(p=>p.partner_id===partner.partner_id && p.amount>0)).map(r=><option key={r.id} value={r.id}>Construction: {r.title}</option>)}</select><small>Construction requests are created in the project’s Partners tab.</small></label>}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field
                   id="partner-amount"

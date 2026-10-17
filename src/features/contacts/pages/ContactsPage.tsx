@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { useState } from "react";
 import {
   Archive,
@@ -22,6 +23,8 @@ import { ContactsTable } from "@/features/contacts/components/ContactsTable";
 import type { ContactFormValues } from "@/features/contacts/schemas";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { contactsSheets } from "@/features/sheet/moduleSheets";
 import { useRecordFilters } from "@/components/RecordFilters";
 import { formatDate } from "@/lib/dates";
 import "./contacts-page.css";
@@ -74,7 +77,7 @@ export function ContactsPage() {
 
   return (
     <main className="contacts-page">
-      <header className="contacts-heading">
+      <header className="contacts-heading illustrated-heading"><WorkspaceIllustration scene="contacts" />
         <div>
           <p className="contacts-eyebrow">
             <Users size={16} /> YOUR PEOPLE & CONNECTIONS
@@ -82,9 +85,12 @@ export function ContactsPage() {
           <h1>Contacts</h1>
           <p>Keep the people you work with close at hand.</p>
         </div>
-        <Button id="contacts-add-btn" onClick={openAdd}>
-          <UserPlus size={18} /> Add Contact
-        </Button>
+        <div className="sheet-header-actions">
+          <SheetViewButton title="Contacts sheet" storageId="contacts" createSheets={contactsSheets} />
+          <Button id="contacts-add-btn" onClick={openAdd}>
+            <UserPlus size={18} /> Add Contact
+          </Button>
+        </div>
       </header>
 
       {/* States */}

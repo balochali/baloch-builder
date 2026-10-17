@@ -1,8 +1,12 @@
+import {
+  listFundingRounds,
+  type FundingRound,
+  type FundingAllocation,
+} from "@/data/repositories/partnerFundingRepository";
 import { validateAttachment } from "@/domain/attachments";
 import { PartnerPaymentFields } from "@/components/PartnerPaymentFields";
 import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { PartnerDocuments } from "@/features/projects/components/PartnerDocuments";
-import { PaginatedRecords } from "@/components/Pagination";
 import {
   PaymentAccountSelect,
   PaymentMethodSelect,
@@ -10,16 +14,13 @@ import {
 } from "@/components/PaymentChoices";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Building2, HandCoins, UserRound, Wallet } from "lucide-react";
+import { HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { SavedImageGallery } from "@/components/attachments/ImageGallery";
 import {
-  listPartnerPaymentDocuments,
   savePartnerContributionReceipt,
   savePartnerPayoutReceipt,
-  type DocumentRecord,
 } from "@/data/repositories/documentsRepository";
 import {
   listPartnerPayouts,
@@ -36,10 +37,12 @@ import {
   type PaymentDetails,
 } from "@/data/repositories/projectPartnersRepository";
 import { formatPKR } from "@/domain/money";
-import { formatDate } from "@/lib/dates";
 import "./project-partner-manage-dialog.css";
 
+export type PartnerAccountAction = "edit" | "land" | "construction" | "capital" | "profit";
+
 type Props = {
+  initialAction?: PartnerAccountAction;
   projectId: string;
   partner: ProjectPartnerRow;
   contributions: {
@@ -48,6 +51,7 @@ type Props = {
     amount: number;
     date: string;
     method: string | null;
+    custom?: string;
   }[];
   remainingShareBp: number;
   onClose: () => void;
@@ -69,7 +73,8 @@ function validImages(files: File[]): boolean {
   }
 }
 
-export function ProjectPartnerManageDialog({
+export function PartnerActionDialog({
+  initialAction = "edit",
   projectId,
   partner,
   contributions,
@@ -78,7 +83,13 @@ export function ProjectPartnerManageDialog({
   onUpdate,
   onContribution,
 }: Props) {
-  const [step, setStep] = useState(0);
+  const step =
+    initialAction === "edit"
+      ? 0
+      : initialAction === "land" || initialAction === "construction"
+        ? 1
+        : 2;
+  const payoutPurpose = initialAction === "capital" ? "capital_return" : "profit";
   const [name, setName] = useState(partner.name);
   const [phone, setPhone] = useState(partner.phone ?? "");
   const [phone2, setPhone2] = useState(partner.phone2 ?? "");
@@ -86,6 +97,32 @@ export function ProjectPartnerManageDialog({
   const [notes, setNotes] = useState(partner.notes ?? "");
   const [share, setShare] = useState((partner.share_bp / 100).toString());
   const [agreed, setAgreed] = useState(partner.agreed_contribution?.toString() ?? "");
+  const [fundingRoundId, setFundingRoundId] = useState(
+    initialAction === "construction" ? "choose-construction" : "",
+  );
+  const [fundingRounds, setFundingRounds] = useState<FundingRound[]>([]);
+  const selectedAllocation = fundingRounds.find((r) => r.id === fundingRoundId);
+  const roundRequired = selectedAllocation
+    ? ((JSON.parse(selectedAllocation.allocations) as FundingAllocation[]).find(
+        (p) => p.partner_id === partner.partner_id,
+      )?.amount ?? 0)
+    : 0;
+  const roundPaid = contributions
+    .filter((p) => p.partner_id === partner.partner_id)
+    .reduce((total, p) => {
+      try {
+        const custom = JSON.parse(p.custom ?? "{}");
+        return (
+          total +
+          (custom.contribution_purpose === "construction" &&
+          custom.funding_round_id === fundingRoundId
+            ? p.amount
+            : 0)
+        );
+      } catch {
+        return total;
+      }
+    }, 0);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [account, setAccount] = useState<"" | "personal" | "builder">("");
@@ -94,22 +131,31 @@ export function ProjectPartnerManageDialog({
   const [paymentNote, setPaymentNote] = useState("");
   const [details, setDetails] = useState<PaymentDetails>({ ...emptyPaymentDetails });
   const [images, setImages] = useState<File[]>([]);
-  const [savedImages, setSavedImages] = useState<DocumentRecord[]>([]);
   const [payouts, setPayouts] = useState<PartnerPayout[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (initialAction !== "construction") return;
+    let active = true;
+    listFundingRounds(projectId)
+      .then((rows) => {
+        if (active) setFundingRounds(rows);
+      })
+      .catch(() => {
+        if (active) setError("Could not load construction requests. Reopen this profile to retry.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [projectId, initialAction]);
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      listPartnerPayouts(projectId),
-      listPartnerPaymentDocuments(projectId, partner.partner_id),
-    ])
-      .then(([payoutRows, documentRows]) => {
+    Promise.all([listPartnerPayouts(projectId)])
+      .then(([payoutRows]) => {
         if (active) {
           setPayouts(payoutRows);
-          setSavedImages(documentRows);
         }
       })
       .catch(() => {
@@ -120,13 +166,10 @@ export function ProjectPartnerManageDialog({
     };
   }, [projectId, partner.partner_id]);
 
-  const partnerContributions = contributions.filter(
-    (item) => item.partner_id === partner.partner_id,
-  );
-  const partnerPayouts = payouts.filter(
-    (item) => item.partner_id === partner.partner_id && item.payout_purpose === "profit",
-  );
-  const profitPaid = partnerPayouts.reduce((sum, item) => sum + item.amount, 0);
+  const partnerPayouts = payouts.filter((item) => item.partner_id === partner.partner_id);
+  const selectedPayoutTotal = partnerPayouts
+    .filter((item) => item.payout_purpose === payoutPurpose)
+    .reduce((sum, item) => sum + item.amount, 0);
 
   async function saveDetails() {
     setError("");
@@ -178,8 +221,16 @@ export function ProjectPartnerManageDialog({
       setError("Choose PDF, JPEG, PNG, WebP or GIF files smaller than 10 MB each.");
       return;
     }
+    if (step === 1 && fundingRoundId === "choose-construction") {
+      setError(
+        "Choose a construction request. If none exist, create one in the project’s Partners tab first.",
+      );
+      return;
+    }
     const paymentDetails: PaymentDetails = { ...emptyPaymentDetails, ...details };
     const payment = PartnerContributionSchema.safeParse({
+      contribution_purpose: fundingRoundId ? "construction" : "land",
+      funding_round_id: fundingRoundId || undefined,
       project_id: projectId,
       partner_id: partner.partner_id,
       account_key: account,
@@ -204,7 +255,7 @@ export function ProjectPartnerManageDialog({
               partner_id: partner.partner_id,
               amount: paymentAmount,
               date,
-              purpose: "profit",
+              purpose: payoutPurpose,
               account_key: account,
               method,
               reference,
@@ -226,17 +277,15 @@ export function ProjectPartnerManageDialog({
           ),
         );
         setMessage(
-          step === 1 ? "Contribution and receipts saved." : "Profit payout and receipts saved.",
+          step === 1
+            ? "Contribution and receipts saved."
+            : "Payment to partner and receipts saved.",
         );
       } catch (cause) {
         setError(`Payment was saved, but a receipt could not be saved: ${String(cause)}`);
       }
-      const [payoutRows, documentRows] = await Promise.all([
-        listPartnerPayouts(projectId),
-        listPartnerPaymentDocuments(projectId, partner.partner_id),
-      ]);
+      const [payoutRows] = await Promise.all([listPartnerPayouts(projectId)]);
       setPayouts(payoutRows);
-      setSavedImages(documentRows);
     } catch (cause) {
       setError(`Could not record payment: ${String(cause)}`);
     } finally {
@@ -244,15 +293,20 @@ export function ProjectPartnerManageDialog({
     }
   }
 
-  function changeStep(next: number) {
-    setStep(next);
-    setError("");
-    setMessage("");
-    setImages([]);
-    setAmount("");
-    setReference("");
-    setDetails({ ...emptyPaymentDetails });
-  }
+  const actionTitle = {
+    edit: "Edit partner details",
+    land: "Receive land payment",
+    construction: "Receive construction payment",
+    capital: "Return capital",
+    profit: "Pay profit",
+  }[initialAction];
+  const actionDescription = {
+    edit: "Contact details, ownership and agreed land investment.",
+    land: "Record land investment received from this partner.",
+    construction: "Record this partner’s payment against a construction request.",
+    capital: "Pay back the partner’s investment. This reduces capital held.",
+    profit: "Record profit paid to this partner. Their investment stays unchanged.",
+  }[initialAction];
 
   return (
     <Dialog
@@ -265,28 +319,9 @@ export function ProjectPartnerManageDialog({
         <PaymentModalHeader
           icon={HandCoins}
           eyebrow="PROJECT PARTNER"
-          title={partner.name}
-          description="Edit the agreement, record money received, or save profit paid out."
+          title={actionTitle}
+          description={`${partner.name} · ${actionDescription}`}
         />
-        <nav className="partner-manage-steps" aria-label="Partner actions">
-          {[
-            { label: "Edit details", icon: UserRound },
-            { label: "Record payment", icon: Wallet },
-            { label: "Profit given", icon: Building2 },
-          ].map(({ label, icon: Icon }, index) => (
-            <button
-              key={label}
-              type="button"
-              className={step === index ? "is-active" : ""}
-              onClick={() => changeStep(index)}
-              disabled={pending}
-            >
-              <span>{index + 1}</span>
-              <Icon size={18} />
-              <strong>{label}</strong>
-            </button>
-          ))}
-        </nav>
         {step === 0 ? (
           <div className="partner-manage-body">
             <div className="partner-manage-intro">
@@ -322,7 +357,7 @@ export function ProjectPartnerManageDialog({
                 />
               </label>
               <label className="partner-manage-field">
-                Promised amount (Rs)
+                Agreed land amount (Rs)
                 <Input
                   inputMode="numeric"
                   value={agreed}
@@ -350,30 +385,73 @@ export function ProjectPartnerManageDialog({
               <h3>
                 {step === 1
                   ? "Record a payment from this partner"
-                  : "Record profit given to this partner"}
+                  : "Record money paid to this partner"}
               </h3>
               <p>
                 {step === 1
-                  ? "This increases the amount the partner has contributed to the project."
-                  : "This is money paid out to the partner. It is shown in Bank and stays separate from project costs."}
+                  ? "Credit: money received from this partner as investment."
+                  : "Debit: money paid back to this partner."}
               </p>
             </div>
             <div className="partner-manage-summary">
               <span>
-                {step === 1 ? "Given so far" : "Profit paid so far"}
-                <strong>{formatPKR(step === 1 ? partner.contributed : profitPaid)}</strong>
+                {step === 1
+                  ? "Investment received · Credit"
+                  : payoutPurpose === "profit"
+                    ? "Profit paid · Debit"
+                    : "Capital returned · Debit"}
+                <strong>{formatPKR(step === 1 ? partner.contributed : selectedPayoutTotal)}</strong>
               </span>
-              {step === 1 && (
+              {initialAction === "land" && (
                 <span>
-                  Still promised
+                  Land still to receive
                   <strong>
                     {partner.agreed_contribution === null
                       ? "Not set"
-                      : formatPKR(Math.max(0, partner.agreed_contribution - partner.contributed))}
+                      : formatPKR(
+                          Math.max(
+                            0,
+                            partner.agreed_contribution -
+                              (partner.land_contributed ?? partner.contributed),
+                          ),
+                        )}
                   </strong>
                 </span>
               )}
             </div>
+            {initialAction === "construction" && (
+              <label className="partner-manage-field">
+                Construction request
+                <select
+                  value={fundingRoundId}
+                  onChange={(event) => setFundingRoundId(event.target.value)}
+                  disabled={pending}
+                  className="rounded-md border bg-background p-3"
+                >
+                  <option value="choose-construction" disabled>
+                    Choose a construction request
+                  </option>
+                  {fundingRounds
+                    .filter((r) =>
+                      (JSON.parse(r.allocations) as FundingAllocation[]).some(
+                        (p) => p.partner_id === partner.partner_id && p.amount > 0,
+                      ),
+                    )
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        Construction: {r.title}
+                      </option>
+                    ))}
+                </select>
+                <small>
+                  {fundingRoundId === "choose-construction"
+                    ? "Select a request above. If none are listed, create one using Request construction money in the Partners tab."
+                    : fundingRoundId
+                      ? `Your share for this request: ${formatPKR(roundRequired)}. Still to pay: ${formatPKR(Math.max(0, roundRequired - roundPaid))}.`
+                      : "The agreed amount covers land purchase only."}
+                </small>
+              </label>
+            )}
             <div className="partner-manage-grid">
               <label className="partner-manage-field">
                 Amount (Rs) *
@@ -424,36 +502,6 @@ export function ProjectPartnerManageDialog({
               disabled={pending}
               onError={setError}
             />
-            <details className="partner-manage-history">
-              <summary>
-                {step === 1
-                  ? `Contribution history (${partnerContributions.length})`
-                  : `Profit payout history (${partnerPayouts.length})`}
-              </summary>
-              {(step === 1 ? partnerContributions : partnerPayouts).length ? (
-                <PaginatedRecords
-                  label="partner payments"
-                  items={step === 1 ? partnerContributions : partnerPayouts}
-                >
-                  {(item) => (
-                    <div className="partner-manage-history-row" key={item.id}>
-                      <span>
-                        <strong>{formatDate(item.date)}</strong>
-                        <small>{item.method || "Method not recorded"}</small>
-                        <SavedImageGallery
-                          documents={savedImages.filter(
-                            (document) => document.owner_id === item.id,
-                          )}
-                        />
-                      </span>
-                      <b>{formatPKR(item.amount)}</b>
-                    </div>
-                  )}
-                </PaginatedRecords>
-              ) : (
-                <p>No payments recorded yet.</p>
-              )}
-            </details>
           </div>
         )}
         {error && (
@@ -466,38 +514,24 @@ export function ProjectPartnerManageDialog({
             {message}
           </p>
         )}
-        <PartnerDocuments projectId={projectId} partner={partner} />
+        {initialAction === "edit" && <PartnerDocuments projectId={projectId} partner={partner} />}
         <DialogFooter className="partner-manage-footer">
           <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
             Close
           </Button>
-          {step > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={() => changeStep(step - 1)}
-            >
-              Back
-            </Button>
-          )}
           {step === 0 ? (
             <Button type="button" disabled={pending} onClick={() => void saveDetails()}>
               {pending ? "Saving…" : "Save details"}
             </Button>
           ) : (
             <Button type="button" disabled={pending} onClick={() => void savePayment()}>
-              {pending ? "Saving…" : step === 1 ? "Save payment" : "Save profit payout"}
-            </Button>
-          )}
-          {step < 2 && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={() => changeStep(step + 1)}
-            >
-              Next
+              {pending
+                ? "Saving…"
+                : step === 1
+                  ? "Save payment"
+                  : initialAction === "capital"
+                    ? "Save capital return"
+                    : "Save profit payment"}
             </Button>
           )}
         </DialogFooter>

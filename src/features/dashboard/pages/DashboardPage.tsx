@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { RingChart } from "@/components/charts/RingChart";
 import { chartColors } from "@/components/charts/TimeSeriesChart";
 import { DashboardMoney } from "./DashboardMoney";
@@ -243,7 +244,7 @@ export function DashboardPage() {
   );
   return (
     <div className="builder-dashboard">
-      <header className="dash-heading">
+      <header className="dash-heading illustrated-heading"><WorkspaceIllustration scene="buildings" />
         <div>
           <span className="dash-eyebrow">
             <HardHat size={16} aria-hidden="true" /> BALOCH BUILDERS & DEVELOPERS

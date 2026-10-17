@@ -91,7 +91,7 @@ export function LandPrintDialog({ land, onClose }: { land: Land; onClose: () => 
           renderToStaticMarkup(
             <html>
               <head>
-                <title>{land.projectName} — Land documents</title>
+                <title>{`${land.projectName} — Land documents`}</title>
                 <style>{`@page{size:A4;margin:16mm}body{font:11pt/1.5 Arial,sans-serif;color:#172d3c;margin:0}header{border-bottom:2px solid #b89046;padding-bottom:12px}h1{font-size:23pt}h2{font-size:16pt}p,td{overflow-wrap:anywhere;white-space:pre-wrap}table{border-collapse:collapse;width:100%}td{padding:9px;border:1px solid #ccc}td:first-child{width:30%;font-weight:bold}tr{break-inside:avoid}.document{break-before:page}.document img{display:block;max-width:100%;max-height:220mm;margin:15px auto;object-fit:contain}@media screen{body{max-width:180mm;margin:auto;padding:25px}.document{margin-top:30px;border-top:1px dashed #bbb}}`}</style>
               </head>
               <body>

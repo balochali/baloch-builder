@@ -36,6 +36,8 @@ export default defineConfig(() => ({
 
   // Vitest configuration
   test: {
+    // Concurrent jsdom workers are memory-heavy on the Windows desktop target.
+    maxWorkers: 2,
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

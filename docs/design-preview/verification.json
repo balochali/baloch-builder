@@ -1,0 +1,265 @@
+{
+  "report": [
+    {
+      "name": "dashboard",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "projects",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "project-details",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "land",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "documents",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "contacts",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "partners",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "personal-expense",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "bank",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "credit-udhaar",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "personal-deposit",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "settings",
+      "device": "desktop",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "dashboard",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "projects",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "project-details",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "land",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "documents",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "contacts",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "partners",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "personal-expense",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "bank",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "credit-udhaar",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "personal-deposit",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "settings",
+      "device": "mobile",
+      "overflow": false,
+      "alerts": [],
+      "illustrations": 1
+    },
+    {
+      "name": "dashboard",
+      "tab": "Projects\nStages & partner funding",
+      "device": "desktop"
+    },
+    {
+      "name": "dashboard",
+      "tab": "Money\nAccounts & payment activity",
+      "device": "desktop"
+    },
+    {
+      "name": "dashboard",
+      "tab": "Udhaar\nRepayments & money to collect",
+      "device": "desktop"
+    },
+    {
+      "name": "project-details",
+      "tab": "Building",
+      "device": "desktop"
+    },
+    {
+      "name": "project-details",
+      "tab": "Partners",
+      "device": "desktop"
+    },
+    {
+      "name": "project-details",
+      "tab": "Estimate",
+      "device": "desktop"
+    },
+    {
+      "name": "project-details",
+      "tab": "Costs",
+      "device": "desktop"
+    },
+    {
+      "name": "project-details",
+      "tab": "Sales",
+      "device": "desktop"
+    },
+    {
+      "name": "project-details",
+      "tab": "Profit & Loss",
+      "device": "desktop"
+    },
+    {
+      "name": "partners",
+      "tab": "Partner profiles",
+      "device": "desktop"
+    },
+    {
+      "name": "partners",
+      "tab": "Contributions",
+      "device": "desktop"
+    },
+    {
+      "name": "personal-expense",
+      "tab": "Purchases\n3",
+      "device": "desktop"
+    },
+    {
+      "name": "personal-expense",
+      "tab": "Payments",
+      "device": "desktop"
+    },
+    {
+      "name": "bank",
+      "tab": "Accounts",
+      "device": "desktop"
+    },
+    {
+      "name": "bank",
+      "tab": "Transactions\n18",
+      "device": "desktop"
+    },
+    {
+      "name": "credit-udhaar",
+      "tab": "People & balances\n3",
+      "device": "desktop"
+    }
+  ],
+  "errors": [],
+  "commands": [],
+  "checkedWidths": [
+    320,
+    390,
+    768,
+    1024,
+    1440
+  ],
+  "tabWidths": [
+    390,
+    1440
+  ]
+}

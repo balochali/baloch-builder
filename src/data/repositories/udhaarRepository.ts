@@ -86,7 +86,7 @@ export async function listAllUdhaarPayments(): Promise<UdhaarPayment[]> {
     WHERE p.archived = 0 AND u.archived = 0 ORDER BY p.paid_date ASC, p.created_at ASC`);
 }
 
-export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
+export async function createUdhaar(input: CreateUdhaarInput): Promise<string> {
   const value = CreateUdhaarSchema.parse(input);
   let borrowerName = value.borrower_name;
   let borrowerPhone: string | null = value.phone || null;
@@ -101,12 +101,13 @@ export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
     borrowerPhone = contacts[0].phone;
   }
   const timestamp = now();
+  const id = newId();
   await execute(
     `INSERT INTO udhaars
     (id, borrower_name, phone, amount, given_date, due_date, notes, created_at, updated_at, contact_id, account_key, custom)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      newId(),
+      id,
       borrowerName,
       borrowerPhone,
       value.amount,
@@ -122,6 +123,7 @@ export async function createUdhaar(input: CreateUdhaarInput): Promise<void> {
       }),
     ],
   );
+  return id;
 }
 
 export async function addUdhaarPayment(input: AddUdhaarPaymentInput): Promise<void> {

@@ -1,0 +1,20 @@
+import { render, screen } from "@testing-library/react";
+import { expect, it, vi } from "vitest";
+import { PartnerPaymentHistoryDialog } from "@/features/projects/components/PartnerPaymentHistoryDialog";
+import { listPartnerContributions, type ProjectPartnerRow } from "@/data/repositories/projectPartnersRepository";
+import { listPartnerPayouts, type PartnerPayout } from "@/data/repositories/projectPayoutsRepository";
+import type { Transaction } from "@/domain/types";
+vi.mock("@/data/repositories/projectPartnersRepository",()=>({listPartnerContributions:vi.fn()}));
+vi.mock("@/data/repositories/projectPayoutsRepository",()=>({listPartnerPayouts:vi.fn()}));
+vi.mock("@/data/repositories/documentsRepository",()=>({listPartnerPaymentDocuments:vi.fn().mockResolvedValue([])}));
+it("shows this partner's credits and debits without other partners' payments",async()=>{
+ const base={date:"2026-10-16",created_at:"2026-10-16",method:"cash",custom:"{}",partner_id:"a"};
+ vi.mocked(listPartnerContributions).mockResolvedValue([{...base,id:"in",amount:1000,direction:"in",description:"Ali land payment"},{...base,id:"other",amount:9999,direction:"in",partner_id:"b",description:"Other partner payment"}] as Transaction[]);
+ vi.mocked(listPartnerPayouts).mockResolvedValue([{...base,id:"capital",amount:200,direction:"out",payout_purpose:"capital_return"},{...base,id:"profit",amount:100,direction:"out",payout_purpose:"profit"}] as PartnerPayout[]);
+ render(<PartnerPaymentHistoryDialog projectId="p" partner={{partner_id:"a",name:"Ali"} as ProjectPartnerRow} onClose={vi.fn()} />);
+ expect(await screen.findByText("Ali land payment")).toBeInTheDocument();
+ expect(screen.getByText("Capital returned")).toBeInTheDocument();
+ expect(screen.getByText("Profit paid")).toBeInTheDocument();
+ expect(screen.queryByText("Other partner payment")).not.toBeInTheDocument();
+ expect(screen.getByText("Paid back · Debit")).toHaveTextContent("Rs 300");
+});

@@ -1,3 +1,4 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { ContributionReceipts } from "@/features/partners/components/ContributionReceipts";
 import { PartnerProfileContent } from "@/features/partners/components/PartnerProfileContent";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -19,6 +20,8 @@ Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { partnersPageSheets } from "@/features/sheet/moduleSheets";
 import { EmptyState } from "@/components/EmptyState";
 import { TimeSeriesChart, chartColors } from "@/components/charts/TimeSeriesChart";
 import { useRecordFilters } from "@/components/RecordFilters";
@@ -89,7 +92,7 @@ export function PartnersPage() {
         value: (partner) =>
           partner.agreed_contribution === null
             ? "No target set"
-            : partner.contributed >= partner.agreed_contribution
+            : (partner.land_contributed ?? partner.contributed) >= partner.agreed_contribution
               ? "Fully funded"
               : "Balance remaining",
       },
@@ -139,7 +142,7 @@ export function PartnersPage() {
   );
   const totalRemaining = partners.reduce(
     (total, partner) =>
-      total + Math.max(0, (partner.agreed_contribution ?? 0) - partner.contributed),
+      total + Math.max(0, (partner.agreed_contribution ?? 0) - (partner.land_contributed ?? partner.contributed)),
     0,
   );
   const projectTotals = [
@@ -151,7 +154,7 @@ export function PartnersPage() {
         count: 0,
       };
       row.agreed += partner.agreed_contribution ?? 0;
-      row.received += partner.contributed;
+      row.received += partner.land_contributed ?? partner.contributed;
       row.count += 1;
       map.set(partner.project_id, row);
       return map;
@@ -169,13 +172,16 @@ export function PartnersPage() {
 
   return (
     <main className="partners-page">
-      <header className="partners-heading">
+      <header className="partners-heading illustrated-heading"><WorkspaceIllustration scene="partners" />
         <div>
           <p className="partners-eyebrow">
             <Users size={16} /> PEOPLE BEHIND YOUR PROJECTS
           </p>
           <h1>Partners</h1>
           <p>See ownership, promised funding and every contribution in one place.</p>
+        </div>
+        <div className="sheet-header-actions">
+          <SheetViewButton title="Partners sheet" storageId="partners" createSheets={partnersPageSheets} />
         </div>
       </header>
       {loading && <p className="py-8 text-sm text-muted-foreground">Loading partners…</p>}
@@ -403,13 +409,13 @@ export function PartnersPage() {
                     const remaining =
                       partner.agreed_contribution === null
                         ? null
-                        : Math.max(0, partner.agreed_contribution - partner.contributed);
+                        : Math.max(0, partner.agreed_contribution - (partner.land_contributed ?? partner.contributed));
                     const status =
                       partner.agreed_contribution === null
                         ? "no-target"
                         : remaining === 0
                           ? "settled"
-                          : partner.contributed > 0
+                          : (partner.land_contributed ?? partner.contributed) > 0
                             ? "partial"
                             : "unpaid";
                     return (

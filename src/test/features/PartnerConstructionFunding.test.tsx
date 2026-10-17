@@ -1,0 +1,20 @@
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { expect, it, vi } from "vitest";
+import { PartnerConstructionFunding } from "@/features/projects/components/PartnerConstructionFunding";
+import { addFundingRound, listFundingRounds } from "@/data/repositories/partnerFundingRepository";
+import type { ProjectPartnerRow } from "@/data/repositories/projectPartnersRepository";
+vi.mock("@/data/repositories/partnerFundingRepository", async original => ({...await original<typeof import("@/data/repositories/partnerFundingRepository")>(),addFundingRound:vi.fn(),listFundingRounds:vi.fn()}));
+it("previews each partner share and saves a construction request",async()=>{
+ vi.mocked(listFundingRounds).mockResolvedValue([]);
+ vi.mocked(addFundingRound).mockResolvedValue(undefined);
+ const saved=vi.fn();
+ render(<PartnerConstructionFunding projectId="p" revision={0} onSaved={saved} partners={[{partner_id:"a",name:"Ali",share_bp:4000},{partner_id:"b",name:"Bilal",share_bp:6000}] as ProjectPartnerRow[]} />);
+ fireEvent.click(screen.getByRole("button",{name:"Request construction money"}));
+ fireEvent.change(screen.getByLabelText("Request name"),{target:{value:"Roof"}});
+ fireEvent.change(screen.getByLabelText("Total needed from all partners (Rs)"),{target:{value:"1000000"}});
+ expect(screen.getByText(/Ali/).parentElement).toHaveTextContent("Rs 400,000");
+ expect(screen.getByText(/Bilal/).parentElement).toHaveTextContent("Rs 600,000");
+ fireEvent.click(screen.getByRole("button",{name:"Save construction request"}));
+ await waitFor(()=>expect(addFundingRound).toHaveBeenCalledWith("p","Roof",1000000));
+ await waitFor(()=>expect(saved).toHaveBeenCalledOnce());
+});

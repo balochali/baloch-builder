@@ -1,4 +1,7 @@
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import { LandPrintDialog } from "./LandPrintDialog";
+import { SheetViewButton } from "@/features/sheet/SheetViewButton";
+import { landPageSheets } from "@/features/sheet/moduleSheets";
 import { LandPhotoSlider } from "./LandPhotoSlider";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -64,7 +67,7 @@ export function LandPage() {
   const totalPrice = records.reduce((sum, land) => sum + (land.price ?? 0), 0);
   const pricedCount = records.filter((land) => land.price !== null).length;
   return <main className="land-page">
-    <header className="land-hero"><div><span className="land-eyebrow"><MapPin size={17}/> YOUR PROJECT PROPERTY</span><h1>Land & acquisitions</h1><p>Your land, purchase details and project connections in one place.</p></div><Link to="/projects" className="land-project-button">Open projects <ArrowUpRight size={18}/></Link></header>
+    <header className="land-hero illustrated-heading"><WorkspaceIllustration scene="land" /><div><span className="land-eyebrow">YOUR PROJECT PROPERTY</span><h1>Land & acquisitions</h1><p>Your land, purchase details and project connections in one place.</p></div><div className="sheet-header-actions"><SheetViewButton title="Land sheet" storageId="land" createSheets={landPageSheets} /><Link to="/projects" className="land-project-button">Open projects <ArrowUpRight size={18}/></Link></div></header>
     {loading ? <p role="status" className="land-state">Loading land records…</p> : <>
       {error && <p role="alert" className="land-error">{error}</p>}
       <div className="land-metrics">
@@ -76,7 +79,7 @@ export function LandPage() {
       <details className="land-filters"><summary><SlidersHorizontal size={19}/><strong>Search & filter land</strong><span>{active ? "Filters applied" : "All properties"}</span><ChevronDown size={18}/></summary>{controls}</details>{pagination}
       {!error && records.length === 0 ? <EmptyState icon={<MapPin size={40}/>} title="No acquired land recorded yet" description="Record a land acquisition in a project to see its details here."/> : visible.length === 0 ? <p className="land-state">No land records match these filters.</p> : <div className="land-grid">{pageItems.map((land) => <article className="land-card" key={land.id} onClick={(event) => { if (!(event.target as HTMLElement).closest("button, a, input, summary, details")) setSelected(land); }}>
         <LandPhotoSlider landId={land.id} title={land.title} />
-        <div className="land-card-heading"><span><MapPin size={25}/></span><div><small>{land.projectName}</small><h3><button type="button" className="land-card-open" title="Open land details and documents" onClick={() => setSelected(land)}>{land.title}</button></h3></div></div>
+        <div className="land-card-heading"><div><small>{land.projectName}</small><h3><button type="button" className="land-card-open" title="Open land details and documents" onClick={() => setSelected(land)}>{land.title}</button></h3></div></div>
         <p className="land-location"><MapPin size={15}/>{land.location || "Location not recorded"}</p>
         <div className="land-price"><small>Purchase price</small><strong>{land.price === null ? "Not recorded" : formatPKR(land.price)}</strong></div>
         <dl><div><dt><CalendarDays size={16}/> Acquired</dt><dd>{formatDate(land.purchase_date)}</dd></div><div><dt><Ruler size={16}/> Land area</dt><dd>{land.area_value === null ? "Not recorded" : land.area_value.toLocaleString() + " " + land.area_unit}</dd></div><div><dt><UserRound size={16}/> Purchased from</dt><dd>{land.seller_name || "Not recorded"}</dd></div></dl>

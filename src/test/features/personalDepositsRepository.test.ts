@@ -136,3 +136,16 @@ it("stores receipt images against the correct deposit and return", async () => {
  expect(await listBankPaymentReceipts()).toHaveLength(2);
  await expect(saveAmanatReceipt(id, "personal_deposit", new File(["bad"], "bad.exe", {type: "application/octet-stream"}), input.deposit_date, "cash")).rejects.toThrow("JPEG");
 });
+
+it("keeps repeated deposits and their bank movements separate", async () => {
+  const firstId = await savePersonalDeposit(input);
+  const secondId = await savePersonalDeposit({ ...input, amount: 40000, deposit_date: "2026-10-15" });
+  expect(secondId).not.toBe(firstId);
+  const deposits = await listPersonalDeposits();
+  expect(deposits).toHaveLength(2);
+  expect(deposits.reduce((sum, row) => sum + row.amount, 0)).toBe(140000);
+  expect(deposits.find((row) => row.id === firstId)?.deposit_date).toBe("2026-10-01");
+  const bank = await listBankEntries();
+  expect(bank).toHaveLength(2);
+  expect(bank.reduce((sum, row) => sum + row.amount, 0)).toBe(140000);
+});

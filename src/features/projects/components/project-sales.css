@@ -93,3 +93,14 @@
 .dark .project-sales-card-icon.is-shop { background: #4a3519; color: #ffd18a; }
 @media (max-width: 760px) { .project-sales-hero { align-items: flex-start; flex-direction: column; } .project-sales-stats { grid-template-columns: 1fr; } .project-sales-stat { min-height: 120px; } .project-sales-toolbar { flex-direction: column; } .project-sales-search { width: 100%; } }
 @media (max-width: 560px) { .project-sale-dialog [data-slot="dialog-header"] { padding: 18px; } .project-sale-dialog-heading > span { width: 47px; height: 47px; } .project-sale-dialog-heading [data-slot="dialog-title"] { font-size: 18px; } .project-sale-steps { padding: 12px 14px 0; } .project-sale-steps > div { gap: 4px; font-size: 10px; } .project-sale-dialog-body { padding: 18px; } .project-sale-fields { grid-template-columns: 1fr; } .project-sale-fields label.is-wide { grid-column: auto; } .project-sale-kind button { flex-wrap: wrap; padding: 11px; } .project-sale-kind small { width: 100%; margin-left: 0; } }
+
+.buyer-payment-fields { display:grid; gap:18px; }
+.sale-pay-later { display:flex; align-items:center; gap:10px; padding:12px 0; font-size:14px; }
+.sale-pay-later input { width:auto; }
+.sale-payment-summary { border-top:1px solid var(--border); margin-top:16px; padding-top:16px; display:grid; gap:14px; }
+.sale-payment-summary > div:first-child { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.sale-payment-summary span { color:var(--muted-foreground); font-size:13px; }
+.sale-payment-summary strong { display:block; color:var(--foreground); margin-top:5px; font-size:17px; }
+.sale-payment-summary summary { cursor:pointer; font-size:13px; }
+.sale-payment-history-row { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--border); padding:10px 0; }
+.sale-payment-history-row strong { font-size:14px; }

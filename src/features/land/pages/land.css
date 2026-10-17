@@ -1,9 +1,8 @@
 .land-page { display: grid; gap: 24px; color: var(--foreground); }
-.land-hero { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 32px; border-radius: 24px; background: linear-gradient(115deg,#163b50,#17675e); color: white; }
-.land-eyebrow { display: flex; align-items: center; gap: 8px; color: #9ce8ce; letter-spacing: .12em; font-size: 12px; font-weight: 800; }
-.land-hero h1 { margin: 12px 0 8px; font-size: clamp(26px,3vw,36px); font-weight: 850; color: white; }
-.land-hero p { color: #d8eeec; font-size: 14px; }
+/* The page hero uses the shared illustrated-heading palette and layout. */
+.land-eyebrow { letter-spacing: .12em; font-size: 12px; font-weight: 800; }
 .land-project-button { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; padding: 13px 18px; border-radius: 12px; color: #13564f; background: white; font-weight: 750; }
+.land-hero .land-project-button { align-self: center; }
 .land-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
 .land-metrics section { --land-accent: #7c3aed; display: grid; gap: 10px; padding: 24px; border: 1px solid var(--border); border-top: 4px solid var(--land-accent); border-radius: 18px; background: color-mix(in srgb,var(--land-accent) 4%,var(--card)); }
 .land-metrics section:nth-child(2) { --land-accent: #059669; }
@@ -26,7 +25,6 @@
 .land-card:nth-child(3n+2) { --land-accent: #059669; }
 .land-card:nth-child(3n+3) { --land-accent: #d97706; }
 .land-card-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.land-card-heading > span { display: grid; place-items: center; flex-shrink: 0; width: 50px; height: 50px; border-radius: 14px; background: var(--land-accent); color: white; }
 .land-card-heading small { color: var(--muted-foreground); font-size: 12px; }
 .land-card-heading h3 { font-size: 20px; font-weight: 800; overflow-wrap: anywhere; }
 .land-location { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted-foreground); }
@@ -48,7 +46,7 @@
 .land-state { padding: 32px; border: 1px dashed var(--border); border-radius: 16px; text-align: center; color: var(--muted-foreground); }
 .land-error { padding: 16px; border-radius: 12px; color: var(--destructive); background: color-mix(in srgb,var(--destructive) 8%,var(--card)); }
 .land-page a:focus-visible,.land-page summary:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 3px; }
-@media(max-width:700px) { .land-hero { align-items: flex-start; flex-direction: column; padding: 24px; } .land-metrics { grid-template-columns: 1fr; } .land-section-heading { align-items: flex-start; } .land-filters > summary { padding: 16px; } .land-filters > summary > span { display: none; } .land-card { padding: 20px; } }
+@media(max-width:700px) { .land-metrics { grid-template-columns: 1fr; } .land-section-heading { align-items: flex-start; } .land-filters > summary { padding: 16px; } .land-filters > summary > span { display: none; } .land-card { padding: 20px; } }
 .land-details-dialog[data-slot="dialog-content"] { max-width: 850px; width: calc(100% - 32px); max-height: 90dvh; overflow-y: auto; padding: 28px; border-radius: 20px; }
 .land-detail-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .land-detail-tabs button { flex: 1; padding: 14px; border: 1px solid var(--border); border-radius: 12px; font-weight: 700; color: var(--foreground); cursor: pointer; }
@@ -65,8 +63,6 @@
 @media (max-width:1200px) { .land-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width:640px) { .land-grid { grid-template-columns: minmax(0,1fr); } }
 
-.land-page .land-hero { position:relative; isolation:isolate; overflow:hidden; min-height:210px; background:#163343; }
-.land-page .land-hero::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,#102d3af5 0%,#102d3ad9 45%,#102d3a55),url("../../../assets/auth/residential-towers.png") center 55% / cover; pointer-events:none; }
 .land-photo-slider { position:relative; aspect-ratio:16/10; overflow:hidden; border-radius:13px; background:#142e3c; border:1px solid var(--border); }
 .land-property-photo { width:100%; height:100%; object-fit:contain; display:block; }
 .land-photo-placeholder { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; height:100%; padding:25px 20px 40px; color:#d7e8ef; text-align:center; font-size:12px; background:linear-gradient(135deg,#163c48,#122538); }
@@ -84,7 +80,6 @@
 /* Compact portfolio and side-by-side detail preview. */
 .land-page .land-card { padding:16px; gap:12px; }
 .land-card .land-photo-slider { aspect-ratio: 2.3; }
-.land-card .land-card-heading > span { width:38px; height:38px; border-radius:10px; }
 .land-card .land-card-heading h3 { font-size:18px; }
 .land-card .land-price { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px; }
 .land-card .land-price strong { font-size:19px; }
@@ -147,10 +142,9 @@
 .land-card-open:focus-visible { outline: 3px solid #8b5cf6; outline-offset: 4px; border-radius: 4px; }
 .land-page .land-card:hover { border-color: var(--land-accent); }
 
-.land-details-dialog .land-modal-hero { position:relative; isolation:isolate; overflow:hidden; padding:20px 24px; border-radius:15px; background:#142f3c; color:#fff; gap:5px; }
-.land-modal-hero::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,#122b3af2,#122b3a80),url("../../../assets/auth/residential-towers.png") center 48% / cover; }
-.land-details-dialog .land-modal-hero small { color:#cee8ee; }
-.land-details-dialog .land-modal-hero [data-slot="dialog-title"] { color:#fff; font-size:24px; }
+.land-details-dialog .land-modal-hero { overflow:hidden; padding:20px 24px; border-radius:15px; border:1px solid var(--border); background:linear-gradient(120deg,color-mix(in srgb,#f59e0b 10%,var(--card)),var(--card)); color:var(--foreground); gap:5px; }
+.land-details-dialog .land-modal-hero small { color:var(--muted-foreground); }
+.land-details-dialog .land-modal-hero [data-slot="dialog-title"] { color:var(--foreground); font-size:24px; }
 .land-details-dialog .land-detail-tabs { display:grid; grid-template-columns:1fr 1fr; }
 .land-details-dialog .land-detail-tabs button:last-child[aria-pressed="true"] { background:#0f766e; }
 .land-details-dialog .land-detail-overview .land-photo-slider { aspect-ratio:1.8; }
@@ -202,9 +196,9 @@
   padding: 10px;
   width: 22px;
   height: 22px;
-  color: #f2d398;
-  background: #ffffff12;
-  border: 1px solid #ffffff28;
+  color: var(--accent-foreground);
+  background: var(--accent);
+  border: 1px solid var(--border);
   border-radius: 12px;
 }
 .land-details-dialog .land-modal-hero small { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 650; }

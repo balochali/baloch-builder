@@ -1,8 +1,14 @@
+import { PartnerPaymentHistoryDialog } from "@/features/projects/components/PartnerPaymentHistoryDialog";
+import { PartnerConstructionFunding } from "@/features/projects/components/PartnerConstructionFunding";
+import { listProjectSales, type ProjectSale } from "@/data/repositories/projectSalesRepository";
+import { ProjectContractorsPanel } from "@/features/projects/components/ProjectContractorsPanel";
 import { LandSaleForm } from "../components/LandSaleForm";
+import { ProjectWorkbook } from "@/features/sheet/ProjectWorkbook";
 import { AttachmentUpload } from "@/components/AttachmentUpload";
 import { ProjectPrintButton } from "@/features/projects/components/ProjectPrintButton";
 import { PaymentMethodSelect, PaymentModalHeader } from "@/components/PaymentChoices";
 import { BankAccountSelect } from "@/components/BankAccountSelect";
+import { WorkspaceIllustration } from "@/components/WorkspaceIllustration";
 import {
   listProjectCostDocuments,
   saveActualCostBill,
@@ -23,9 +29,10 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
-  ArrowRight,
+  ArrowDownLeft,
+  ArrowUpRight,
+  History,
   Building2,
-  CircleCheck,
   ChevronDown,
   Landmark,
   Layers,
@@ -43,9 +50,9 @@ import {
   Store,
   MapPin,
   SlidersHorizontal,
-  Clock3,
   HandCoins,
   FolderOpen,
+  Table2,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -106,7 +113,7 @@ import { ProjectDashboard } from "@/features/projects/components/ProjectDashboar
 import { ConstructionCostInsights } from "@/features/projects/components/ConstructionCostInsights";
 import { ProjectStatusProgress } from "@/features/projects/components/ProjectStatusProgress";
 import { ProjectPartnerDialog } from "@/features/projects/components/ProjectPartnerDialog";
-import { ProjectPartnerManageDialog } from "@/features/projects/components/ProjectPartnerManageDialog";
+import { PartnerActionDialog, type PartnerAccountAction } from "@/features/projects/components/PartnerActionDialog";
 import { ProjectSalesPanel } from "@/features/projects/components/ProjectSalesPanel";
 import { ProjectProfitLossPanel } from "@/features/projects/components/ProjectProfitLossPanel";
 import { PaymentDetailsView } from "@/features/partners/components/PaymentDetailsView";
@@ -127,15 +134,17 @@ import {
   updateProjectPartner,
 } from "@/data/repositories/projectPartnersRepository";
 
-type Tab = "dashboard" | "building" | "partners" | "estimate" | "costs" | "sales" | "profit";
+type Tab = "thekedar" | "dashboard" | "building" | "partners" | "estimate" | "costs" | "sales" | "profit" | "sheet";
 type BuildingTab = "overview" | "floors" | "areas";
 type EntryMode = "estimate" | "actual" | "construction";
 const projectTabs: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "sheet", label: "Sheet view", icon: Table2 },
   { id: "building", label: "Building", icon: Building2 },
   { id: "partners", label: "Partners", icon: Users },
   { id: "estimate", label: "Estimate", icon: Calculator },
   { id: "costs", label: "Costs", icon: Wallet },
+  { id: "thekedar", label: "Thekedar", icon: HardHat },
   { id: "sales", label: "Sales", icon: Store },
   { id: "profit", label: "Profit & Loss", icon: PieChart },
 ];
@@ -186,6 +195,8 @@ function landPurchaseCost(projectId: string, land: ProjectLand | null): Transact
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
+  const [sheetRevision, setSheetRevision] = useState(0);
+  const [sheetBusy, setSheetBusy] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
   const [buildingDetails, setBuildingDetails] = useState<ProjectBuildingDetails | null>(null);
   const [buildingDialogOpen, setBuildingDialogOpen] = useState(false);
@@ -215,6 +226,7 @@ export function ProjectDetailPage() {
   const [contributions, setContributions] = useState<Transaction[]>([]);
   const [partnerDialog, setPartnerDialog] = useState<ProjectPartnerRow | "new" | null>(null);
   const [editingPartner, setEditingPartner] = useState<ProjectPartnerRow | null>(null);
+  const [partnerAccountAction, setPartnerAccountAction] = useState<PartnerAccountAction | "history">("edit");
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [actualCosts, setActualCosts] = useState<Transaction[]>([]);
@@ -224,6 +236,19 @@ export function ProjectDetailPage() {
   const [requestedTab, setTab] = useState<Tab>("dashboard");
   const isLandSold = project?.status === "land sold";
   const tab = isLandSold && requestedTab === "building" ? "dashboard" : requestedTab;
+  const [dashboardSales, setDashboardSales] = useState<ProjectSale[] | null>(null);
+  const [salesError, setSalesError] = useState(false);
+  useEffect(() => {
+    if (!projectId) return;
+    let active = true;
+    setDashboardSales(null);
+    setSalesError(false);
+    listProjectSales(projectId).then(rows => {
+      if (active) setDashboardSales(rows);
+    }).catch(() => { if (active) setSalesError(true); });
+    return () => { active = false; };
+  }, [projectId, tab, sheetRevision]);
+
   const [buildingTab, setBuildingTab] = useState<BuildingTab>("overview");
   const [dialog, setDialog] = useState<EntryMode | null>(null);
   const [estimateKind, setEstimateKind] = useState<"cost" | "revenue">("cost");
@@ -281,7 +306,7 @@ export function ProjectDetailPage() {
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [projectId, sheetRevision]);
 
   async function saveEstimate(value: EstimateInput) {
     if (editingEstimate) {
@@ -656,18 +681,15 @@ export function ProjectDetailPage() {
                   Back to Projects
                 </Link>
                 <div className="project-detail-title">
-                  <span>
-                    <Building2 size={30} />
-                  </span>
+                  <WorkspaceIllustration scene="buildings" />
                   <div>
-                    <small>PROJECT WORKSPACE</small>
                     <h1>{project.name}</h1>
+                    <p className="project-detail-location">
+                      <MapPin size={16} aria-hidden="true" />
+                      {project.location || "No address"}
+                    </p>
                   </div>
                 </div>
-                <p className="project-detail-location">
-                  <MapPin size={16} />
-                  {project.location || "No address"}
-                </p>
               </div>
               <div className="project-heading-actions">
                 <ProjectPrintButton
@@ -735,6 +757,7 @@ export function ProjectDetailPage() {
                 aria-selected={tab === id}
                 aria-controls={`project-panel-${id}`}
                 tabIndex={tab === id ? 0 : -1}
+                disabled={sheetBusy}
                 onClick={() => setTab(id)}
                 onKeyDown={(event) => {
                   const next =
@@ -760,6 +783,11 @@ export function ProjectDetailPage() {
             ))}
           </div>
 
+          {tab === "sheet" && projectId && (
+            <div id="project-panel-sheet" role="tabpanel" aria-labelledby="project-tab-sheet">
+              <ProjectWorkbook key={projectId} projectId={projectId} onBusy={setSheetBusy} onSaved={() => setSheetRevision(v => v + 1)} />
+            </div>
+          )}
           {tab === "dashboard" && (
             <ProjectDashboard
               project={project}
@@ -769,6 +797,8 @@ export function ProjectDetailPage() {
               contributions={contributions}
               estimates={estimates}
               actualCosts={allActualCosts}
+              sales={dashboardSales}
+              salesError={salesError}
             />
           )}
 
@@ -901,6 +931,7 @@ export function ProjectDetailPage() {
               aria-labelledby="project-tab-partners"
               className="project-partners-panel project-detail-section mb-8 rounded-xl border bg-card p-5"
             >
+              <PartnerConstructionFunding projectId={project.id} partners={partners} revision={sheetRevision} onSaved={() => setSheetRevision(v => v + 1)} />
               <div className="project-partners-header">
                 <div className="project-partners-heading-copy">
                   <span>
@@ -969,31 +1000,12 @@ export function ProjectDetailPage() {
               ) : (
                 <div className="partner-cards">
                   {partnerFilter.pageItems.map((partner) => {
-                    const agreed = partner.agreed_contribution;
-                    const remaining =
-                      agreed === null ? null : Math.max(0, agreed - partner.contributed);
-                    const percent =
-                      agreed && agreed > 0
-                        ? Math.min(100, (partner.contributed / agreed) * 100)
-                        : agreed === 0
-                          ? 100
-                          : 0;
-                    const status =
-                      agreed === null
-                        ? "no-target"
-                        : remaining === 0
-                          ? "settled"
-                          : partner.contributed > 0
-                            ? "partial"
-                            : "unpaid";
+                    const capitalReturned = partner.capital_returned ?? 0;
+                    const profitPaid = partner.profit_paid ?? 0;
+                    const capitalHeld = partner.contributed - capitalReturned;
                     return (
-                      <article key={partner.partnership_id} className={`partner-card is-${status}`}>
-                        <button
-                          type="button"
-                          className="partner-profile-toggle"
-                          aria-label={`View ${partner.name}'s details`}
-                          onClick={() => setSelectedPartnerId(partner.partnership_id)}
-                        >
+                      <article key={partner.partnership_id} className="partner-card partner-ledger-card">
+                        <div className="partner-profile-toggle">
                           <span className="partner-profile-top">
                             <span className="partner-profile-avatar">
                               <UserRound size={24} />
@@ -1002,23 +1014,7 @@ export function ProjectDetailPage() {
                               <strong>{partner.name}</strong>
                               <span>{partner.phone || "Phone not added"}</span>
                             </span>
-                            <ArrowRight size={19} className="partner-chevron" />
-                          </span>
-                          <span className="project-partner-card-status">
-                            {status === "settled" ? (
-                              <CircleCheck size={15} />
-                            ) : status === "partial" ? (
-                              <HandCoins size={15} />
-                            ) : (
-                              <Clock3 size={15} />
-                            )}
-                            {status === "settled"
-                              ? "Contribution received"
-                              : status === "partial"
-                                ? "Partly received"
-                                : status === "no-target"
-                                  ? "No amount agreed"
-                                  : "Awaiting payment"}
+
                           </span>
                           <span
                             className="project-partner-card-share"
@@ -1031,53 +1027,17 @@ export function ProjectDetailPage() {
                             </span>
                             <strong>{(partner.share_bp / 100).toFixed(2)}%</strong>
                           </span>
-                          <span className="project-partner-card-balance">
-                            <small>
-                              {remaining === null ? "Received so far" : "Still to receive"}
-                            </small>
-                            <strong>
-                              {formatPKRInLakhCrore(remaining ?? partner.contributed)}
-                            </strong>
-                            {(remaining ?? partner.contributed) >= 100_000 && (
-                              <em>
-                                {formatPKR(remaining ?? partner.contributed, { lakhCrore: true })}{" "}
-                                exactly
-                              </em>
-                            )}
+                          <span className="partner-ledger-values">
+                            <span className="partner-ledger-line"><span>Agreed land investment<small>Partner’s agreed contribution</small></span><strong>{partner.agreed_contribution === null ? "Not set" : formatPKRInLakhCrore(partner.agreed_contribution)}</strong></span>
+                            <span className="partner-ledger-line is-credit"><span>Investment received<small>Credit · land + construction</small></span><strong>{formatPKRInLakhCrore(partner.contributed)}</strong></span>
+                            <span className="partner-ledger-line is-debit"><span>Capital returned<small>Debit · investment paid back</small></span><strong>{formatPKRInLakhCrore(capitalReturned)}</strong></span>
+                            <span className="partner-ledger-line is-profit"><span>Profit paid<small>Debit · paid separately</small></span><strong>{formatPKRInLakhCrore(profitPaid)}</strong></span>
+                            <span className="partner-ledger-line is-balance"><span>{capitalHeld < 0 ? "Capital returned above investment" : "Investment still held"}<small>Investment received − capital returned</small></span><strong>{formatPKRInLakhCrore(Math.abs(capitalHeld))}</strong></span>
                           </span>
-                          {agreed !== null && (
-                            <span className="project-partner-card-progress-caption">
-                              <span>Contribution progress</span>
-                              <strong>{Math.round(percent)}% received</strong>
-                            </span>
-                          )}
-                          {agreed !== null && (
-                            <span
-                              className="partner-funding-track"
-                              role="img"
-                              aria-label={`${partner.name}: ${formatPKR(partner.contributed)} received, ${formatPKR(remaining ?? 0)} remaining`}
-                            >
-                              <span style={{ width: `${percent}%` }} />
-                            </span>
-                          )}
-                          <span className="project-partner-card-money">
-                            <span>
-                              <small>Agreed</small>
-                              <strong>
-                                {partner.agreed_contribution === null
-                                  ? "Not set"
-                                  : formatPKR(partner.agreed_contribution)}
-                              </strong>
-                            </span>
-                            <span>
-                              <small>Received</small>
-                              <strong>{formatPKR(partner.contributed)}</strong>
-                            </span>
-                          </span>
-                          <span className="partner-card-more">
-                            View details <ArrowRight size={15} />
-                          </span>
-                        </button>
+                        </div>
+                        <div className="partner-account-actions" aria-label={`Actions for ${partner.name}`}>
+                          {([{id:"land", label:"Land payment", hint:"Receive investment", icon:ArrowDownLeft}, {id:"construction", label:"Construction", hint:"Receive payment", icon:HardHat}, {id:"capital", label:"Return capital", hint:"Pay back investment", icon:ArrowUpRight}, {id:"profit", label:"Pay profit", hint:"Pay partner earnings", icon:HandCoins}, {id:"edit", label:"Edit details", hint:"Profile & agreement", icon:Pencil}, {id:"history", label:"Payment history", hint:"All partner payments", icon:History}] as const).map(action => <Button key={action.id} aria-label={action.label} type="button" variant="outline" className={`partner-account-action is-${action.id}`} onClick={() => {setPartnerAccountAction(action.id); setSelectedPartnerId(partner.partnership_id);}}><action.icon size={18} aria-hidden="true"/><span><strong>{action.label}</strong><small>{action.hint}</small></span></Button>)}
+                        </div>
                       </article>
                     );
                   })}
@@ -1347,6 +1307,7 @@ export function ProjectDetailPage() {
               </details>
             </div>
           )}
+          {tab === "thekedar" && <ProjectContractorsPanel key={project.id} projectId={project.id} onChanged={() => setSheetRevision(v => v + 1)} />}
           {tab === "costs" && (
             <div
               id="project-panel-costs"
@@ -1602,7 +1563,7 @@ export function ProjectDetailPage() {
               costs={allActualCosts}
               partners={partners}
               contributions={contributions}
-              onManagePartner={(partner) => setSelectedPartnerId(partner.partnership_id)}
+              onManagePartner={(partner) => { setPartnerAccountAction("edit"); setSelectedPartnerId(partner.partnership_id); }}
               refreshKey={selectedPartnerId}
             />
           )}
@@ -2082,14 +2043,22 @@ export function ProjectDetailPage() {
               )}
             </DialogContent>
           </Dialog>
-          {selectedPartner && (
-            <ProjectPartnerManageDialog
-              key={selectedPartner.partner_id}
+          {selectedPartner && partnerAccountAction === "history" && <PartnerPaymentHistoryDialog projectId={project.id} partner={selectedPartner} onClose={() => {setSelectedPartnerId(null);setPartnerAccountAction("edit");}} />}
+          {selectedPartner && partnerAccountAction !== "history" && (
+            <PartnerActionDialog
+              key={`${selectedPartner.partner_id}-${partnerAccountAction}`}
+              initialAction={partnerAccountAction}
               projectId={project.id}
               partner={selectedPartner}
               contributions={contributions}
               remainingShareBp={10_000 - allocatedShareBp + selectedPartner.share_bp}
-              onClose={() => setSelectedPartnerId(null)}
+              onClose={() => {
+                setSelectedPartnerId(null);
+                setPartnerAccountAction("edit");
+                void refreshPartners(project.id).catch(() =>
+                  toast.error("Could not refresh partner totals. Reopen the project to retry."),
+                );
+              }}
               onUpdate={savePartnerUpdate}
               onContribution={saveContribution}
             />

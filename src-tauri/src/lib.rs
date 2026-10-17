@@ -78,17 +78,75 @@ pub fn run() {
             sql: include_str!("../migrations/012_business_reset.sql"),
             kind: MigrationKind::Up,
         },
-        Migration { version: 13, description: "013_expense_payment_details", sql: include_str!("../migrations/013_expense_payment_details.sql"), kind: MigrationKind::Up },
-        Migration { version: 14, description: "014_covered_area_unit", sql: include_str!("../migrations/014_covered_area_unit.sql"), kind: MigrationKind::Up },
-        Migration { version: 15, description: "015_project_sales", sql: include_str!("../migrations/015_project_sales.sql"), kind: MigrationKind::Up },
-        Migration { version: 16, description: "016_sales_business_reset", sql: include_str!("../migrations/016_sales_business_reset.sql"), kind: MigrationKind::Up },
-        Migration { version: 17, description: "017_personal_deposits", sql: include_str!("../migrations/017_personal_deposits.sql"), kind: MigrationKind::Up },
-        Migration { version: 18, description: "018_deposit_payment_details", sql: include_str!("../migrations/018_deposit_payment_details.sql"), kind: MigrationKind::Up },
-        Migration { version: 19, description: "019_land_sales", sql: include_str!("../migrations/019_land_sales.sql"), kind: MigrationKind::Up },
+        Migration {
+            version: 13,
+            description: "013_expense_payment_details",
+            sql: include_str!("../migrations/013_expense_payment_details.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 14,
+            description: "014_covered_area_unit",
+            sql: include_str!("../migrations/014_covered_area_unit.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 15,
+            description: "015_project_sales",
+            sql: include_str!("../migrations/015_project_sales.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 16,
+            description: "016_sales_business_reset",
+            sql: include_str!("../migrations/016_sales_business_reset.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 17,
+            description: "017_personal_deposits",
+            sql: include_str!("../migrations/017_personal_deposits.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 18,
+            description: "018_deposit_payment_details",
+            sql: include_str!("../migrations/018_deposit_payment_details.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 19,
+            description: "019_land_sales",
+            sql: include_str!("../migrations/019_land_sales.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 20,
+            description: "020_project_contractors",
+            sql: include_str!("../migrations/020_project_contractors.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 21,
+            description: "021_partner_construction_funding",
+            sql: include_str!("../migrations/021_partner_construction_funding.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 22,
+            description: "022_sale_payments",
+            sql: include_str!("../migrations/022_sale_payments.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
-    tauri::Builder::default()
+    // A backup made by a newer version of the app cannot be restored here.
+    let newest_migration = migrations.iter().map(|m| m.version).max().unwrap_or(0);
+
+    let app = tauri::Builder::default()
         .manage(Mutex::new(commands::auth::LoginAttempts::default()))
+        .manage(commands::backup::BackupState::default())
+        .manage(commands::backup::RestoreConfig { newest_migration })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(
@@ -96,6 +154,10 @@ pub fn run() {
                 .add_migrations("sqlite:baloch-builder.db", migrations)
                 .build(),
         )
+        .setup(|app| {
+            commands::backup::spawn_scheduler(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::paths::get_app_data_path,
             commands::files::copy_attachment,
@@ -107,7 +169,27 @@ pub fn run() {
             commands::auth::auth_status,
             commands::auth::create_account,
             commands::auth::login,
+            commands::auth::get_profile,
+            commands::auth::update_profile,
+            commands::auth::change_password,
+            commands::backup::get_data_locations,
+            commands::backup::get_backup_status,
+            commands::backup::save_google_credentials,
+            commands::backup::connect_google_drive,
+            commands::backup::disconnect_google_drive,
+            commands::backup::set_backup_schedule,
+            commands::backup::run_backup_now,
+            commands::backup::find_latest_backup,
+            commands::backup::restore_latest_backup,
+            commands::backup::restart_app,
+            commands::backup::take_restore_notice,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    // A restore chosen in Settings is applied here, before the window opens and before the
+    // database is opened by anything.
+    commands::backup::apply_pending_restore(app.handle());
+
+    app.run(|_app_handle, _event| {});
 }

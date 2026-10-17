@@ -41,3 +41,11 @@
 .dark .partner-manage-error { color: #ff9caf; }
 .dark .partner-manage-success { color: #77e7bb; }
 @media (max-width: 620px) { .partner-manage-dialog { padding: 17px; } .partner-manage-grid { grid-template-columns: 1fr; } .partner-manage-steps button { flex-direction: column; gap: 3px; } .partner-manage-steps svg { display: none; } }
+
+.partner-history-entry { display:flex; justify-content:space-between; gap:20px; padding:18px 0; border-bottom:1px solid var(--border); }
+.partner-history-entry > div:last-child { text-align:right; flex-shrink:0; }
+.partner-history-entry small { display:block; font-size:12px; color:var(--muted-foreground); margin-top:5px; }
+.partner-history-entry p { font-size:13px; margin-top:8px; }
+.partner-history-entry .is-credit > strong { color:#0f766e; }
+.partner-history-entry .is-debit > strong { color:#7c3aed; }
+@media(max-width:500px) { .partner-history-entry { flex-direction:column; gap:10px; } .partner-history-entry > div:last-child { text-align:left; } }

@@ -558,3 +558,114 @@
     padding: 16px;
   }
 }
+/* Person balances and dated deposits */
+.amanat-page .amanat-person-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 20px 0;
+}
+.amanat-person-totals div {
+  display: grid;
+  gap: 6px;
+}
+.amanat-person-totals small {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.amanat-person-totals strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.amanat-page .amanat-give-more {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 20px;
+}
+.amanat-deposit-ledger {
+  border-top: 1px solid var(--border);
+}
+.amanat-deposit-ledger summary {
+  padding: 16px 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.amanat-deposit-ledger summary span {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 400;
+  margin-left: 8px;
+}
+.amanat-deposit-entries {
+  display: grid;
+  gap: 12px;
+  max-height: 460px;
+  overflow: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+.amanat-deposit-entry {
+  border: 1px solid var(--border);
+  border-left: 3px solid #8b7bd9;
+  border-radius: 12px;
+  padding: 15px;
+  background: color-mix(in srgb, var(--muted) 35%, var(--card));
+}
+.amanat-entry-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.amanat-entry-title time {
+  font-size: 12px;
+  font-weight: 650;
+}
+.amanat-entry-title strong {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.amanat-deposit-entry p {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.amanat-entry-balance {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 11px;
+}
+.amanat-entry-balance span {
+  color: var(--muted-foreground);
+}
+.amanat-page .amanat-deposit-entry footer {
+  padding-top: 12px;
+  margin-top: 12px;
+  gap: 6px;
+}
+.amanat-page .amanat-heading .sheet-header-actions {
+  flex: 0 1 auto;
+}
+.amanat-dialog input[readonly] {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+@media (max-width: 650px) {
+  .amanat-page .amanat-person-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .amanat-deposit-ledger summary span {
+    display: block;
+    margin: 6px 0 0;
+  }
+  .amanat-deposit-entry footer {
+    flex-wrap: wrap;
+  }
+}

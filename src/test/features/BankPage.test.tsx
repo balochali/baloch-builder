@@ -53,6 +53,7 @@ it("shows bank insights and read-only transaction accounts", async () => {
   expect(screen.getByRole("checkbox", {name:"Personal"})).toBeChecked();
   fireEvent.click(screen.getByRole("button", {name:"Preview statement"}));
   expect(screen.getByTitle("Bank statement preview")).toHaveAttribute("srcdoc",expect.stringContaining("Bank & accounts statement"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Print / Save PDF" })).toBeEnabled());
 });
 
 it("shows saved land purchase payment details in transaction history", async () => {

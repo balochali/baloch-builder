@@ -15,7 +15,7 @@ function Upload({
   return <AttachmentUpload files={files} onChange={setFiles} allowPdf={allowPdf} mode={mode} />;
 }
 describe("shared attachments", () => {
-  it("appends valid files, permits reselecting a file, and removes selected files", () => {
+  it("appends valid files, permits reselecting a file, and removes selected files", async () => {
     render(<Upload mode="append" />);
     const input = screen.getByLabelText(/Add transaction receipt/);
     fireEvent.change(input, {
@@ -29,8 +29,9 @@ describe("shared attachments", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove one.png" }));
     expect(screen.queryByRole("button", { name: "Remove one.png" })).not.toBeInTheDocument();
     expect(input).toHaveValue("");
+    expect(await screen.findByRole("button", { name: "Preview two.jpg" })).toBeInTheDocument();
   });
-  it("rejects an invalid batch without discarding previously selected images", () => {
+  it("rejects an invalid batch without discarding previously selected images", async () => {
     render(<Upload />);
     const input = screen.getByLabelText(/Add transaction receipt/);
     fireEvent.change(input, {
@@ -41,13 +42,15 @@ describe("shared attachments", () => {
     });
     expect(screen.getByRole("alert")).toHaveTextContent("JPEG");
     expect(screen.getByRole("button", { name: "Remove one.png" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Preview one.png" })).toBeInTheDocument();
   });
-  it("allows PDFs only when requested", () => {
+  it("allows PDFs only when requested", async () => {
     render(<Upload allowPdf />);
     fireEvent.change(screen.getByLabelText(/Add transaction receipt/), {
       target: { files: [new File(["pdf"], "proof.pdf", { type: "application/pdf" })] },
     });
     expect(screen.getByRole("button", { name: "Remove proof.pdf" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Preview proof.pdf" })).toBeInTheDocument();
   });
 });
 it("uses unique field IDs and matches the partner method's required fields", () => {

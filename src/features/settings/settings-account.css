@@ -1,0 +1,810 @@
+/* Settings page design: side menu, summary tiles, cards, switches and danger zone.
+   Colours come from the app's own theme variables, so light and dark mode both work. */
+
+.settings-page {
+    --sx-radius: 16px;
+    --sx-soft: color-mix(in srgb, var(--primary) 9%, transparent);
+    --sx-shadow: 0 1px 2px #142c4c0d, 0 8px 24px -12px #142c4c22;
+    --sx-ok: #15803d;
+    --sx-ok-bg: #e7f6ed;
+    --sx-warn: #a16207;
+    --sx-warn-bg: #fdf3d8;
+    --sx-bad: #b42318;
+    --sx-bad-bg: #fdeceb;
+}
+
+.dark .settings-page {
+    --sx-shadow: 0 1px 2px #0006, 0 10px 28px -14px #000a;
+    --sx-ok: #86efac;
+    --sx-ok-bg: #12301f;
+    --sx-warn: #f3ce72;
+    --sx-warn-bg: #3a2f10;
+    --sx-bad: #fca5a5;
+    --sx-bad-bg: #3a1613;
+}
+
+/* ---------- Layout ---------- */
+.settings-layout {
+    display: grid;
+    grid-template-columns: 208px minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+}
+
+.settings-stack {
+    display: grid;
+    gap: 22px;
+    min-width: 0;
+    max-width: 880px;
+}
+
+/* ---------- Side menu ---------- */
+.sx-nav {
+    position: sticky;
+    top: 8px;
+    display: grid;
+    gap: 4px;
+    padding: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--sx-radius);
+    box-shadow: var(--sx-shadow);
+}
+
+.sx-nav button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+
+.sx-nav button:hover {
+    background: var(--muted);
+    color: var(--foreground);
+}
+
+.sx-nav button[aria-current="true"] {
+    background: var(--sx-soft);
+    color: var(--primary);
+    font-weight: 650;
+}
+
+.sx-nav button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+}
+
+/* ---------- Card ---------- */
+.sx-card {
+    scroll-margin-top: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--sx-radius);
+    box-shadow: var(--sx-shadow);
+    overflow: hidden;
+}
+
+.sx-card-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sx-card-head>div {
+    flex: 1;
+    min-width: 0;
+}
+
+.sx-card-head h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+.sx-card-head p {
+    margin: 2px 0 0;
+    color: var(--muted-foreground);
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+
+.sx-card-body {
+    display: grid;
+    gap: 20px;
+    padding: 24px;
+}
+
+.sx-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--sx-soft);
+    color: var(--primary);
+}
+
+.sx-card-danger {
+    border-color: color-mix(in srgb, var(--destructive) 35%, var(--border));
+}
+
+.sx-card-danger .sx-icon {
+    background: var(--sx-bad-bg);
+    color: var(--sx-bad);
+}
+
+/* ---------- Badges ---------- */
+.sx-badge {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.sx-badge::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.sx-badge-ok {
+    background: var(--sx-ok-bg);
+    color: var(--sx-ok);
+}
+
+.sx-badge-warn {
+    background: var(--sx-warn-bg);
+    color: var(--sx-warn);
+}
+
+.sx-badge-bad {
+    background: var(--sx-bad-bg);
+    color: var(--sx-bad);
+}
+
+/* ---------- Summary tiles ---------- */
+.settings-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+
+.settings-facts>div {
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    min-width: 0;
+    padding: 14px 16px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.settings-facts dt {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.settings-facts dd {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 550;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.sx-tile-wide {
+    grid-column: 1 / -1;
+}
+
+.sx-tile-path dd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    font-weight: 450;
+}
+
+.sx-tile-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.sx-copy {
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.sx-copy:hover {
+    color: var(--foreground);
+    background: var(--muted);
+}
+
+.settings-facts>.sx-who {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background:
+        linear-gradient(135deg, var(--sx-soft), transparent 70%), var(--background) !important;
+}
+
+.sx-who>div {
+    min-width: 0;
+}
+
+.sx-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 17px;
+    font-weight: 700;
+}
+
+/* ---------- Forms ---------- */
+.settings-form {
+    display: grid;
+    gap: 18px;
+}
+
+.sx-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.sx-span-2 {
+    grid-column: 1 / -1;
+}
+
+.settings-field {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    min-width: 0;
+}
+
+.settings-field label {
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.settings-field small {
+    color: var(--muted-foreground);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.settings-confirm-text {
+    color: var(--foreground);
+    font-size: 14px;
+}
+
+.settings-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.settings-check input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+}
+
+.settings-select {
+    height: 38px;
+    padding: 0 12px;
+    background: var(--background);
+    color: var(--foreground);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.settings-select:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+}
+
+.sx-meter {
+    display: grid;
+    gap: 5px;
+}
+
+.sx-meter-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--muted);
+    overflow: hidden;
+}
+
+.sx-meter-bar>span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--sx-warn);
+    transition: width 0.2s;
+}
+
+.sx-meter-bar>span.is-full {
+    background: var(--sx-ok);
+}
+
+.sx-meter small {
+    color: var(--muted-foreground);
+    font-size: 12.5px;
+}
+
+/* ---------- Panels, switch, messages ---------- */
+.settings-subsection {
+    display: grid;
+    gap: 16px;
+    padding: 18px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.settings-subsection h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 650;
+}
+
+.settings-subsection p,
+.sx-note {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.sx-intro {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.sx-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.sx-switch-row label {
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.sx-switch-row small {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted-foreground);
+    font-size: 12.5px;
+}
+
+.sx-switch {
+    appearance: none;
+    flex: none;
+    position: relative;
+    width: 44px;
+    height: 26px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted-foreground) 45%, var(--muted));
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.sx-switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px #0004;
+    transition: transform 0.2s;
+}
+
+.sx-switch:checked {
+    background: var(--primary);
+}
+
+.sx-switch:checked::after {
+    transform: translateX(18px);
+}
+
+.sx-switch:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.sx-switch:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+.sx-connect {
+    display: grid;
+    justify-items: start;
+    gap: 14px;
+    padding: 22px;
+    background: var(--background);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+}
+
+.sx-connect p {
+    margin: 0;
+}
+
+.sx-manage {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+}
+
+.settings-message {
+    margin: 0;
+    padding: 11px 14px;
+    border-radius: 10px;
+    background: var(--muted);
+    color: var(--foreground);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.settings-message-ok {
+    background: var(--sx-ok-bg);
+    color: var(--sx-ok);
+}
+
+.settings-message-error {
+    background: var(--sx-bad-bg);
+    color: var(--sx-bad);
+}
+
+.settings-help {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    background: var(--background);
+    font-size: 14px;
+}
+
+.settings-help summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.settings-help ol {
+    margin: 12px 0 4px;
+    padding-left: 20px;
+    display: grid;
+    gap: 8px;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+}
+
+.settings-help p {
+    margin: 10px 0 2px;
+    font-size: 13px;
+}
+
+/* ---------- Restore confirmation ---------- */
+.sx-confirm {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--destructive) 35%, var(--border));
+    border-radius: 12px;
+    background: var(--sx-bad-bg);
+}
+
+.sx-confirm p {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+
+/* ---------- Appearance ---------- */
+.sx-themes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.sx-theme {
+    display: grid;
+    gap: 10px;
+    padding: 10px 10px 14px;
+    background: var(--background);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    text-align: left;
+    color: var(--foreground);
+    cursor: pointer;
+    transition:
+        border-color 0.15s,
+        transform 0.15s;
+}
+
+.sx-theme:hover {
+    transform: translateY(-1px);
+}
+
+.sx-theme:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+.sx-theme[aria-pressed="true"] {
+    border-color: var(--primary);
+    background: var(--sx-soft);
+}
+
+.sx-theme strong {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 4px;
+    font-size: 14px;
+}
+
+.sx-theme small {
+    padding: 0 4px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+
+.sx-preview {
+    display: grid;
+    grid-template-columns: 26% 1fr;
+    gap: 5px;
+    height: 64px;
+    padding: 7px;
+    border-radius: 9px;
+    border: 1px solid #8a9bb455;
+}
+
+.sx-preview i {
+    border-radius: 4px;
+    background: #d8e0ec;
+}
+
+.sx-preview b {
+    display: block;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.sx-preview-light {
+    background: #eef2f8;
+}
+
+.sx-preview-dark {
+    background: #0b1e36;
+}
+
+.sx-preview-dark i {
+    background: #24466d;
+}
+
+.sx-preview-dark b {
+    background: #122b49;
+}
+
+.sx-preview-system {
+    background: linear-gradient(115deg, #eef2f8 50%, #0b1e36 50%);
+}
+
+.sx-preview-system i {
+    background: linear-gradient(115deg, #d8e0ec 50%, #24466d 50%);
+}
+
+.sx-preview-system b {
+    background: linear-gradient(115deg, #fff 50%, #122b49 50%);
+}
+
+/* ---------- Your data and security ---------- */
+.sx-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.sx-info>div {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    padding: 16px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.sx-info svg {
+    color: var(--primary);
+}
+
+.sx-info h3 {
+    margin: 0;
+    font-size: 15px;
+}
+
+.sx-info p {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* ---------- Danger zone ---------- */
+.sx-danger-body {
+    display: grid;
+    gap: 0;
+    padding: 0 24px;
+}
+
+.sx-danger-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 24px;
+    padding: 20px 0;
+}
+
+.sx-danger-row+.sx-danger-row {
+    border-top: 1px solid var(--border);
+}
+
+.sx-danger-row h3 {
+    grid-column: 1;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 650;
+}
+
+.sx-danger-row p {
+    grid-column: 1;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.sx-danger-row>button {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+}
+
+.sx-danger-row p[role="status"] {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--sx-ok-bg);
+    color: var(--sx-ok);
+}
+
+/* ---------- Smaller screens ---------- */
+@media (max-width: 900px) {
+    .settings-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .sx-nav {
+        position: static;
+        display: flex;
+        overflow-x: auto;
+        padding: 6px;
+    }
+
+    .sx-nav button {
+        width: auto;
+        flex: none;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 640px) {
+
+    .sx-grid-2,
+    .sx-info,
+    .sx-themes {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sx-card-head {
+        flex-wrap: wrap;
+        padding: 16px;
+    }
+
+    .sx-card-body {
+        padding: 16px;
+    }
+
+    .sx-danger-body {
+        padding: 0 16px;
+    }
+
+    .sx-danger-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sx-danger-row>button {
+        grid-column: 1;
+        grid-row: auto;
+        justify-self: start;
+        margin-top: 8px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .sx-theme,
+    .sx-switch,
+    .sx-switch::after,
+    .sx-meter-bar>span {
+        transition: none;
+    }
+}

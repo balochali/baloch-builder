@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LandPage } from "@/features/land/pages/LandPage";
@@ -52,7 +52,9 @@ describe("LandPage", () => {
       target: { value: "missing" },
     });
     expect(screen.getByText("No land records match these filters.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+    });
     expect(screen.getByRole("heading", { name: "Corner plot" })).toBeInTheDocument();
   });
   it("opens land documents separately from payment receipts", async () => {

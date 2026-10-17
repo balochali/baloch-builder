@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalExpensePage } from "@/features/personal-expense/pages/PersonalExpensePage";
 import {
@@ -37,32 +37,33 @@ describe("PersonalExpensePage", () => {
   });
 
   it("walks through purchase, payment and review while preserving entries", async () => {
-    vi.mocked(createPersonalExpense).mockResolvedValue();
+    vi.mocked(createPersonalExpense).mockResolvedValue("new-expense");
     render(<PersonalExpensePage />);
     await screen.findByRole("heading", { name: "Where your money went" });
     fireEvent.click(screen.getByRole("button", { name: "Add purchase" }));
-    expect(screen.queryByLabelText("Amount paid (Rs) *")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save purchase" })).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Car name or details *"), {
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.queryByLabelText("Amount paid (Rs) *")).not.toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: "Save purchase" })).not.toBeInTheDocument();
+    fireEvent.change(dialog.getByLabelText("Car name or details *"), {
       target: { value: "Corolla" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.change(screen.getByLabelText("Amount paid (Rs) *"), { target: { value: "500000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByLabelText("Car name or details *")).toHaveValue("Corolla");
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByLabelText("Amount paid (Rs) *")).toHaveValue("500000");
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("radio", { name: "Personal Account" }));
-    fireEvent.click(screen.getByRole("button", { name: "Digital wallet" }));
-    fireEvent.change(screen.getByLabelText("Received by *"), { target: { value: "Ali" } });
-    fireEvent.change(screen.getByLabelText("Wallet / app name *"), {
+    fireEvent.click(dialog.getByRole("button", { name: "Next" }));
+    fireEvent.change(dialog.getByLabelText("Amount paid (Rs) *"), { target: { value: "500000" } });
+    fireEvent.click(dialog.getByRole("button", { name: "Back" }));
+    expect(dialog.getByLabelText("Car name or details *")).toHaveValue("Corolla");
+    fireEvent.click(dialog.getByRole("button", { name: "Next" }));
+    expect(dialog.getByLabelText("Amount paid (Rs) *")).toHaveValue("500000");
+    fireEvent.click(dialog.getByRole("button", { name: "Next" }));
+    fireEvent.click(dialog.getByRole("radio", { name: "Personal Account" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Digital wallet" }));
+    fireEvent.change(dialog.getByLabelText("Received by *"), { target: { value: "Ali" } });
+    fireEvent.change(dialog.getByLabelText("Wallet / app name *"), {
       target: { value: "JazzCash" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText(/Step 4 of 4/)).toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("button", { name: "Next" }));
+    expect(dialog.getByText(/Step 4 of 4/)).toBeInTheDocument();
     expect(createPersonalExpense).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Save purchase" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Save purchase" }));
     await waitFor(() =>
       expect(createPersonalExpense).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -77,6 +78,7 @@ describe("PersonalExpensePage", () => {
         }),
       ),
     );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("asks for an account before reviewing the purchase", async () => {
