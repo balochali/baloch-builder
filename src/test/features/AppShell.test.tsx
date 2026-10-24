@@ -46,3 +46,12 @@ describe("workspace navigation drawer", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });
+
+it('hides financial and admin menus from a construction user while retaining shell classes',()=>{
+ vi.stubGlobal('matchMedia',vi.fn(()=>({matches:false})));
+ const {container}=render(<MemoryRouter><AppShell role="construction" onLogout={vi.fn()}/></MemoryRouter>);
+ expect(screen.getByRole('link',{name:'Projects'})).toBeInTheDocument();
+ for(const name of ['Vouchers','General journal','Users and roles','Settings','Partners'])expect(screen.queryByRole('link',{name})).not.toBeInTheDocument();
+ expect(container.querySelector('.app-shell .app-sidebar .brand-block')).not.toBeNull();
+ vi.unstubAllGlobals();
+});

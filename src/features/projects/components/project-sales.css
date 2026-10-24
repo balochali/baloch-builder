@@ -30,7 +30,7 @@
 .project-sales-filters button.is-active { background: #6d28d9; color: white; }
 .project-sales-search { display: flex; align-items: center; gap: 8px; min-width: min(100%, 270px); padding: 0 11px; border: 1px solid var(--border); border-radius: 9px; color: #6d28d9; }
 .project-sales-search input { width: 100%; min-height: 37px; outline: none; background: transparent; color: var(--foreground); font-size: 12px; }
-.project-sales-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 14px; }
+.project-sales-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .project-sales-card { display: grid; align-content: start; gap: 15px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
 .project-sales-card-head { display: flex; align-items: center; gap: 11px; }
 .project-sales-card-head > div { min-width: 0; }
@@ -104,3 +104,41 @@
 .sale-payment-summary summary { cursor:pointer; font-size:13px; }
 .sale-payment-history-row { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--border); padding:10px 0; }
 .sale-payment-history-row strong { font-size:14px; }
+
+.project-sales-grid { width:100%; align-items:start; }
+.project-sales-card { min-width:0; }
+.project-sales-card-head { flex-wrap:wrap; }
+.project-sales-card-head > b { flex-basis:100%; margin-left:53px; white-space:normal; overflow-wrap:anywhere; }
+.sale-payment-summary > .sale-payment-progress { display:grid; grid-template-columns:1fr auto; gap:8px; }
+.sale-payment-progress strong { font-size:12px; margin:0; color:#0f766e; }
+.sale-payment-progress > div { grid-column:1 / -1; height:8px; border-radius:8px; overflow:hidden; background:var(--muted); }
+.sale-payment-progress > div > span { display:block; height:100%; background:#0f766e; border-radius:8px; }
+.sale-payment-summary > div:nth-child(2) { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:1200px) { .project-sales-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:700px) { .project-sales-grid { grid-template-columns:1fr; } }
+
+.sale-lifecycle-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.sale-lifecycle-actions button:disabled { opacity:.5; cursor:not-allowed; }
+.sale-settlement-preview { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; padding:18px; background:var(--muted); border-radius:12px; }
+.sale-settlement-preview strong { display:block; margin-top:5px; }
+.sale-events-history { padding:20px; border:1px solid var(--border); border-radius:14px; }
+.sale-events-history summary { cursor:pointer; font-weight:600; }
+
+.cancelled-refunds { margin-top: 28px; }
+.cancelled-refunds > h3 { font-size: 20px; font-weight: 700; }
+.cancelled-refunds > p { color: var(--muted-foreground); margin: 8px 0 20px; }
+.refund-card { min-width: 0; padding: 24px; border: 1px solid var(--border); border-top: 4px solid #d97706; border-radius: 20px; background: var(--card); display: flex; flex-direction: column; gap: 16px; }
+.refund-card h4 { font-size: 20px; font-weight: 700; text-transform: capitalize; margin-top: 12px; }
+.refund-card p, .refund-card small { color: var(--muted-foreground); }
+.refund-status { color: #b45309; font-size: 13px; font-weight: 700; }
+.refund-agreement { display: grid; gap: 6px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.refund-agreement > span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.refund-totals { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.refund-totals strong { display: block; font-size: 20px; margin-top: 6px; overflow-wrap: anywhere; }
+.refund-totals > span:first-child strong { color: #0d9488; }
+.refund-totals > span:last-child strong { color: #b45309; }
+.refund-progress { height: 10px; background: #fef3c7; border-radius: 20px; overflow: hidden; }
+.refund-progress > span { display: block; height: 100%; background: #0d9488; }
+.refund-record { background: #0f766e; color: white; border-radius: 10px; padding: 12px; font-weight: 700; }
+.refund-record:disabled { opacity: .6; cursor: default; }
+.refund-card summary { cursor: pointer; font-weight: 600; }

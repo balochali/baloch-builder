@@ -16,13 +16,14 @@ interface Props {
   actualCosts: Transaction[];
   sales?: ProjectSale[] | null;
   salesError?: boolean;
+  saleFees?: number;
 }
 
 function EmptyChart({ title, message }: { title: string; message: string }) {
   return <div className="project-dashboard-empty"><BarChart3 size={25} aria-hidden="true" /><h3>{title}</h3><p>{message}</p></div>;
 }
 
-export function ProjectDashboard({ project, buildingDetails, land = null, partners, contributions, estimates, actualCosts, sales = null, salesError = false }: Props) {
+export function ProjectDashboard({ project, buildingDetails, land = null, partners, contributions, estimates, actualCosts, sales = null, salesError = false, saleFees = 0 }: Props) {
   const isLandSold = project.status === "land sold";
   const spaces = buildingDetails ? [buildingDetails.planned_flats, buildingDetails.planned_shops,
     buildingDetails.planned_offices, buildingDetails.planned_houses].reduce<number>((total, count) => total + (count ?? 0), 0) : 0;
@@ -74,8 +75,9 @@ export function ProjectDashboard({ project, buildingDetails, land = null, partne
           {(["flat", "shop", ...(isLandSold ? ["land"] : [])] as const).map(kind => <div key={kind}><dt>{kind === "flat" ? "Flat sales agreed" : kind === "shop" ? "Shop sales agreed" : "Land sales agreed"}<small>{sales === null ? "" : `${sales.filter(sale => sale.kind === kind).length} sold`}</small></dt><dd>{saleValue(sales?.filter(sale => sale.kind === kind).reduce((total, sale) => total + sale.price, 0) ?? 0)}</dd></div>)}
         </dl>
       </div>
-      <div className="dashboard-current-result"><div><h3>Sales compared with spending</h3><p>{sales === null ? "Waiting for sales records." : saleTotal < spent ? "Spending is higher than sales agreed so far. More sales may still be made." : "Sales agreed are higher than spending so far. More costs may still be added."}</p></div><strong>{saleValue(Math.abs(saleTotal - spent))}<small>{sales === null ? "" : saleTotal < spent ? "more spent than sold" : "sales above spending"}</small></strong></div>
-      <p className="dashboard-section-note">This comparison is not final profit. It uses agreed sale prices and costs recorded to date.</p>
+      {saleFees > 0 && <p>Additional earned income: <strong>{formatPKR(saleFees)}</strong> in cancellation deductions and resale commission.</p>}
+      <div className="dashboard-current-result"><div><h3>Sales compared with spending</h3><p>{sales === null ? "Waiting for sales records." : saleTotal + saleFees < spent ? "Spending is higher than sales agreed so far. More sales may still be made." : "Sales agreed are higher than spending so far. More costs may still be added."}</p></div><strong>{saleValue(Math.abs(saleTotal + saleFees - spent))}<small>{sales === null ? "" : saleTotal + saleFees < spent ? "more spent than sold" : "sales above spending"}</small></strong></div>
+      <p className="dashboard-section-note">This comparison is not final profit. It uses agreed sale prices, retained cancellation deductions, resale commission and costs recorded to date.</p>
     </section>
     <section className="dashboard-money-section forecast-section" aria-labelledby="forecast-title">
       <header><span className="dashboard-section-number">03</span><div><h2 id="forecast-title">What we expect when the project is finished</h2><p>Your planned sales and costs from the Estimate tab.</p></div><span className="dashboard-section-tag">Future estimates</span></header>

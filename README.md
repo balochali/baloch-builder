@@ -1,97 +1,83 @@
 # Baloch Builder
 
-A desktop application for a property developer and builder to keep land,
-project, partner and payment records in one organized, searchable system —
-instead of scattered notebooks, phone notes and Excel files.
+Multi-user real-estate accounting with the existing React login, sidebar and theme. Phase 1 adds PostgreSQL-backed projects, users/roles/assignments, accounts, periods, journal vouchers, immutable posting, audit and Trial Balance. Only the working area uses AG Grid. Payments remain blocked until Phase 2 approval is implemented.
 
-Built with **Tauri 2 + React + TypeScript**, storing all data locally in a
-single **SQLite** database. It works fully offline.
+The old SQLite/Tauri data layer is retained for Phase 6 migration. The server does **not** import or overwrite desktop data. Although the protected login/sidebar still use their original “local workspace” wording, new web accounting records are stored centrally in PostgreSQL.
 
-The workspace includes a business dashboard, projects and building plans,
-partner profiles and contributions, contacts, personal purchases, and
-credit / Udhaar records. The Land view collects acquisitions saved through
-projects. Settings offers light, dark, and device-matched themes.
+## Development
 
-Record views share labelled search, relevant category/status filters,
-date and amount ranges where applicable, sorting, result counts, and a
-reset action. Page summaries describe their scope; filtering a record
-list does not change saved data. Project-wide financial totals remain
-visible when filtering individual cost or payment lists.
+Use Node.js 24+ and PostgreSQL 18. From the repository root:
 
-Trend charts share labelled rupee/date axes, line and bar views, selectable
-series, exact values on hover/tap or keyboard navigation, and expandable
-data tables. Dates use actual elapsed time, and smooth curves stay within
-the recorded values. Single-date records show a point instead of an
-invented trend.
-
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) LTS
-- [Rust](https://www.rust-lang.org/tools/install) (stable toolchain)
-- Windows: [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-  and [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)
-  (WebView2 ships with Windows 10/11 by default on most machines)
-
-## Getting started
-
-```bash
-npm install
-npm run tauri:dev
+```sh
+npm ci
 ```
 
-This opens the actual desktop application window. Use `npm run dev` only if
-you want to preview the React UI in a plain browser — Tauri-only features
-(the database, file system access) will not work there.
+Set `DATABASE_URL` to a dedicated application database, for example `postgres://baloch:your-password@127.0.0.1:5432/baloch`. Then:
 
-On first launch, create a local username and password (at least 12 characters).
-Later launches open the sign-in screen before the dashboard. The password is
-stored as a salted PBKDF2-SHA256 hash in `account.json` in the app's local-data
-directory. Losing the password currently requires manual account recovery;
-there is no reset screen yet.
+```sh
+npm run migrate -w @baloch/server
+# Set ADMIN_EMAIL and ADMIN_PASSWORD (12+ characters) in the environment first.
+npm run seed -w @baloch/server
+npm run dev:server
+# In another terminal:
+npm run dev
+```
 
-## Scripts
+The frontend is at `http://localhost:1420`, with `/api` proxied to port 3000. Enter the admin email in the existing **Username** field. Seed is deliberately refused once users exist. Create subsequent accounts in the Users grid; create a fiscal month before entering vouchers. Every line needs an account code and project code. Ctrl+V accepts tab-separated Excel rows. Save/Post are disabled for invalid or unbalanced amounts. Edits to posted entries require a reversing draft in an open period.
 
-| Command                | What it does                                     |
-| ----------------------- | ------------------------------------------------- |
-| `npm run tauri:dev`     | Run the desktop app in development mode           |
-| `npm run dev`           | Run just the Vite dev server (browser, no Tauri)  |
-| `npm run tauri:build`   | Build the installable Windows application         |
-| `npm run test`          | Run the test suite once                           |
-| `npm run test:watch`    | Run tests in watch mode                           |
-| `npm run lint`          | Lint the `src` folder                             |
-| `npm run format`        | Format the codebase with Prettier                 |
-| `npm run typecheck`     | Type-check without emitting output                |
+For optional TOTP, set `TOTP_ENCRYPTION_KEY` to 64 random hexadecimal characters on the server. Use Two-factor setup in the working area, enter your password, add the generated secret to an authenticator, and confirm its code. The next login requires a fresh unused code. Keep the encryption key in your secret backup; database recovery alone cannot recover encrypted TOTP secrets without it.
 
-Before committing, `npm run typecheck`, `npm run lint` and `npm run test`
-should all pass with no errors.
+## Tests and builds
 
-## Where the data lives
+Tests must use a disposable database named `baloch_test`. Server tests reset **that database's public schema** and run all migrations in order; never point tests at real accounting data.
 
-On first run, the app creates a SQLite database file and an `attachments`
-folder inside the OS app-data directory for this app
-(identifier `com.baloch-pc.baloch-builder`):
+```sh
+# Set DATABASE_URL=postgres://.../baloch_test
+npm run typecheck
+npm run lint
+npm test
+npm run test:server
+npm run build
+```
 
-- **Windows:** `%APPDATA%\com.baloch-pc.baloch-builder\`
-- **macOS:** `~/Library/Application Support/com.baloch-pc.baloch-builder/`
-- **Linux:** `~/.local/share/com.baloch-pc.baloch-builder/`
+`npm test` retains every existing frontend/SQLite test and adds accounting frontend, shared and PostgreSQL tests. CI provides an empty PostgreSQL service. `npm run test:legacy` runs frontend tests only. On Windows, if the runner's temporary directory is inaccessible, set TEMP and TMP to a writable local directory before running tests.
 
-Inside that folder:
+## VPS deployment
 
-- `baloch-builder.db` — the single SQLite database (all records)
-- `attachments/` — receipts, photos and documents attached to records
+Use one HTTPS origin for the frontend and API. Fastify serves the root `dist/` after `npm run build`. Set `NODE_ENV=production`, `DATABASE_URL`, `TOTP_ENCRYPTION_KEY`, and an absolute persistent `ATTACHMENT_DIR`. Put the server behind an HTTPS reverse proxy; port 3000 and PostgreSQL must not be publicly exposed. Do not enable unrestricted CORS. The default login limit is based on the direct peer IP; with a reverse proxy it is shared by that proxy until a narrowly trusted proxy configuration is explicitly added.
 
-Copying those two items is a full backup of the business data. (Automatic
-scheduled backups are not implemented yet — see `docs/decisions.md`.)
+For local Compose, set `POSTGRES_PASSWORD` and `TOTP_ENCRYPTION_KEY` in the shell or an untracked `.env`, then:
 
-## Project structure and architecture
+```sh
+docker compose up --build -d
+# Bootstrap using environment variables, not a committed password:
+docker compose exec -e ADMIN_EMAIL -e ADMIN_PASSWORD server npm run seed -w @baloch/server
+```
 
-See [`docs/architecture.md`](./docs/architecture.md) for the layering rules
-(`features → domain + data`), the database conventions, and why certain
-choices were made. See [`docs/decisions.md`](./docs/decisions.md) for a
-running log of specific decisions.
+Compose exposes ports only on localhost, waits for PostgreSQL health, runs ordered migrations, and persists the database and attachments. `NODE_ENV=production` uses Secure cookies: use an HTTPS reverse proxy for browser login, or explicitly use development mode for local HTTP testing. Production migrations should be run by a schema owner; use a separate non-superuser runtime role with no DDL/TRUNCATE privileges. Never run the public application with a PostgreSQL superuser. Restrict runtime audit-log privileges to SELECT/INSERT; revoke UPDATE/DELETE/TRUNCATE. Database owners can always disable triggers, so owner credentials must stay out of the runtime service.
 
-## Recommended IDE Setup
+## Nightly backup and restore
 
-- [VS Code](https://code.visualstudio.com/) +
-  [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) +
-  [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+Install PostgreSQL client utilities on the VPS. Set `DATABASE_URL`, `ATTACHMENT_DIR` and optionally `PG_BIN` (the PostgreSQL bin directory on Windows). Run:
+
+```sh
+node scripts/backup.mjs /var/backups/baloch
+```
+
+This creates a timestamped directory with a custom-format `database.dump` and copies attachments if configured. Treat a nonzero exit as a failed backup. Copy successful backups and the separately stored TOTP key to encrypted off-site storage. Retention/deletion is an operator policy; the script does not silently delete historical backups.
+
+Install `scripts/baloch-backup.service` and `scripts/baloch-backup.timer` into `/etc/systemd/system`, adapt the service user/paths, and create `/etc/baloch-backup.env` with mode 0600 containing the environment settings. Then enable the timer with `systemctl enable --now baloch-backup.timer`. It schedules 02:00 Asia/Karachi and catches missed runs. Monitor the unit's exit status and alert on failures.
+
+Restore only to a newly created, empty database. Set `TARGET_DATABASE_URL` and optionally an empty `RESTORE_ATTACHMENT_DIR`:
+
+```sh
+node scripts/restore.mjs /path/to/timestamped-backup
+```
+
+Restore runs in one transaction with no destructive `--clean`. Verify migrations, account/entry counts, Trial Balance and attachments before changing service configuration to use the restored database. Test this recovery procedure regularly. Docker images do not include a scheduler or pg_dump; run the provided timer from the VPS host with PostgreSQL client tools and access to the attachment volume.
+
+## Retained desktop client
+
+`npm run dev:legacy` previews the retained frontend wiring; actual SQLite/desktop authentication needs Tauri. The Tauri source, migrations and Rust Drive backup are unchanged by this rewrite except for pre-existing local work. To build the historical offline frontend, use `vite build --mode legacy` with the retained Tauri build configuration. The new multi-user browser application is the supported Phase 1 path; no packaged Tauri/server integration is claimed as tested.
+
+See [REWRITE_PLAN](docs/REWRITE_PLAN.md), [DECISIONS](docs/DECISIONS.md) and [CHANGES](docs/CHANGES.md). Stop after Phase 1 for review before building payment approval.

@@ -138,6 +138,18 @@ pub fn run() {
             sql: include_str!("../migrations/022_sale_payments.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 23,
+            description: "023_sale_lifecycle",
+            sql: include_str!("../migrations/023_sale_lifecycle.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 24,
+            description: "024_phased_sale_refunds",
+            sql: include_str!("../migrations/024_phased_sale_refunds.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     // A backup made by a newer version of the app cannot be restored here.

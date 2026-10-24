@@ -18,7 +18,9 @@ export default defineConfig(() => ({
 
   // Vite options tailored for Tauri development
   clearScreen: false,
+  optimizeDeps: {entries:["index.html"]},
   server: {
+    proxy: { "/api": "http://127.0.0.1:3000" },
     port: 1420,
     strictPort: true,
     host: host || false,
@@ -37,7 +39,10 @@ export default defineConfig(() => ({
   // Vitest configuration
   test: {
     // Concurrent jsdom workers are memory-heavy on the Windows desktop target.
-    maxWorkers: 2,
+    maxWorkers: 1,
+    testTimeout: 15000,
+    hookTimeout: 30000,
+    pool: "vmThreads",
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

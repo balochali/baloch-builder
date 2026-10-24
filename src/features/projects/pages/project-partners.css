@@ -717,21 +717,18 @@
 .dark .partner-ledger-line.is-profit strong { color:#c4b5fd; }
 
 .project-detail-page .partner-ledger-card .partner-profile-toggle { cursor:default; }
-.partner-account-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:0 24px 24px; }
-.partner-account-actions .partner-account-action { white-space:normal; height:auto; min-height:46px; padding:10px 12px; line-height:1.4; text-align:center; }
-.partner-account-actions .is-edit { grid-column:1 / -1; }
-.partner-account-actions .is-land, .partner-account-actions .is-construction { color:var(--primary); }
-@media(max-width:400px) { .partner-account-actions { grid-template-columns:1fr; padding:0 18px 18px; } }
-
-/* Compact action tiles with a clear verb and supporting label. */
-.partner-account-actions { padding:18px 24px 24px; border-top:1px solid var(--border); gap:10px; }
-.partner-account-actions .partner-account-action { justify-content:flex-start; align-items:center; gap:10px; text-align:left; min-height:64px; padding:12px; background:var(--card); }
-.partner-account-actions .partner-account-action > svg { flex-shrink:0; color:var(--muted-foreground); }
-.partner-account-actions .partner-account-action > span { min-width:0; }
-.partner-account-actions .partner-account-action strong { display:block; font-size:13px; font-weight:650; color:var(--foreground); }
-.partner-account-actions .partner-account-action small { display:block; font-size:11px; color:var(--muted-foreground); margin-top:3px; }
-.partner-account-actions .is-edit { grid-column:auto; }
-.partner-account-actions .is-land > svg,.partner-account-actions .is-construction > svg { color:#0f766e; }
-.partner-account-actions .is-profit > svg { color:#7c3aed; }
-.partner-account-actions .is-capital > svg { color:#b45309; }
-.partner-account-actions .partner-account-action:hover { background:var(--muted); border-color:var(--ring); }
+/* Compact, filled controls for partner payments and account actions. */
+.project-detail-page .partner-account-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(155px,100%),1fr)); gap:7px; padding:12px 0 0; margin:0; border-top:1px solid var(--border); }
+.project-detail-page .partner-account-actions .partner-account-action { min-width:0; white-space:nowrap; height:36px; min-height:36px; padding:7px 8px; border-radius:9px; justify-content:center; align-items:center; gap:6px; font-size:12px; font-weight:650; line-height:1.25; text-align:center; color:#fff; border:1px solid transparent; box-shadow:0 2px 3px rgb(15 23 42 / 10%); transition:filter .15s,box-shadow .15s; }
+.project-detail-page .partner-account-actions .partner-account-action > svg { flex-shrink:0; color:inherit; }
+.project-detail-page .partner-account-actions .partner-account-action > span { min-width:0; white-space:nowrap; }
+.project-detail-page .partner-account-actions .is-land { background:#0f766e; }
+.project-detail-page .partner-account-actions .is-construction { background:#0369a1; }
+.project-detail-page .partner-account-actions .is-capital { background:#b45309; }
+.project-detail-page .partner-account-actions .is-profit { background:#6d28d9; }
+.project-detail-page .partner-account-actions .is-edit { background:#475569; }
+.project-detail-page .partner-account-actions .is-history { background:#334155; }
+.project-detail-page .partner-account-actions .partner-account-action:hover { filter:brightness(1.12); box-shadow:0 3px 6px rgb(15 23 42 / 18%); }
+.project-detail-page .partner-account-actions .partner-account-action:active { filter:brightness(.94); box-shadow:none; }
+.project-detail-page .partner-account-actions .partner-account-action:focus-visible { outline:2px solid var(--ring); outline-offset:3px; }
+@media(max-width:400px) { .project-detail-page .partner-account-actions { padding:10px 0 0; gap:6px; } }

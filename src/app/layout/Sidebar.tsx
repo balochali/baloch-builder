@@ -1,3 +1,4 @@
+import {can,type Role} from "@baloch/shared";
 import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useRef, type CSSProperties } from "react";
 import "./sidebar.css";
@@ -45,10 +46,18 @@ const groups = [
 interface SidebarProps {
   onLogout: () => void;
   onNavigate?: () => void;
+  role?: Role;
 }
 
-export function Sidebar({ onLogout, onNavigate }: SidebarProps) {
+export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
   const { pathname } = useLocation();
+  const visibleGroups = role ? [
+    {label:"WORKSPACE",items:[{to:"/projects",label:"Projects",icon:Building2,color:"#d2ad65"}]},
+    {label:"PEOPLE & MONEY",items:[
+      ...(can(role,"ledger")?[{to:"/vouchers",label:"Vouchers",icon:ReceiptText,color:"#ec4899"},{to:"/journal",label:"General journal",icon:BookUser,color:"#06b6d4"},{to:"/trial-balance",label:"Trial Balance",icon:Landmark,color:"#10b981"},{to:"/accounts",label:"Chart of accounts",icon:Wallet,color:"#8b5cf6"},{to:"/periods",label:"Fiscal periods",icon:ShieldCheck,color:"#2dd4bf"}]:[]),
+      ...(can(role,"users")?[{to:"/users",label:"Users and roles",icon:Users,color:"#f97316"},{to:"/assignments",label:"Project assignments",icon:BookUser,color:"#06b6d4"},{to:"/audit",label:"Audit log",icon:ShieldCheck,color:"#2dd4bf"}]:[])
+    ]}
+  ].filter(group=>group.items.length) : groups;
   const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!window.matchMedia("(max-width: 760px)").matches) return;
@@ -77,7 +86,7 @@ export function Sidebar({ onLogout, onNavigate }: SidebarProps) {
         </span>
       </NavLink>
       <nav ref={navRef} aria-label="Main navigation">
-        {groups.map((group) => (
+        {visibleGroups.map((group) => (
           <div className="nav-group" key={group.label}>
             <p className="sidebar-caption">{group.label}</p>
             {group.items.map(({ to, label, icon: Icon, color }) => (
@@ -111,7 +120,7 @@ export function Sidebar({ onLogout, onNavigate }: SidebarProps) {
             <span>Records stored on this device</span>
           </div>
         </div>
-        <NavLink
+        {(!role || can(role,"settings")) && <NavLink
           to="/settings"
           style={{ "--nav-color": "#94a3b8" } as CSSProperties}
           className={({ isActive }) => cn("workspace-nav-link", isActive && "is-active")}
@@ -121,7 +130,7 @@ export function Sidebar({ onLogout, onNavigate }: SidebarProps) {
           </span>
           <span className="sidebar-link-label">Settings</span>
           <ArrowUpRight className="sidebar-settings-arrow" size={15} aria-hidden="true" />
-        </NavLink>
+        </NavLink>}
         <button
           type="button"
           className="workspace-nav-link sidebar-logout"

@@ -1,3 +1,4 @@
+import { projectSaleFees } from "@/data/repositories/saleEventsRepository";
 import { PartnerPaymentHistoryDialog } from "@/features/projects/components/PartnerPaymentHistoryDialog";
 import { PartnerConstructionFunding } from "@/features/projects/components/PartnerConstructionFunding";
 import { listProjectSales, type ProjectSale } from "@/data/repositories/projectSalesRepository";
@@ -237,14 +238,13 @@ export function ProjectDetailPage() {
   const isLandSold = project?.status === "land sold";
   const tab = isLandSold && requestedTab === "building" ? "dashboard" : requestedTab;
   const [dashboardSales, setDashboardSales] = useState<ProjectSale[] | null>(null);
+  const [saleFees,setSaleFees] = useState(0);
   const [salesError, setSalesError] = useState(false);
   useEffect(() => {
     if (!projectId) return;
     let active = true;
-    setDashboardSales(null);
-    setSalesError(false);
-    listProjectSales(projectId).then(rows => {
-      if (active) setDashboardSales(rows);
+    Promise.all([listProjectSales(projectId),projectSaleFees(projectId)]).then(([rows,fees]) => {
+      if (active) {setDashboardSales(rows);setSaleFees(fees);setSalesError(false);}
     }).catch(() => { if (active) setSalesError(true); });
     return () => { active = false; };
   }, [projectId, tab, sheetRevision]);
@@ -385,6 +385,31 @@ export function ProjectDetailPage() {
     const row = await saveProjectBuildingDetails(value);
     setBuildingDetails(row);
     toast.success("Building details saved");
+  }
+
+  function openProjectStatus(status: ProjectStatus) {
+    if (!project) return;
+    setStatusDraft(status);
+    setStatusError("");
+    setLandTitle(landDetails?.title ?? project.name);
+    setLandLocation(landDetails?.location ?? project.location ?? "");
+    setLandDate(landDetails?.purchase_date ?? format(new Date(), "yyyy-MM-dd"));
+    setLandArea(landDetails?.area_value?.toString() ?? "");
+    setLandAreaUnit(landDetails?.area_unit ?? "sqyd");
+    setLandSeller(landDetails?.seller_name ?? "");
+    setLandPrice(landDetails?.price?.toString() ?? "");
+    setLandNotes(landDetails?.notes ?? "");
+    setLandAccount(landDetails?.account_key ?? "");
+    setLandPaymentDetails(
+      landDetails?.payment_details ?? {
+        ...emptyLandPaymentDetails,
+        paid_to: landDetails?.seller_name ?? "",
+      },
+    );
+    setLandStep(0);
+    setLandImages([]);
+    setLandPaymentImages([]);
+    setStatusDialogOpen(true);
   }
 
   function landDraft() {
@@ -705,33 +730,10 @@ export function ProjectDetailPage() {
                 />
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setStatusDraft(
-                      ProjectStatuses.includes(project.status as ProjectStatus)
-                        ? (project.status as ProjectStatus)
-                        : "planning",
-                    );
-                    setStatusError("");
-                    setLandTitle(landDetails?.title ?? project.name);
-                    setLandLocation(landDetails?.location ?? project.location ?? "");
-                    setLandDate(landDetails?.purchase_date ?? format(new Date(), "yyyy-MM-dd"));
-                    setLandArea(landDetails?.area_value?.toString() ?? "");
-                    setLandAreaUnit(landDetails?.area_unit ?? "sqyd");
-                    setLandSeller(landDetails?.seller_name ?? "");
-                    setLandPrice(landDetails?.price?.toString() ?? "");
-                    setLandNotes(landDetails?.notes ?? "");
-                    setLandAccount(landDetails?.account_key ?? "");
-                    setLandPaymentDetails(
-                      landDetails?.payment_details ?? {
-                        ...emptyLandPaymentDetails,
-                        paid_to: landDetails?.seller_name ?? "",
-                      },
-                    );
-                    setLandStep(0);
-                    setLandImages([]);
-                    setLandPaymentImages([]);
-                    setStatusDialogOpen(true);
-                  }}
+                  onClick={() => openProjectStatus(
+                    ProjectStatuses.includes(project.status as ProjectStatus)
+                      ? project.status as ProjectStatus : "planning"
+                  )}
                 >
                   <Pencil className="size-4" />
                   Change Status
@@ -799,6 +801,7 @@ export function ProjectDetailPage() {
               actualCosts={allActualCosts}
               sales={dashboardSales}
               salesError={salesError}
+              saleFees={saleFees}
             />
           )}
 
@@ -821,11 +824,40 @@ export function ProjectDetailPage() {
                     </p>
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={landDetails?.status === "sold" || project.status === "land sold"}
+                    onClick={() => openProjectStatus(landDetails?.status === "acquired" ? "land sold" : "land acquired")}
+                  >
+                    <MapPin className="size-4" />
+                    {landDetails?.status === "sold" || project.status === "land sold" ? "Land sold" : landDetails?.status === "acquired" ? "Sell land" : "Land acquired"}
+                  </Button>
                 <Button variant="outline" onClick={() => setBuildingDialogOpen(true)}>
                   <Pencil className="size-4" />
                   {buildingDetails ? "Edit Details" : "Add Details"}
                 </Button>
+                </div>
               </div>
+              {landDetails ? (
+                <section aria-label="Acquired land details" className="mb-6 rounded-xl border bg-muted/30 p-5">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-semibold">{landDetails.title || "Project land"}</h3>
+                    <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">{landDetails.status === "sold" ? "Land sold" : "Land acquired"}</span>
+                  </div>
+                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {[
+                      ["Location", landDetails.location || "Not recorded"],
+                      ["Date acquired", landDetails.purchase_date ? formatDate(landDetails.purchase_date) : "Not recorded"],
+                      ["Plot area", landDetails.area_value != null ? `${landDetails.area_value.toLocaleString()} ${landDetails.area_unit === "sqyd" ? "sq yd" : landDetails.area_unit === "sqft" ? "sq ft" : landDetails.area_unit ?? ""}` : "Not recorded"],
+                      ["Seller", landDetails.seller_name || "Not recorded"],
+                      ["Purchase cost", landDetails.price != null ? formatPKR(landDetails.price) : "Not recorded"],
+                      ["Payment method", landDetails.payment_details?.method || "Not recorded"],
+                    ].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
+                  </dl>
+                  {landDetails.notes && <p className="mt-4 whitespace-pre-wrap text-sm text-muted-foreground">{landDetails.notes}</p>}
+                </section>
+              ) : <p className="mb-5 text-sm text-muted-foreground">Select Land acquired to record the purchase, payment and plot details and update the project status.</p>}
               {buildingDetails ? (
                 <>
                   <div
@@ -1036,7 +1068,7 @@ export function ProjectDetailPage() {
                           </span>
                         </div>
                         <div className="partner-account-actions" aria-label={`Actions for ${partner.name}`}>
-                          {([{id:"land", label:"Land payment", hint:"Receive investment", icon:ArrowDownLeft}, {id:"construction", label:"Construction", hint:"Receive payment", icon:HardHat}, {id:"capital", label:"Return capital", hint:"Pay back investment", icon:ArrowUpRight}, {id:"profit", label:"Pay profit", hint:"Pay partner earnings", icon:HandCoins}, {id:"edit", label:"Edit details", hint:"Profile & agreement", icon:Pencil}, {id:"history", label:"Payment history", hint:"All partner payments", icon:History}] as const).map(action => <Button key={action.id} aria-label={action.label} type="button" variant="outline" className={`partner-account-action is-${action.id}`} onClick={() => {setPartnerAccountAction(action.id); setSelectedPartnerId(partner.partnership_id);}}><action.icon size={18} aria-hidden="true"/><span><strong>{action.label}</strong><small>{action.hint}</small></span></Button>)}
+                          {([{id:"land", label:"Land payment", hint:"Receive land investment", icon:ArrowDownLeft}, {id:"construction", label:"Construction payment", hint:"Receive construction investment", icon:HardHat}, {id:"capital", label:"Return capital", hint:"Pay back investment", icon:ArrowUpRight}, {id:"profit", label:"Pay profit", hint:"Pay partner earnings", icon:HandCoins}, {id:"edit", label:"Edit details", hint:"Profile & agreement", icon:Pencil}, {id:"history", label:"Payment history", hint:"All partner payments", icon:History}] as const).map(action => <Button key={action.id} aria-label={action.label} title={action.hint} type="button" variant="outline" className={`partner-account-action is-${action.id}`} onClick={() => {setPartnerAccountAction(action.id); setSelectedPartnerId(partner.partnership_id);}}><action.icon size={16} aria-hidden="true"/><span>{action.label}</span></Button>)}
                         </div>
                       </article>
                     );
@@ -1976,6 +2008,7 @@ export function ProjectDetailPage() {
                         if (!updated)
                           throw new Error("Sale saved. Reopen the project to refresh its status.");
                         setProject(updated);
+                        setLandDetails(current => current ? { ...current, status: "sold" } : current);
                         setStatusDialogOpen(false);
                         setTab("sales");
                         toast.success("Land sale saved");

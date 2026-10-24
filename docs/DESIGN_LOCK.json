@@ -1,0 +1,29 @@
+{
+  "baseline": "dev at start of accounting-rewrite; main c486a95 has no developed shell",
+  "files": {
+    "src/features/auth/auth-page.css": "af50e9dfa88b112071228e8d650d5abeb90a163563a625d5eabcaee48f87c983",
+    "src/assets/auth/residential-towers.png": "43e6c03229f1718e248b6f9ef41454da8bae8fd9906670a9b5e76abeddfdcb07",
+    "src/app/layout/sidebar.css": "b03d893fd99764cb0236d98d8befa1f19641a829dc82b21aad0ba55d4e41953b",
+    "src/assets/building-elevation.svg": "3138eb857164e79a1f2b7976fd20a643cba2d7215873996504be6c51643a3645",
+    "src/app/providers.tsx": "9b07801e32ecb6d5b256e8cef72c2c0be325685b8e609fd0ee4bf2c02d5e7f47",
+    "src/stores/themeStore.ts": "587e00f6890ae39041d47a75f25fa0766528bf7ad3114c280142fd9b965b3793",
+    "src/main.tsx": "bc097fa386ed86474514623f983d6384dfca9ec915697f81c922b6da4009dc15",
+    "src/styles/builder-identity.css": "b66c583e70d1614e89461b586184a8ae72ee326e268f33613bbdc5272d94acd9",
+    "src/styles/charts.css": "86fb50bd714269ddeb55f30b1ef0ff88e399f3be4653d008b3c1025ea85c5c78",
+    "src/styles/globals.css": "b10b3e3e0d677a285396b07e24afbf3d922d89e4dedebfc406561d9ddb04835f",
+    "src/styles/modern-workspace.css": "e6583d1b40f82f671904589b5a72418f234673befc403944240ace3733c4e477",
+    "src/styles/workspace-redesign.css": "10526882c38d643a8b1a8f6040532819feb23964e27d34f71787f4536953530c",
+    "src/styles/workspace-ui.css": "dafad32c0eb7227db53f7c8dab73c1942d6c408be91c0e29f3811c457f3ffdbb",
+    "src/components/ui/button.tsx": "ef2e661cfff3d73e2eac7898e4c664de7022d7957af5eb1598b1f0db49d02679",
+    "src/components/ui/card.tsx": "5e1fe8e720ceb8783e4fa13beaa5664f69d9d83efb936bf1aa791c83a069b577",
+    "src/components/ui/dialog.tsx": "990edf0b62826802a2f97e18e3061c8c94bc7080fd2c9e9b3d90241f17db75c5",
+    "src/components/ui/dropdown-menu.tsx": "911da7e5305ef4c7eef85655173fdb3f35291fa176c8aa2911ec412d0000029f",
+    "src/components/ui/form.tsx": "75fb65e9a20b3b4657d4918c925a4cc2137006a689a20311298179c21c1f2ebd",
+    "src/components/ui/input.tsx": "69e355aefc308dd5b4c396df40a75cbf4f404e1dd4705cbbf5ca9e90f8e019c9",
+    "src/components/ui/label.tsx": "60c3066f71f92b47852366f2c01eb8fc1170e3a6a37ce9a3b0ca1ec27f971743",
+    "src/components/ui/select.tsx": "ed978a5d44d25a14d9ce023a853bc7e18bf8e3fc63793612bab6e62ded1540de",
+    "src/components/ui/separator.tsx": "dc63e400e779dca88a48ca14c83578f3047e74087df5c0a3f393a339d687d4f5",
+    "src/components/ui/table.tsx": "a9388f7b400b3b82c6c6b492f1721f637d11133d8345f862538e5fb2c91053c4"
+  },
+  "textNormalization": "CRLF to LF"
+}

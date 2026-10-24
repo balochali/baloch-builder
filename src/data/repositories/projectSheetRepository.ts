@@ -119,7 +119,7 @@ export async function updateSheetSale(id: string, input: ProjectSaleInput) {
     );
   } catch (error) {
     if (/UNIQUE constraint failed/i.test(String(error)))
-      throw new Error("This unit is already recorded as sold on the selected floor.");
+      throw Object.assign(new Error("This unit is already recorded as sold on the selected floor."), { cause: error });
     throw error;
   }
 }

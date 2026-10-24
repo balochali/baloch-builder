@@ -1,0 +1,84 @@
+/* Working-area styles only. Never target login, shell, sidebar, shared tokens or body. */
+.accounting-workspace {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  color: var(--foreground);
+  font: inherit;
+}
+.accounting-workspace h2 {
+  font-size: 18px;
+  font-weight: 650;
+  margin: 12px 0;
+}
+.accounting-workspace button,
+.accounting-workspace select,
+.accounting-workspace input,
+.accounting-workspace textarea {
+  font: inherit;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--foreground);
+}
+.accounting-workspace button {
+  cursor: pointer;
+}
+.accounting-workspace button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.accounting-workspace .toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.accounting-workspace .error {
+  color: var(--destructive);
+  padding: 10px;
+  border: 1px solid var(--destructive);
+  white-space: pre-wrap;
+}
+.accounting-workspace .grid {
+  height: 440px;
+  min-width: 0;
+}
+.accounting-workspace .grid-short {
+  height: 180px;
+  min-width: 0;
+}
+.accounting-workspace .ag-row.error-row {
+  background: color-mix(in srgb, var(--destructive) 10%, var(--card));
+}
+.accounting-workspace .ag-row-pinned {
+  font-weight: 700;
+}
+.accounting-workspace .ag-row.unbalanced-row {
+  color: var(--destructive);
+}
+.accounting-workspace label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.accounting-workspace details {
+  margin: 8px 0;
+}
+.accounting-workspace summary {
+  cursor: pointer;
+}
+.accounting-workspace small,
+.accounting-workspace footer {
+  color: var(--muted-foreground);
+}
+.accounting-workspace footer {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.accounting-workspace button:focus-visible,
+.accounting-workspace input:focus-visible {
+  outline: 2px solid var(--ring);
+}

@@ -1,3 +1,4 @@
+import type { Role } from "@baloch/shared";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { useRef, useState } from "react";
 import { ChevronRight, CalendarDays, Sun, Moon, Menu } from "lucide-react";
@@ -7,9 +8,10 @@ import { useThemeStore } from "@/stores/themeStore";
 
 interface AppShellProps {
   onLogout: () => void;
+  role?: Role;
 }
 
-export function AppShell({ onLogout }: AppShellProps) {
+export function AppShell({ onLogout, role }: AppShellProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
@@ -19,6 +21,7 @@ export function AppShell({ onLogout }: AppShellProps) {
     : ((
       {
         "/": "Dashboard",
+        "/vouchers":"Vouchers", "/journal":"General journal", "/trial-balance":"Trial Balance", "/accounts":"Chart of accounts", "/periods":"Fiscal periods", "/users":"Users and roles", "/assignments":"Project assignments", "/audit":"Audit log",
         "/contacts": "Contacts",
         "/land": "Land",
         "/sheet": "Sheet Entry",
@@ -44,7 +47,7 @@ export function AppShell({ onLogout }: AppShellProps) {
       >
         Skip to content
       </a>
-      <Sidebar onLogout={onLogout} />
+      <Sidebar onLogout={onLogout} role={role} />
       <Dialog open={navigationOpen} onOpenChange={setNavigationOpen}>
         <DialogContent
           className="mobile-navigation"
@@ -58,6 +61,7 @@ export function AppShell({ onLogout }: AppShellProps) {
             Choose a page in your workspace.
           </DialogDescription>
           <Sidebar
+            role={role}
             onNavigate={() => setNavigationOpen(false)}
             onLogout={() => {
               setNavigationOpen(false);

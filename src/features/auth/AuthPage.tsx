@@ -10,9 +10,10 @@ import "./auth-page.css";
 interface AuthPageProps {
   mode: "setup" | "login";
   onSuccess: () => void;
+  authenticate?: (username: string, password: string, totp?: string) => Promise<void>;
 }
 
-export function AuthPage({ mode, onSuccess }: AuthPageProps) {
+export function AuthPage({ mode, onSuccess, authenticate }: AuthPageProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,6 +21,8 @@ export function AuthPage({ mode, onSuccess }: AuthPageProps) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const setup = mode === "setup";
+  const [totp, setTotp] = useState("");
+  const [needsTotp, setNeedsTotp] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,11 +33,13 @@ export function AuthPage({ mode, onSuccess }: AuthPageProps) {
     }
     setPending(true);
     try {
-      await invoke(setup ? "create_account" : "login", { username, password });
+      if (authenticate) await authenticate(username, password, totp || undefined);
+      else await invoke(setup ? "create_account" : "login", { username, password });
       setPassword("");
       setConfirmPassword("");
       onSuccess();
     } catch (cause) {
+      if (authenticate && /two-factor/i.test(String(cause))) setNeedsTotp(true);
       setError(String(cause));
     } finally {
       setPending(false);
@@ -94,6 +99,7 @@ export function AuthPage({ mode, onSuccess }: AuthPageProps) {
                 <Input id="auth-confirm" type="password" placeholder="Enter your password again" autoComplete="new-password" required
                   value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
               </div>}
+              {needsTotp && <div className="auth-field"><Label htmlFor="auth-totp">Two-factor code</Label><Input id="auth-totp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required value={totp} onChange={event=>setTotp(event.target.value)}/></div>}
               {error && <p role="alert" className="auth-error">{error}</p>}
               <Button type="submit" disabled={pending}>
                 {pending ? "Please wait…" : setup ? "Create account" : "Sign in"}

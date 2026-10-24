@@ -132,7 +132,7 @@ describe("project partners", () => {
     expect(execute.mock.calls[3][1]).toContain(200_000);
     expect(execute.mock.calls[3][1]).toContain("2026-09-22");
     expect(execute.mock.calls[3][1]).toContain(
-      JSON.stringify({ payment_details: partner.initial_payment_details }),
+      JSON.stringify({ payment_details: partner.initial_payment_details, contribution_purpose: "land", funding_round_id: null }),
     );
   });
 

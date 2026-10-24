@@ -1,0 +1,76 @@
+import { BankPage } from "@/features/bank/pages/BankPage";
+import { PersonalDepositPage } from "@/features/personal-deposit/PersonalDepositPage";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AppShell } from "./layout/AppShell";
+import { LandPage } from "@/features/land/pages/LandPage";
+import { RefreshablePage } from "@/features/sheet/PageRefresh";
+import { AuthPage } from "@/features/auth/AuthPage";
+
+// Feature pages
+import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
+import { ContactsPage } from "@/features/contacts/pages/ContactsPage";
+import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
+import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
+import { PartnersPage } from "@/features/partners/pages/PartnersPage";
+import { SettingsPage } from "@/features/settings/pages/SettingsPage";
+import { CreditUdhaarPage } from "@/features/udhaar/pages/CreditUdhaarPage";
+import { PersonalExpensePage } from "@/features/personal-expense/pages/PersonalExpensePage";
+import { DocumentsPage } from "@/features/documents/pages/DocumentsPage";
+
+export function AppRouter() {
+  const [auth, setAuth] = useState<"loading" | "setup" | "login" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let active = true;
+    invoke<boolean>("auth_status")
+      .then((exists) => {
+        if (active) setAuth(exists ? "login" : "setup");
+      })
+      .catch(() => {
+        if (active) setAuth("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (auth === "loading")
+    return <div className="min-h-screen grid place-items-center">Opening Baloch Builder…</div>;
+  if (auth === "error")
+    return (
+      <div className="min-h-screen grid place-items-center text-destructive">
+        Unable to load account. Restart the desktop app.
+      </div>
+    );
+  if (auth !== "ready") return <AuthPage mode={auth} onSuccess={() => setAuth("ready")} />;
+
+  return (
+    <HashRouter>
+      <Routes>
+        <Route element={<AppShell onLogout={() => {
+          window.location.hash = "#/";
+          setAuth("login");
+        }} />}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/contacts" element={<RefreshablePage><ContactsPage /></RefreshablePage>} />
+          <Route path="/land" element={<RefreshablePage><LandPage /></RefreshablePage>} />
+          <Route path="/sheet" element={<Navigate to="/projects" replace />} />
+          <Route path="/projects" element={<RefreshablePage><ProjectsPage /></RefreshablePage>} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="/partners" element={<RefreshablePage><PartnersPage /></RefreshablePage>} />
+          <Route path="/personal-expense" element={<RefreshablePage><PersonalExpensePage /></RefreshablePage>} />
+          <Route path="/credit-udhaar" element={<RefreshablePage><CreditUdhaarPage /></RefreshablePage>} />
+          <Route path="/personal-deposit" element={<RefreshablePage><PersonalDepositPage /></RefreshablePage>} />
+          <Route path="/ledger" element={<Navigate to="/credit-udhaar" replace />} />
+          <Route path="/documents" element={<RefreshablePage><DocumentsPage /></RefreshablePage>} />
+          <Route path="/bank" element={<RefreshablePage><BankPage /></RefreshablePage>} />
+          <Route path="/settings" element={<SettingsPage />} />
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </HashRouter>
+  );
+}

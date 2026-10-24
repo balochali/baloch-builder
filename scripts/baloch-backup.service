@@ -1,0 +1,9 @@
+[Unit]
+Description=Baloch Builder nightly backup
+[Service]
+Type=oneshot
+User=baloch
+WorkingDirectory=/opt/baloch-builder
+EnvironmentFile=/etc/baloch-backup.env
+ExecStart=/usr/bin/node /opt/baloch-builder/scripts/backup.mjs /var/backups/baloch
+UMask=0077

@@ -112,13 +112,16 @@ it("preserves existing unit sales and document links when upgrading", () => {
   try {
     legacy.exec("PRAGMA foreign_keys = ON");
     for (const file of readdirSync("src-tauri/migrations")
-      .filter((f) => f.endsWith(".sql") && !f.startsWith("019"))
+      .filter((f) => f.endsWith(".sql") && f < "019")
       .sort())
       legacy.exec(readFileSync("src-tauri/migrations/" + file, "utf8"));
     legacy.exec(
       "INSERT INTO projects (id,name,created_at,updated_at) VALUES ('p','Project','',''); INSERT INTO project_sales (id,project_id,kind,floor_index,unit_number,buyer_name,sale_date,price,created_at,updated_at) VALUES ('s','p','flat',1,'A1','Buyer','2026-10-01',3000000,'',''); INSERT INTO documents (id,title,owner_type,owner_id,created_at,updated_at) VALUES ('d','Agreement','project_sale','s','','');",
     );
     legacy.exec(readFileSync("src-tauri/migrations/019_land_sales.sql", "utf8"));
+    // Continue in production order; later triggers reference project_sales.
+    for (const file of readdirSync("src-tauri/migrations").filter(f => f.endsWith(".sql") && f > "019_land_sales.sql").sort())
+      legacy.exec(readFileSync("src-tauri/migrations/" + file, "utf8"));
     expect(legacy.prepare("SELECT price FROM project_sales WHERE id='s'").get()?.price).toBe(
       3000000,
     );

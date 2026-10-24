@@ -437,7 +437,7 @@ describe("ProjectDetailPage", () => {
     );
     fireEvent.click(screen.getByRole("tab", { name: "Building" }));
     fireEvent.click(screen.getByRole("tab", { name: "Areas & details" }));
-    expect(screen.getByText("10,000 sq yd")).toBeInTheDocument();
+    expect(screen.getAllByText("10,000 sq yd")).toHaveLength(2);
     expect(screen.queryByText("7,000 sq yd")).not.toBeInTheDocument();
   });
 
@@ -982,8 +982,8 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Compare area sizes" })).toBeInTheDocument();
     expect(screen.getAllByText("2,000 sq yd").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Land purchase" })).toBeInTheDocument();
-    expect(screen.getByText("Ali")).toBeInTheDocument();
-    expect(screen.getByText("Rs 19,000,000")).toBeInTheDocument();
+    expect(screen.getAllByText("Ali")).toHaveLength(2);
+    expect(screen.getAllByText("Rs 19,000,000")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "View land records" })).toHaveAttribute(
       "href",
       "/land",
@@ -1038,11 +1038,11 @@ describe("ProjectDetailPage", () => {
       screen.getByRole("img", { name: "Ali owns 25.00 percent of this project" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Record Payment" })).not.toBeInTheDocument();
-    for (const [label, title] of [["Land payment", "Receive land payment"], ["Construction", "Receive construction payment"], ["Return capital", "Return capital"], ["Pay profit", "Pay profit"], ["Payment history", "Payment history"]]) {
+    for (const [label, title] of [["Land payment", "Receive land payment"], ["Construction payment", "Receive construction payment"], ["Return capital", "Return capital"], ["Pay profit", "Pay profit"], ["Payment history", "Payment history"]]) {
       fireEvent.click(screen.getByRole("button", { name: label }));
       expect(screen.getByRole("dialog")).toHaveTextContent(title);
       expect(screen.queryByRole("button", {name:"Next"})).not.toBeInTheDocument();
-      if(label === "Construction") expect(screen.getByLabelText(/Construction request/)).toHaveValue("choose-construction");
+      if(label === "Construction payment") expect(screen.getByLabelText(/Construction request/)).toHaveValue("choose-construction");
       fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     }

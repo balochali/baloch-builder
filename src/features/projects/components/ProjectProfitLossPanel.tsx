@@ -1,3 +1,4 @@
+import { projectSaleFees } from "@/data/repositories/saleEventsRepository";
 import { usePagination, PaginatedRecords } from "@/components/Pagination";
 import { useEffect, useState } from "react";
 import {
@@ -28,10 +29,11 @@ export function calculateProjectResult(
   sales: Pick<ProjectSale, "price">[],
   costs: Pick<Transaction, "amount">[],
   partners: Pick<ProjectPartnerRow, "name" | "share_bp">[],
+  fees = 0,
 ) {
   const saleValue = sales.reduce((total, sale) => total + sale.price, 0);
   const spent = costs.reduce((total, cost) => total + cost.amount, 0);
-  const result = saleValue - spent;
+  const result = saleValue + fees - spent;
   const allocations = partners.map((partner) => ({
     name: partner.name,
     share_bp: partner.share_bp,
@@ -89,6 +91,7 @@ export function ProjectProfitLossPanel({
   const [view, setView] = useState<"overview" | "partners">("overview");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [fees,setFees] = useState(0);
   const [sales, setSales] = useState<ProjectSale[]>([]);
   const [payouts, setPayouts] = useState<PartnerPayout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,10 +99,11 @@ export function ProjectProfitLossPanel({
   const [selected, setSelected] = useState<ProjectPartnerRow | null>(null);
   useEffect(() => {
     let active = true;
-    Promise.all([listProjectSales(projectId), listPartnerPayouts(projectId)])
-      .then(([saleRows, payoutRows]) => {
+    Promise.all([listProjectSales(projectId), listPartnerPayouts(projectId),projectSaleFees(projectId)])
+      .then(([saleRows, payoutRows,feeAmount]) => {
         if (active) {
           setSales(saleRows);
+          setFees(feeAmount);
           setPayouts(payoutRows);
         }
       })
@@ -117,10 +121,10 @@ export function ProjectProfitLossPanel({
     };
   }, [projectId, refreshKey]);
 
-  const summary = calculateProjectResult(sales, costs, partners);
+  const summary = calculateProjectResult(sales, costs, partners,fees);
   const scale = Math.max(summary.saleValue, summary.spent, 1);
   const resultLabel = summary.result > 0 ? "Profit" : summary.result < 0 ? "Loss" : "Break-even";
-  const hasRecords = sales.length > 0 || costs.length > 0;
+  const hasRecords = sales.length > 0 || costs.length > 0 || fees > 0;
   const status = !hasRecords ? "No result yet" : resultLabel;
   const totalGiven = partners.reduce((sum, partner) => sum + partner.contributed, 0);
   const visiblePartners = partners.filter((partner) =>
@@ -140,6 +144,7 @@ export function ProjectProfitLossPanel({
       aria-labelledby="project-tab-profit"
       className="project-profit"
     >
+      {fees>0 && <p className="text-sm">Cancellation deductions & resale commission included in profit: {formatPKR(fees)}</p>}
       <header className="project-profit-hero">
         <span className="project-profit-hero-icon">
           <ChartNoAxesCombined size={28} />
@@ -148,7 +153,7 @@ export function ProjectProfitLossPanel({
           <small>PROJECT OUTCOME</small>
           <h2>Profit & Loss</h2>
           <p>
-            Compare agreed sales with recorded project costs, then see each partner’s share of the
+            Compare agreed sales plus cancellation deductions and resale commission with recorded project costs, then see each partner’s share of the
             difference.
           </p>
         </div>

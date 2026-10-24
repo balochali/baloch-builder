@@ -1,3 +1,7 @@
+import { SaleRefundDialog } from "./SaleRefundDialog";
+import { SaleLifecycleDialog } from "./SaleLifecycleDialog";
+import { listSaleEvents, type SaleEvent } from "@/data/repositories/saleEventsRepository";
+import { SaleDocumentsDialog } from "./SaleDocumentsDialog";
 import { SalePaymentFields, newSalePayment, paymentInput } from "./SalePaymentForm";
 import { SalePaymentDialog } from "./SalePaymentDialog";
 import { listSalePayments, SalePaymentSchema, type SalePayment, type SalePaymentInput } from "@/data/repositories/salePaymentsRepository";
@@ -55,7 +59,12 @@ interface Props {
 
 export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false, refreshKey }: Props) {
   const [sales, setSales] = useState<ProjectSale[]>([]);
+  const [refundEvent, setRefundEvent] = useState<SaleEvent | null>(null);
+  const [events,setEvents] = useState<SaleEvent[]>([]);
+  const [lifecycle,setLifecycle] = useState<{sale:ProjectSale;kind:"cancel"|"resell"}|null>(null);
+  const [revision,setRevision] = useState(0);
   const [payments, setPayments] = useState<SalePayment[]>([]);
+  const [documentSale, setDocumentSale] = useState<ProjectSale | null>(null);
   const [paymentSale, setPaymentSale] = useState<ProjectSale | null>(null);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,11 +76,12 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
 
   useEffect(() => {
     let active = true;
-    Promise.all([listProjectSales(projectId), listProjectSaleDocuments(projectId), listSalePayments(projectId)])
-      .then(([saleRows, documentRows, paymentRows]) => {
+    Promise.all([listProjectSales(projectId), listProjectSaleDocuments(projectId), listSalePayments(projectId),listSaleEvents(projectId)])
+      .then(([saleRows, documentRows, paymentRows, eventRows]) => {
         if (active) {
           setSales(saleRows);
           setPayments(paymentRows);
+          setEvents(eventRows);
           setDocuments(documentRows);
         }
       })
@@ -84,7 +94,7 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
     return () => {
       active = false;
     };
-  }, [projectId, refreshKey]);
+  }, [projectId, refreshKey,revision]);
 
   const flatCount = sales.filter((sale) => sale.kind === "flat").length;
   const shopCount = sales.filter((sale) => sale.kind === "shop").length;
@@ -105,10 +115,10 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
   );
   async function saveSale(value: ProjectSaleInput, firstPayment: SalePaymentInput | null) {
     const row = await addProjectSale(value, firstPayment);
-    setSales(current => [row,...current]);
-    if(firstPayment) {
+    setSales(current => [row, ...current]);
+    if (firstPayment) {
       const initial = JSON.parse(row.custom).initial_payment;
-      setPayments(current => [{...firstPayment,id:initial.id,sale_id:row.id,project_id:projectId,direction:"in",type:"sale_payment",created_at:row.created_at,updated_at:row.updated_at,archived:0,custom:JSON.stringify({sale_id:row.id,payment_details:firstPayment.payment_details}),description:"First payment",partner_id:null,contact_id:null} as SalePayment,...current]);
+      setPayments(current => [{ ...firstPayment, id: initial.id, sale_id: row.id, project_id: projectId, direction: "in", type: "sale_payment", created_at: row.created_at, updated_at: row.updated_at, archived: 0, custom: JSON.stringify({ sale_id: row.id, payment_details: firstPayment.payment_details }), description: "First payment", partner_id: null, contact_id: null, land_id: null, receipt_document_id: null } as SalePayment, ...current]);
     }
     toast.success(firstPayment ? "Sale and first payment recorded" : "Sale recorded; payment is still due");
   }
@@ -237,7 +247,11 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
         </p>
       ) : visible.length ? (
         <div className="project-sales-grid">
-          {pages.items.map((sale) => (
+          {pages.items.map((sale) => {
+            const salePayments = payments.filter(payment => payment.sale_id === sale.id);
+            const received = salePayments.reduce((sum, payment) => sum + payment.amount, 0);
+            const percent = sale.price > 0 ? Math.min(100, Math.max(0, received / sale.price * 100)) : 0;
+            return (
             <article className="project-sales-card" key={sale.id}>
               <div className="project-sales-card-head">
                 <span className={`project-sales-card-icon is-${sale.kind}`}>
@@ -271,46 +285,50 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
                 <p className="project-sales-card-note">{sale.buyer_address}</p>
               )}
               {sale.notes && <p className="project-sales-card-note">{sale.notes}</p>}
+              <button type="button" className="project-sale-secondary" onClick={()=>setDocumentSale(sale)}><FileImage size={15}/> Add documents</button>
               {sale.kind === "land" && <LandSalePaymentSummary sale={sale} />}
               {sale.kind !== "land" && <div className="sale-payment-summary">
-                <div><span>Received<strong>{formatPKR(payments.filter(p=>p.sale_id===sale.id).reduce((sum,p)=>sum+p.amount,0))}</strong></span><span>Still to receive<strong>{formatPKR(sale.price-payments.filter(p=>p.sale_id===sale.id).reduce((sum,p)=>sum+p.amount,0))}</strong></span></div>
-                <button type="button" className="project-sales-primary" disabled={payments.filter(p=>p.sale_id===sale.id).reduce((sum,p)=>sum+p.amount,0)>=sale.price} onClick={()=>setPaymentSale(sale)}>{payments.filter(p=>p.sale_id===sale.id).reduce((sum,p)=>sum+p.amount,0)>=sale.price?"Fully paid":"Record payment"}</button>
-                <details><summary>Payment history ({payments.filter(p=>p.sale_id===sale.id).length})</summary>{payments.filter(p=>p.sale_id===sale.id).map(p=><div className="sale-payment-history-row" key={p.id}><span>{formatDate(p.date)} · {p.method}{p.reference && ` · ${p.reference}`}</span><strong>{formatPKR(p.amount)}</strong></div>)}</details>
+                <div className="sale-payment-progress"><span>Payment progress</span><strong>{Math.round(percent)}% received</strong><div role="progressbar" aria-label={`Payment progress for ${sale.kind} ${sale.unit_number}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)}><span style={{width:`${percent}%`}} /></div></div>
+                <div><span>Received<strong>{formatPKR(received)}</strong></span><span>Still to receive<strong>{formatPKR(sale.price - received)}</strong></span></div>
+                <button type="button" className="project-sales-primary" disabled={received >= sale.price} onClick={() => setPaymentSale(sale)}>{received >= sale.price ? "Fully paid" : "Record payment"}</button>
+                <div className="sale-lifecycle-actions"><button className="project-sale-secondary" type="button" disabled={received<sale.price} title={received<sale.price?"Buyer must settle all instalments before resale":"Resell through builder"} onClick={()=>setLifecycle({sale,kind:"resell"})}>Resell</button><button className="project-sale-secondary" type="button" onClick={()=>setLifecycle({sale,kind:"cancel"})}>Cancel sale</button></div>
+                {received<sale.price&&<small>Resale available after full payment.</small>}
+                <details><summary>Payment history ({salePayments.length})</summary>{salePayments.map(p => <div className="sale-payment-history-row" key={p.id}><span>{formatDate(p.date)} · {p.method}{p.reference && ` · ${p.reference}`}</span><strong>{formatPKR(p.amount)}</strong></div>)}</details>
               </div>}
               {documents.some(
                 (document) =>
                   document.owner_id === sale.id && document.doc_type !== "land_sale_receipt",
               ) && (
-                <div className="project-sales-card-documents">
-                  <small>
-                    <FileImage size={15} /> Sale documents
-                  </small>
-                  <SavedImageGallery
-                    documents={documents.filter(
-                      (document) =>
-                        document.owner_id === sale.id && document.doc_type !== "land_sale_receipt",
-                    )}
-                  />
-                </div>
-              )}
+                  <div className="project-sales-card-documents">
+                    <small>
+                      <FileImage size={15} /> Sale documents
+                    </small>
+                    <SavedImageGallery
+                      documents={documents.filter(
+                        (document) =>
+                          document.owner_id === sale.id && document.doc_type !== "land_sale_receipt",
+                      )}
+                    />
+                  </div>
+                )}
               {documents.some(
                 (document) =>
                   document.owner_id === sale.id && document.doc_type === "land_sale_receipt",
               ) && (
-                <div className="project-sales-card-documents">
-                  <small>
-                    <FileImage size={15} /> Payment proof
-                  </small>
-                  <SavedImageGallery
-                    documents={documents.filter(
-                      (document) =>
-                        document.owner_id === sale.id && document.doc_type === "land_sale_receipt",
-                    )}
-                  />
-                </div>
-              )}
+                  <div className="project-sales-card-documents">
+                    <small>
+                      <FileImage size={15} /> Payment proof
+                    </small>
+                    <SavedImageGallery
+                      documents={documents.filter(
+                        (document) =>
+                          document.owner_id === sale.id && document.doc_type === "land_sale_receipt",
+                      )}
+                    />
+                  </div>
+                )}
             </article>
-          ))}
+          );})}
         </div>
       ) : (
         <div className="project-sales-empty">
@@ -328,7 +346,33 @@ export function ProjectSalesPanel({ projectId, buildingDetails, landSold = false
           )}
         </div>
       )}
-      {paymentSale && <SalePaymentDialog sale={paymentSale} received={payments.filter(p=>p.sale_id===paymentSale.id).reduce((sum,p)=>sum+p.amount,0)} onClose={()=>setPaymentSale(null)} onSaved={payment=>setPayments(current=>[payment,...current])} />}
+      {events.some(e => e.kind === "cancel") && <section className="cancelled-refunds">
+        <h3>Cancelled bookings · Buyer refunds</h3>
+        <p>Pay the refund in instalments. These balances remain until the buyer has been repaid.</p>
+        <div className="project-sales-grid">
+          {events.filter(e => e.kind === "cancel").map(event => {
+            const detail = JSON.parse(event.details);
+            const refunded = event.refunded ?? 0;
+            const remaining = Math.max(0, event.refund - refunded);
+            const percent = event.refund > 0 ? Math.min(100, refunded / event.refund * 100) : 100;
+            const history = JSON.parse(event.refund_payments || "[]") as {id:string;date:string;amount:number;method:string;reference:string}[];
+            return <article className="refund-card" key={event.id}>
+              <header><span className="refund-status">{remaining > 0 ? "Refund pending" : "Refund settled"}</span><h4>{detail.unit_kind} {detail.unit_number}</h4><p>{event.buyer_name} · Cancelled {formatDate(event.date)}</p></header>
+              <div className="refund-agreement"><span>Total refund owed<strong>{formatPKR(event.refund)}</strong></span><small>{event.rate_bp / 100}% deducted from received money · {formatPKR(event.fee)} retained</small></div>
+              <div className="refund-totals"><span>Refunded<strong>{formatPKR(refunded)}</strong></span><span>Remaining refund<strong>{formatPKR(remaining)}</strong></span></div>
+              <div className="refund-progress" role="progressbar" aria-label={`Refund progress for ${event.buyer_name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)}><span style={{width:`${percent}%`}} /></div>
+              <small>{Math.round(percent)}% refunded{event.refund === 0 ? " · No refund due" : ""}</small>
+              <button className="refund-record" disabled={remaining === 0} onClick={() => setRefundEvent(event)}>{remaining > 0 ? "Record refund" : "Nothing left to refund"}</button>
+              <details><summary>Refund payment history ({history.length})</summary>{history.length === 0 ? <p>No refund payments recorded yet.</p> : history.map((payment,index) => <div className="sale-payment-history-row" key={payment.id}><span>Payment {index+1} · {formatDate(payment.date)}<br/>{payment.method}{payment.reference ? ` · ${payment.reference}` : ""}</span><strong>{formatPKR(payment.amount)}</strong></div>)}</details>
+            </article>;
+          })}
+        </div>
+      </section>}
+      {refundEvent && <SaleRefundDialog event={refundEvent} onClose={() => setRefundEvent(null)} onSaved={() => setRevision(v => v+1)} />}
+      {events.length>0&&<details className="sale-events-history"><summary>Resale & cancellation history ({events.length})</summary>{events.map(event=><div key={event.id} className="sale-payment-history-row"><span>{event.kind==="cancel"?"Cancelled":"Resold"} · {event.buyer_name} · {formatDate(event.date)}<br/>{event.kind==="cancel"?`Refund ${formatPKR(event.refund)} · ${event.rate_bp/100}% deducted`:`Resale price ${formatPKR(event.resale_price)} · ${event.rate_bp/100}% commission`}</span><strong>{event.kind==="cancel"?"Retained":"Commission"}: {formatPKR(event.fee)}</strong></div>)}</details>}
+      {lifecycle&&<SaleLifecycleDialog sale={lifecycle.sale} kind={lifecycle.kind} received={payments.filter(p=>p.sale_id===lifecycle.sale.id).reduce((total,p)=>total+p.amount,0)} onClose={()=>setLifecycle(null)} onSaved={()=>setRevision(v=>v+1)}/>}
+      {documentSale && <SaleDocumentsDialog sale={documentSale} onClose={()=>setDocumentSale(null)} onSaved={rows=>setDocuments(current=>[...rows,...current])} />}
+      {paymentSale && <SalePaymentDialog sale={paymentSale} received={payments.filter(p => p.sale_id === paymentSale.id).reduce((sum, p) => sum + p.amount, 0)} onClose={() => setPaymentSale(null)} onSaved={payment => setPayments(current => [payment, ...current])} />}
       {open && (
         <SaleDialog
           projectId={projectId}
@@ -437,8 +481,8 @@ function SaleDialog({
     if (!parsed.success)
       return setFormError(parsed.error.issues[0]?.message || "Check the sale details.");
     const payment = payLater ? null : SalePaymentSchema.safeParse(paymentInput(paymentDraft));
-    if(payment && !payment.success) return setFormError(payment.error.issues[0]?.message ?? "Check the first payment");
-    if(payment?.success && (payment.data.amount > parsed.data.price || payment.data.date < parsed.data.sale_date)) return setFormError("First payment must not exceed the price or predate the sale.");
+    if (payment && !payment.success) return setFormError(payment.error.issues[0]?.message ?? "Check the first payment");
+    if (payment?.success && (payment.data.amount > parsed.data.price || payment.data.date < parsed.data.sale_date)) return setFormError("First payment must not exceed the price or predate the sale.");
     saveLock.current = true;
     setSaving(true);
     setFormError("");
@@ -651,8 +695,8 @@ function SaleDialog({
               <div className="project-sale-step-intro">
                 <h3>First payment</h3><p>Record the booking amount or first instalment received from the buyer.</p>
               </div>
-              <label className="sale-pay-later"><input type="checkbox" checked={payLater} onChange={e=>setPayLater(e.target.checked)} disabled={saving}/> No payment received yet — record it later</label>
-              {!payLater && <SalePaymentFields value={paymentDraft} onChange={setPaymentDraft} disabled={saving}/>}
+              <label className="sale-pay-later"><input type="checkbox" checked={payLater} onChange={e => setPayLater(e.target.checked)} disabled={saving} /> No payment received yet — record it later</label>
+              {!payLater && <SalePaymentFields value={paymentDraft} onChange={setPaymentDraft} disabled={saving} />}
               <div className="project-sale-review">
                 <strong>Ready to save</strong>
                 <span>
