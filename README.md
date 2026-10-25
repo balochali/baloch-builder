@@ -23,7 +23,7 @@ npm run dev:server
 npm run dev
 ```
 
-The frontend is at `http://localhost:1420`, with `/api` proxied to port 3000. Enter the admin email in the existing **Username** field. Seed is deliberately refused once users exist. Create subsequent accounts in the Users grid; create a fiscal month before entering vouchers. Every line needs an account code and project code. Ctrl+V accepts tab-separated Excel rows. Save/Post are disabled for invalid or unbalanced amounts. Edits to posted entries require a reversing draft in an open period.
+The frontend is at `http://localhost:1420`, with `/api` proxied to port 3000. Enter the admin email in the existing **Username** field. Seed can be repeated with the existing active Admin email and password: it inserts missing reference data and preserves edited rows, passwords and settings. Create subsequent accounts in the Users grid; create a fiscal month before entering vouchers. Every line needs an account code and project code. Ctrl+V accepts tab-separated Excel rows. Save/Post are disabled for invalid or unbalanced amounts. Edits to posted entries require a reversing draft in an open period.
 
 For optional TOTP, set `TOTP_ENCRYPTION_KEY` to 64 random hexadecimal characters on the server. Use Two-factor setup in the working area, enter your password, add the generated secret to an authenticator, and confirm its code. The next login requires a fresh unused code. Keep the encryption key in your secret backup; database recovery alone cannot recover encrypted TOTP secrets without it.
 
@@ -80,11 +80,11 @@ Restore runs in one transaction with no destructive `--clean`. Verify migrations
 
 `npm run dev:legacy` previews the retained frontend wiring; actual SQLite/desktop authentication needs Tauri. The Tauri source, migrations and Rust Drive backup are unchanged by this rewrite except for pre-existing local work. To build the historical offline frontend, use `vite build --mode legacy` with the retained Tauri build configuration. The new multi-user browser application is the supported Phase 1 path; no packaged Tauri/server integration is claimed as tested.
 
-See [REWRITE_PLAN](docs/REWRITE_PLAN.md), [DECISIONS](docs/DECISIONS.md) and [CHANGES](docs/CHANGES.md). Stop after Phase 1 for review before building payment approval.
+See [REWRITE_PLAN](docs/REWRITE_PLAN.md), [DECISIONS](docs/DECISIONS.md) and [CHANGES](docs/CHANGES.md). Task 2 stops at project profiles and cost tags; future modules and payment approval remain unavailable.
 
 ### Database privilege boundary
 
-`baloch_owner` owns the dedicated database, public schema, tables and functions and is used only for migrations/restores. `baloch_app` owns nothing and has no role memberships or superuser/createdb/createrole/bypassrls rights. Startup rejects an unsafe runtime identity. Business tables allow SELECT/INSERT/UPDATE; only sessions allow DELETE. Attachments and audit allow SELECT/INSERT; schema_migrations is read-only. No runtime role gets DDL or TRUNCATE. Trigger functions use the caller's privileges, including writes to audit_log and voucher_series.
+`baloch_owner` owns the dedicated database, public schema, tables and functions and is used only for migrations/restores. `baloch_app` owns nothing and has no role memberships or superuser/createdb/createrole/bypassrls rights. Startup rejects an unsafe runtime identity. Business tables allow SELECT/INSERT/UPDATE; sessions and unreferenced project buildings allow DELETE (buildings additionally require the guarded Admin path). Attachments and audit allow SELECT/INSERT; schema_migrations is read-only. No runtime role gets DDL or TRUNCATE. Trigger functions use the caller's privileges, including writes to audit_log and voucher_series.
 
 Migration 004 defines owner-specific defaults for future public business tables (SELECT/INSERT/UPDATE only) and functions (EXECUTE to the app, not PUBLIC). Always migrate as baloch_owner. In the same migration transaction, revoke UPDATE for append-only tables and explicitly grant DELETE only where application code needs it. No sequence privileges are needed by the current UUID-based schema; future sequence-backed migrations must explicitly grant USAGE on their sequences. Keep audit triggers even though table grants also enforce immutability.
 
@@ -109,3 +109,19 @@ The multi-stage Node 24 image builds the frontend separately and installs runtim
 `.github/workflows/ci.yml` runs on pushes and pull requests targeting accounting-rewrite or main, using Node 24 and a disposable PostgreSQL 18 service. It provisions owner/app roles, then runs typecheck, lint, root tests, shared tests, server tests, and the production build as separate visible steps. It replaces the earlier accounting workflow, whose superuser test connection is now rejected.
 
 For an existing Compose database initialized by the old `baloch` superuser, set `POSTGRES_ADMIN_USER=baloch` and retain its password. Back up the existing database, then run `docker compose run --rm provision node scripts/init-database.mjs --adopt-existing` before starting the upgraded server. This transfers only objects in the dedicated database's public schema; it does not rewrite migrations or delete records.
+
+## Task 2 screens and reference data
+
+Projects opens an Excel-style grid with inline Admin editing, filters/sorting, an archived toggle and Export to Excel using the currently filtered/sorted rows. Admin can add rows and save valid projects. Double-click a project for its Profile workspace: a per-cell Field/Value sheet, Buildings, Assigned users, status control and append-only status history. The other ten tabs are disabled “Coming soon”.
+
+Admin creates and archives projects and manages assignments to active users. Accountant reads all projects and edits only allocation/revenue settings. Sales and Construction see only assigned projects; removal revokes access on the next request. Backward status changes require a reason; closed is reserved for Task 10. Archive blocks new draft lines and posting.
+
+Cost heads is available to Admin and Accountant. Construction can read active tags through the API; Sales cannot. The 15 seeded tags include Land with two children and budget-only Contingency. Heads are never deleted, and used codes cannot change. The default account is a suggestion: choosing a tag prefills an empty account cell but preserves an account already entered.
+
+Voucher rows accept a cost-head code or unique name, including pasted Excel values. WIP accounts 1200, 1210, 1220, 1230 and 1240 require an active, non-budget-only head when posted. Drafts may omit the tag. All existing balance, period, immutability and Phase 1 payment blocks remain.
+
+In the Admin Settings grid, edit areaDisplayUnit (sqft, marla or kanal) and marlaSqft (a positive decimal, default 272.25), then Save grid changes. One kanal is always 20 marla. Project headings identify the selected display/input unit; storage is exact square feet. Converted display rounds to 12 decimal places, but untouched cells preserve exact stored values. The older sqftPerMarla key is retained for compatibility; marlaSqft is the setting used by these screens.
+
+Run migrations before seeding. Repeat npm run seed -w @baloch/server with ADMIN_EMAIL and ADMIN_PASSWORD belonging to the existing active bootstrap Admin. No credential is printed or reset, and changed head names, codes, defaults and activation state are preserved. Existing projects receive other / Unspecified placeholders for type/city and need Admin review.
+
+Existing posted WIP entries without tags remain untouched. Their exact reversals cannot currently pass mandatory-tag posting; a reviewed legacy correction policy is still required. Docker deployment and browser walkthrough verification are documented separately in docs/TASK_2_RESULTS.md.

@@ -115,3 +115,18 @@ Work starts from accounting-rewrite at c1b423f on task-1-stabilize. A fetch conf
 6. Document the original mixed commit, current decisions and verification evidence without changing accounting scope.
 
 Final verification is recorded in docs/STABILIZATION_RESULTS.md.
+
+## Task 2
+
+Branch task-2-project-profile starts at task-1-stabilize (ef3d6ec), because Task 1 was not merged into accounting-rewrite at the initial fetch. No protected branch or prior commit was rewritten.
+
+1. Migration 006, shared project schemas and server project routes add profile fields, exact areas, buildings, archive controls, guarded status transitions and append-only history.
+2. Migration 007 and assignment routes validate active users, enforce immediate assignment revocation and expose the Assigned users grid.
+3. Migration 008, cost-head routes/shared schemas and repeatable reference seeding add audited cost tags and the 15 requested defaults.
+4. Migration 009, account/voucher mappings, searchable grid editor and cost-tag validation require valid WIP tags at database posting time. Existing posting fixtures now carry tags; all prior assertions remain.
+5. Migration 010, shared area helpers, project list/workspace/status/building grids and Cost heads grid add the working-area screens. Grid paste honors cell editability. Router gains project detail/cost-head routes; Sidebar changes only its role-aware item list.
+6. Router-only fixed expiry banner and regression assertions preserve the existing login DOM.
+7. PostgreSQL, shared and frontend tests cover the role matrix, assignments, status/history, archive/code locks, exact areas, seed preservation, cost tags, database privileges, audit values, grid export, profile editing and navigation.
+8. README and decisions/results document operation, verification and limitations.
+
+No Task 3 work or payment approval functionality is included. See TASK_2_RESULTS.md for measured results.
