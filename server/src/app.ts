@@ -1,3 +1,4 @@
+import { registerProjectRoutes } from "./projects";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -293,50 +294,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
       return result.rows[0];
     });
   });
-  app.get(
-    "/api/projects",
-    { config: { permission: "projects" } },
-    async (r) =>
-      (
-        await pool.query(
-          "SELECT p.* FROM projects p WHERE ($1<>'construction' OR EXISTS(SELECT 1 FROM project_assignments a WHERE a.project_id=p.id AND a.user_id=$2 AND a.active)) ORDER BY p.code",
-          [actor(r).role, actor(r).id],
-        )
-      ).rows,
-  );
-  const projectInput = z
-    .object({
-      code: z.string().trim().min(1).max(40),
-      name: z.string().trim().min(1).max(200),
-      archived: z.boolean().default(false),
-    })
-    .strict();
-  app.post("/api/projects", { config: { permission: "manageProjects" } }, async (r) => {
-    const d = projectInput.parse(r.body);
-    return transaction(
-      actor(r).id,
-      async (c) =>
-        (
-          await c.query(
-            "INSERT INTO projects(code,name,archived,created_by) VALUES($1,$2,$3,$4) RETURNING *",
-            [d.code, d.name, d.archived, actor(r).id],
-          )
-        ).rows[0],
-    );
-  });
-  app.patch("/api/projects/:id", { config: { permission: "manageProjects" } }, async (r) => {
-    const d = projectInput.parse(r.body);
-    return transaction(
-      actor(r).id,
-      async (c) =>
-        (
-          await c.query(
-            "UPDATE projects SET code=$1,name=$2,archived=$3,updated_at=now() WHERE id=$4 RETURNING *",
-            [d.code, d.name, d.archived, idParam(r)],
-          )
-        ).rows[0] ?? Promise.reject(fail("Not found", 404)),
-    );
-  });
+  registerProjectRoutes(app);
   app.get(
     "/api/assignments",
     { config: { permission: "users" } },

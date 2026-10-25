@@ -1,3 +1,5 @@
+import { dateSchema } from "./validation";
+export { dateSchema } from "./validation";
 import { z } from "zod";
 export * from "./money";
 export const roles = ["admin", "accountant", "sales", "construction"] as const;
@@ -24,13 +26,6 @@ export const paisa = z
     (v) => /^(0|[1-9]\d*)$/.test(v) && BigInt(v) <= 9223372036854775807n,
     "Amount exceeds bigint range",
   );
-export const dateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((v) => {
-    const d = new Date(v);
-    return !isNaN(d.valueOf()) && d.toISOString().slice(0, 10) === v;
-  }, "Invalid date");
 export const lineSchema = z
   .object({
     accountId: z.string().uuid(),
@@ -99,3 +94,4 @@ export function totals(lines: { debit: string; credit: string }[]) {
     { debit: 0n, credit: 0n },
   );
 }
+export * from "./projects";
