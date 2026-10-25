@@ -1,0 +1,42 @@
+name: CI
+on:
+  push:
+    branches: [accounting-rewrite, main]
+  pull_request:
+    branches: [accounting-rewrite, main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-admin-password
+          POSTGRES_DB: baloch_test
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres -d baloch_test" --health-interval 5s --health-retries 20
+    env:
+      ADMIN_DATABASE_URL: postgres://postgres:test-admin-password@127.0.0.1:5432/baloch_test
+      OWNER_PASSWORD: test-owner-password
+      APP_PASSWORD: test-app-password
+      OWNER_DATABASE_URL: postgres://baloch_owner:test-owner-password@127.0.0.1:5432/baloch_test
+      DATABASE_URL: postgres://baloch_app:test-app-password@127.0.0.1:5432/baloch_test
+      TRUST_PROXY: 'off'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/init-database.mjs
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:legacy
+      - run: npm run test -w @baloch/shared
+      - run: npm run test:server
+      - run: npm run build

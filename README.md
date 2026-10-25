@@ -101,3 +101,11 @@ Login allows five attempts per minute per client IP plus normalized email, with 
 ### Session expiry
 
 Sessions last eight hours. A 401 from an authenticated API action clears the browser's in-memory session and returns to the unchanged login page. At the user's request, the message “Your session has expired. Please sign in again.” appears beside that page rather than changing AuthPage's internal error line. A first anonymous visit has no expiry warning. Login failures continue to use the existing form error. Empty/non-JSON gateway errors are reported without trying to display HTML. Expired database session rows are removed at server startup and on rate-limit-accepted login attempts, using an expiry index; unexpired rows are retained. Deactivated users cannot use existing sessions.
+
+### Production image and CI
+
+The multi-stage Node 24 image builds the frontend separately and installs runtime dependencies with `npm ci --omit=dev`. The TypeScript server launcher `tsx` is a production dependency. The final container runs as the built-in `node` user (UID/GID 1000), with a writable `/data/attachments` directory. A fresh named volume inherits that directory's ownership. For an existing volume or bind mount, provision its ownership as 1000:1000 before starting the app; do not run the server as root to work around permissions. The healthcheck calls `/api/health` every thirty seconds (liveness, not a database-readiness check).
+
+`.github/workflows/ci.yml` runs on pushes and pull requests targeting accounting-rewrite or main, using Node 24 and a disposable PostgreSQL 18 service. It provisions owner/app roles, then runs typecheck, lint, root tests, shared tests, server tests, and the production build as separate visible steps. It replaces the earlier accounting workflow, whose superuser test connection is now rejected.
+
+For an existing Compose database initialized by the old `baloch` superuser, set `POSTGRES_ADMIN_USER=baloch` and retain its password. Back up the existing database, then run `docker compose run --rm provision node scripts/init-database.mjs --adopt-existing` before starting the upgraded server. This transfers only objects in the dedicated database's public schema; it does not rewrite migrations or delete records.
