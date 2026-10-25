@@ -68,7 +68,26 @@ function ServerRouter() {
   if (!user)
     return (
       <>
-        {sessionError && <p role="alert">{sessionError}</p>}
+        {sessionError && (
+          <p
+            role="alert"
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 1000,
+              margin: 0,
+              padding: "0.75rem 1rem",
+              background: "var(--card)",
+              color: "var(--foreground)",
+              borderBottom: "1px solid var(--border)",
+              textAlign: "center",
+            }}
+          >
+            {sessionError}
+          </p>
+        )}
         <AuthPage
           mode="login"
           onSuccess={() => {}}

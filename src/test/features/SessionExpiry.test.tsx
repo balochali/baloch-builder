@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api, SESSION_EXPIRED_MESSAGE } from "@/data/api";
+import { AuthPage } from "@/features/auth/AuthPage";
 import { AppRouter } from "@/app/router";
 
 // Keep the real router, login, shell and API. Replace only the unrelated grid page.
-vi.mock("@/features/accounting/AccountingPage", () => ({
-  AccountingPage: () => (
+vi.mock("@/features/accounting/ProjectsPage", () => ({
+  ProjectsPage: () => (
     <button
       onClick={() => {
         void api("accounts").catch(() => {});
@@ -33,10 +34,17 @@ it("returns from a working page to unchanged login on 401 and clears the message
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(user))),
   );
-  render(<AppRouter />);
+  const baseline = render(
+    <AuthPage mode="login" onSuccess={() => {}} authenticate={async () => {}} />,
+  );
+  const loginStructure = baseline.container.firstElementChild!.outerHTML;
+  baseline.unmount();
+  const rendered = render(<AppRouter />);
   fireEvent.click(await screen.findByRole("button", { name: "Load accounts" }));
   expect(await screen.findByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
   expect(screen.getByRole("alert")).toHaveTextContent(SESSION_EXPIRED_MESSAGE);
+  expect(screen.getByRole("alert")).toHaveStyle({ position: "fixed", top: "0px" });
+  expect(rendered.container.children[1].outerHTML).toBe(loginStructure);
   expect(screen.queryByRole("button", { name: "Load accounts" })).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Username"), { target: { value: user.email } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "long-password" } });
