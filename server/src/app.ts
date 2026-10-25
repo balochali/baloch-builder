@@ -22,6 +22,7 @@ import {
 } from "@baloch/shared";
 import { pool, db, transaction, audit } from "./db";
 import { accounts } from "./schema";
+import { parseTrustProxy, loginEmail } from "./auth-security";
 type Actor = { id: string; email: string; role: Role };
 declare module "fastify" {
   interface FastifyRequest {
@@ -63,10 +64,28 @@ function validTotp(secret: string, token: string, lastStep: string | null) {
   const step = Math.floor(Date.now() / 30000) + delta;
   return step > Number(lastStep ?? 0) ? step : null;
 }
-export async function buildApp() {
-  const app = Fastify({ logger: false, bodyLimit: 15 * 1024 * 1024 });
+export async function buildApp(options: { trustProxy?: string } = {}) {
+  const app = Fastify({
+    logger: false,
+    bodyLimit: 15 * 1024 * 1024,
+    trustProxy: parseTrustProxy(options.trustProxy),
+  });
   await app.register(cookie);
   await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
+  // Independent counters: the IP budget cannot be evaded by rotating emails.
+  const ipLoginLimit = app.createRateLimit({
+    max: 30,
+    timeWindow: "1 minute",
+    keyGenerator: (r) => r.ip,
+  });
+  const emailLoginLimit = app.createRateLimit({
+    max: 5,
+    timeWindow: "1 minute",
+    keyGenerator: (r) => JSON.stringify([r.ip, loginEmail(r)]),
+  });
+  const dummyPasswordHash = await argon2.hash(randomBytes(32).toString("hex"), {
+    type: argon2.argon2id,
+  });
   app.decorateRequest("actor", null);
   app.addHook("preHandler", async (r) => {
     if (
@@ -84,7 +103,6 @@ export async function buildApp() {
       r.actor = rows[0] ?? null;
     }
     if (!r.actor) {
-      await audit(null, "permission_denied", r.routeOptions.url ?? r.url);
       throw fail("Authentication required", 401);
     }
     const permission = r.routeOptions.config.permission;
@@ -111,11 +129,27 @@ export async function buildApp() {
   app.get("/api/health", { config: { public: true } }, async () => ({ ok: true }));
   app.post(
     "/api/login",
-    { config: { public: true, rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    {
+      config: { public: true, rateLimit: false },
+      onRequest: async (r, reply) => {
+        const result = await ipLoginLimit(r);
+        if (!result.isAllowed && result.isExceeded) {
+          reply.header("Retry-After", result.ttlInSeconds);
+          throw fail("Too many login attempts. Please try again shortly.", 429);
+        }
+      },
+      preValidation: async (r, reply) => {
+        const result = await emailLoginLimit(r);
+        if (!result.isAllowed && result.isExceeded) {
+          reply.header("Retry-After", result.ttlInSeconds);
+          throw fail("Too many login attempts. Please try again shortly.", 429);
+        }
+      },
+    },
     async (r, reply) => {
       const data = z
         .object({
-          email: z.string().email(),
+          email: z.string().trim().max(254).email(),
           password: z.string().max(256),
           totp: z
             .string()
@@ -126,8 +160,14 @@ export async function buildApp() {
       const user = (
         await pool.query("SELECT * FROM users WHERE email=$1", [data.email.toLowerCase()])
       ).rows[0];
-      if (!user || !user.active || !(await argon2.verify(user.password_hash, data.password))) {
-        await audit(null, "login_failed", "auth", null, { email: data.email.toLowerCase() });
+      const passwordValid = await argon2.verify(
+        user?.password_hash ?? dummyPasswordHash,
+        data.password,
+      );
+      if (!user || !user.active || !passwordValid) {
+        await audit(null, "login_failed", "auth", null, {
+          email: data.email.toLowerCase().slice(0, 254),
+        });
         throw fail("Invalid credentials", 401);
       }
       const token = randomBytes(32).toString("hex");
@@ -212,7 +252,7 @@ export async function buildApp() {
   app.post("/api/users", { config: { permission: "users" } }, async (r) => {
     const d = z
       .object({
-        email: z.string().email(),
+        email: z.string().trim().max(254).email(),
         password: z.string().min(12).max(256),
         role: roleSchema,
       })

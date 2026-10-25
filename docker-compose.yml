@@ -29,6 +29,8 @@ services:
       OWNER_DATABASE_URL: postgres://baloch_owner:${OWNER_PASSWORD}@postgres:5432/baloch
       DATABASE_URL: postgres://baloch_app:${APP_PASSWORD}@postgres:5432/baloch
       NODE_ENV: production
+      # Trust only the real reverse proxy; default ignores forwarding headers.
+      TRUST_PROXY: ${TRUST_PROXY:-off}
       TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Set a 64-character hex key}
       ATTACHMENT_DIR: /data/attachments
     ports:
@@ -44,3 +46,4 @@ services:
 volumes:
   postgres_data:
   attachments:
+

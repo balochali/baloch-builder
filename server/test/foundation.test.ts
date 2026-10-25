@@ -1,3 +1,4 @@
+import { registerLoginSecurityTests } from "./login-security";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import argon2 from "argon2";
 import { randomUUID } from "node:crypto";
@@ -428,3 +429,6 @@ describe("runtime database privileges", () => {
   ])("denies %s", deniedRuntimeStatement);
   it("grants only intended defaults to future business tables", verifyFutureTable);
 });
+
+// Registered here so all security cases share the disposable suite database lifecycle.
+registerLoginSecurityTests();

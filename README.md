@@ -44,7 +44,7 @@ npm run build
 
 ## VPS deployment
 
-Use one HTTPS origin for the frontend and API. Fastify serves the root `dist/` after `npm run build`. Set `NODE_ENV=production`, `DATABASE_URL`, `TOTP_ENCRYPTION_KEY`, and an absolute persistent `ATTACHMENT_DIR`. Put the server behind an HTTPS reverse proxy; port 3000 and PostgreSQL must not be publicly exposed. Do not enable unrestricted CORS. The default login limit is based on the direct peer IP; with a reverse proxy it is shared by that proxy until a narrowly trusted proxy configuration is explicitly added.
+Use one HTTPS origin for the frontend and API. Fastify serves the root `dist/` after `npm run build`. Set `NODE_ENV=production`, `DATABASE_URL`, `TOTP_ENCRYPTION_KEY`, and an absolute persistent `ATTACHMENT_DIR`. Put the server behind an HTTPS reverse proxy; port 3000 and PostgreSQL must not be publicly exposed. Do not enable unrestricted CORS. Set `TRUST_PROXY` only when deploying behind a real, controlled reverse proxy (details below).
 
 For local Compose, set `POSTGRES_PASSWORD`, `OWNER_PASSWORD`, `APP_PASSWORD` and `TOTP_ENCRYPTION_KEY` in the shell or an untracked `.env`, then:
 
@@ -91,3 +91,9 @@ Migration 004 defines owner-specific defaults for future public business tables 
 Compose runs an administrator-only provisioning job, then migrations with the owner connection. It unsets OWNER_DATABASE_URL before starting the application process. The owner URL remains available to container administration through configuration; restrict Docker access and use a separate deployment migration job if stronger secret separation is required. Existing Compose volumes keep their original POSTGRES_USER: for an old `baloch` superuser installation, use that administrator in provisioning and the health check while upgrading, or restore into a new volume. Changing POSTGRES_USER does not rename an existing role.
 
 Backups use the app URL: SELECT on all current tables is enough for pg_dump. Restore uses the owner URL against an empty, pre-provisioned database (never the live runtime URL); --no-owner makes restored objects owned by baloch_owner and retains ACL/default privilege records. Keep role names stable across recovery environments. After restoring, run migrations as owner and verify the limited app role before reopening traffic.
+
+### Proxy trust and login limits
+
+`TRUST_PROXY` defaults to `off`: forwarded headers are ignored. Set a comma-separated list of trusted proxy IPs/CIDRs (for example `127.0.0.1,::1`) or a trusted hop count (for example `1`). Prefer explicit addresses; a hop count assumes every path has that many controlled proxies. Fastify resolves the client from X-Forwarded-For only through the configured trust chain. Restrict direct access to the server and have the edge proxy replace inbound forwarding headers. Enabling trust without a real proxy lets clients fake their IP and bypass limits.
+
+Login allows five attempts per minute per client IP plus normalized email, with a separate cap of thirty attempts per minute per client IP across all emails. Limits are in process memory: this deployment assumes one server process; horizontally scaled deployments need a shared rate-limit store. Unknown and inactive users still run Argon2 verification. Unauthenticated non-login traffic does not write audit rows. Only accepted login attempts can write failure audit rows, and emails are validated and limited to 254 characters.
