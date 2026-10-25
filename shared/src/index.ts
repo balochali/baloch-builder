@@ -8,6 +8,8 @@ export type Role = z.infer<typeof roleSchema>;
 export const permissions = {
   projects: ["admin", "accountant", "sales", "construction"],
   manageProjects: ["admin"],
+  costHeads: ["admin", "accountant"],
+  readCostHeads: ["admin", "accountant", "construction"],
   users: ["admin"],
   accounts: ["admin", "accountant"],
   ledger: ["admin", "accountant"],
@@ -95,3 +97,4 @@ export function totals(lines: { debit: string; credit: string }[]) {
   );
 }
 export * from "./projects";
+export * from "./costHeads";
