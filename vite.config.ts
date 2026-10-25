@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
@@ -7,7 +7,7 @@ import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(() => ({
+export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
 
   resolve: {
@@ -20,7 +20,7 @@ export default defineConfig(() => ({
   clearScreen: false,
   optimizeDeps: {entries:["index.html"]},
   server: {
-    proxy: { "/api": "http://127.0.0.1:3000" },
+    proxy: { "/api": loadEnv(mode, process.cwd(), "").API_PROXY_TARGET || "http://127.0.0.1:3000" },
     port: 1420,
     strictPort: true,
     host: host || false,

@@ -125,3 +125,11 @@ In the Admin Settings grid, edit areaDisplayUnit (sqft, marla or kanal) and marl
 Run migrations before seeding. Repeat npm run seed -w @baloch/server with ADMIN_EMAIL and ADMIN_PASSWORD belonging to the existing active bootstrap Admin. No credential is printed or reset, and changed head names, codes, defaults and activation state are preserved. Existing projects receive other / Unspecified placeholders for type/city and need Admin review.
 
 Existing posted WIP entries without tags remain untouched. Their exact reversals cannot currently pass mandatory-tag posting; a reviewed legacy correction policy is still required. Docker deployment and browser walkthrough verification are documented separately in docs/TASK_2_RESULTS.md.
+
+### Local backend port conflicts
+
+If another app uses port 3000, put matching PORT and API_PROXY_TARGET values in an untracked .env.local file (for example PORT=3001 and API_PROXY_TARGET=http://127.0.0.1:3001), along with the local DATABASE_URL and OWNER_DATABASE_URL. Vite reads API_PROXY_TARGET and otherwise keeps its port-3000 default. Start the API from the repository root with Node 24:
+
+node --env-file=.env.local --import tsx server/src/index.ts
+
+Then run npm run dev (or the existing Tauri development launcher). Keep a separate development database; never point the interactive app at baloch_test, because integration tests reset it. An HTML 404 from /api/login can mean the proxy is reaching an unrelated service; verify /api/health returns {"ok":true}.
