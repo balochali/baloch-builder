@@ -1,3 +1,5 @@
+import { SearchSelectEditor } from "./SearchSelectEditor";
+import { tagVoucherRows, resolveHead } from "./costHeadGrid";
 import { useEffect, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { parseAmount, formatPKR, voucherSchema } from "@baloch/shared";
@@ -12,6 +14,7 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
   const [lines, setLines] = useState<Row[]>([emptyLine(), emptyLine()]);
   const [accounts, setAccounts] = useState<Row[]>([]);
   const [projects, setProjects] = useState<Row[]>([]);
+  const [heads, setHeads] = useState<Row[]>([]);
   const [status, setStatus] = useState("draft");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -24,13 +27,15 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
     Promise.all([
       api<Row[]>("accounts"),
       api<Row[]>("projects"),
+      api<Row[]>("cost-heads"),
       id === "new" ? Promise.resolve(null) : api<Row>(`vouchers/${id}`),
       id === "new" ? Promise.resolve([]) : api<Row[]>(`vouchers/${id}/attachments`),
     ])
-      .then(([a, p, v, files]) => {
+      .then(([a, p, h, v, files]) => {
         if (!active) return;
         setAccounts(a);
         setProjects(p);
+        setHeads(h);
         setAttachments(files);
         if (v) {
           setHeader([
@@ -46,6 +51,7 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
             (v.lines as Row[])
               .map<Row>((l) => ({
                 ...l,
+                cost_head: h.find((x) => x.id === l.costHeadId)?.code ?? "",
                 account: a.find((x) => x.id === l.accountId)?.code ?? "",
                 project: p.find((x) => x.id === l.projectId)?.code ?? "",
                 debit: formatPKR(BigInt(String(l.debit)), { showSymbol: false }),
@@ -78,11 +84,22 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
       cellEditor: "agSelectCellEditor",
       cellEditorParams: { values: projects.filter((p) => !p.archived).map((p) => p.code) },
     },
+    {
+      field: "cost_head",
+      headerName: "Cost head",
+      editable,
+      cellEditor: SearchSelectEditor,
+      cellEditorParams: {
+        choices: heads
+          .filter((h) => h.active && !h.budget_only)
+          .map((h) => ({ value: String(h.code), label: String(h.name) })),
+      },
+    },
     { field: "debit", headerName: "Debit PKR", editable },
     { field: "credit", headerName: "Credit PKR", editable },
     { field: "narration", editable },
     { field: "difference", headerName: "Difference", editable: false },
-    { field: "error" },
+    { field: "error", valueGetter: (p) => p.data?.cost_head_error || p.data?.error || "" },
   ];
   const { debit, credit, invalid } = entryTotals(lines);
   const cannotSave =
@@ -114,7 +131,18 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
             BigInt(credit) < 0n
           )
             throw new Error("Enter one positive debit or credit");
-          return { ...l, accountId, projectId, paisaDebit: debit, paisaCredit: credit, error: "" };
+          const head = resolveHead(l.cost_head, heads);
+          if (l.cost_head && (!head || !head.active || head.budget_only))
+            throw new Error("Choose an active, non-budget-only cost head");
+          return {
+            ...l,
+            accountId,
+            projectId,
+            costHeadId: head?.id ?? null,
+            paisaDebit: debit,
+            paisaCredit: credit,
+            error: "",
+          };
         } catch (e) {
           return { ...l, error: String(e) };
         }
@@ -129,6 +157,7 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
         return {
           accountId: row.accountId,
           projectId: row.projectId,
+          costHeadId: row.costHeadId,
           debit: row.paisaDebit,
           credit: row.paisaCredit,
           narration: String(row.narration ?? ""),
@@ -173,9 +202,13 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
       />
       <Grid
         screen="voucher-lines"
-        rows={lines}
+        rows={editable ? tagVoucherRows(lines, accounts, heads) : lines}
         columns={columns}
-        onChange={editable ? (rows) => setLines(withBlankLine(rows)) : undefined}
+        onChange={
+          editable
+            ? (rows) => setLines(withBlankLine(tagVoucherRows(rows, accounts, heads)))
+            : undefined
+        }
         totals={entryFooter}
       />
       <p role="status">
@@ -195,7 +228,11 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
             </button>
             {id !== "new" && (
               <button
-                disabled={busy || cannotSave}
+                disabled={
+                  busy ||
+                  cannotSave ||
+                  tagVoucherRows(lines, accounts, heads).some((l) => Boolean(l.cost_head_error))
+                }
                 onClick={() =>
                   run(async () => {
                     await save();

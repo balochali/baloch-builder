@@ -17,7 +17,7 @@ for (const key of ["DATABASE_URL", "OWNER_DATABASE_URL"] as const) {
 const app = await buildApp();
 const ids = {} as Record<Role, string>;
 const cookies = {} as Record<Role, string>;
-let project: string, otherProject: string;
+let project: string, otherProject: string, materialHead: string;
 const account: Record<string, string> = {};
 const headers = (role: Role) => ({ "x-requested-with": "BalochBuilder", cookie: cookies[role] });
 const request = (
@@ -39,6 +39,7 @@ const draft = (amount = "10000", credit = "10000", type = "JV") => ({
   lines: [
     {
       accountId: account["1220"],
+      costHeadId: materialHead,
       projectId: project,
       debit: amount,
       credit: "0",
@@ -63,6 +64,7 @@ beforeAll(async () => {
   await migrate();
   await assertRuntimeRole();
   ids.admin = await seed("admin@example.test", "Test-password-123!");
+  materialHead = (await pool.query("SELECT id FROM cost_heads WHERE code='MATERIALS'")).rows[0].id;
   for (const role of ["accountant", "sales", "construction"] as const) {
     ids[role] = (
       await transaction(ids.admin, (c) =>
@@ -83,10 +85,21 @@ beforeAll(async () => {
     expect(r.statusCode, r.body).toBe(200);
     cookies[role] = r.cookies[0].name + "=" + r.cookies[0].value;
   }
-  project = (await request("admin", "POST", "projects", { code: "P1", name: "Project one" })).json()
-    .id;
+  project = (
+    await request("admin", "POST", "projects", {
+      code: "P1",
+      name: "Project one",
+      type: "apartments",
+      city: "Karachi",
+    })
+  ).json().id;
   otherProject = (
-    await request("admin", "POST", "projects", { code: "P2", name: "Project two" })
+    await request("admin", "POST", "projects", {
+      code: "P2",
+      name: "Project two",
+      type: "apartments",
+      city: "Karachi",
+    })
   ).json().id;
   await request("admin", "POST", "assignments", { projectId: project, userId: ids.construction });
   for (const a of (await request("accountant", "GET", "accounts")).json()) account[a.code] = a.id;

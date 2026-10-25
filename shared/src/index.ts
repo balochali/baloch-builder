@@ -32,6 +32,7 @@ export const lineSchema = z
   .object({
     accountId: z.string().uuid(),
     projectId: z.string().uuid(),
+    costHeadId: z.string().uuid().nullable().optional(),
     debit: paisa,
     credit: paisa,
     narration: z.string().max(1000).default(""),

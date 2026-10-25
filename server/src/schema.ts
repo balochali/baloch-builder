@@ -21,6 +21,7 @@ export const accounts = pgTable("accounts", {
   normalBalance: text("normal_balance").notNull(),
   parentId: uuid("parent_id"),
   isCashBank: boolean("is_cash_bank"),
+  requiresCostHead: boolean("requires_cost_head").notNull(),
   archived: boolean().notNull(),
 });
 export const vouchers = pgTable("vouchers", {

@@ -425,7 +425,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
       ...v,
       lines: (
         await pool.query(
-          'SELECT id,account_id AS "accountId",project_id AS "projectId",debit::text,credit::text,narration,partner_id AS "partnerId",supplier_id AS "supplierId",buyer_id AS "buyerId",unit_id AS "unitId" FROM voucher_lines WHERE voucher_id=$1 AND NOT archived ORDER BY created_at,id',
+          'SELECT id,account_id AS "accountId",project_id AS "projectId",cost_head_id AS "costHeadId",debit::text,credit::text,narration,partner_id AS "partnerId",supplier_id AS "supplierId",buyer_id AS "buyerId",unit_id AS "unitId" FROM voucher_lines WHERE voucher_id=$1 AND NOT archived ORDER BY created_at,id',
           [id],
         )
       ).rows,
@@ -457,7 +457,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
       }
       for (const l of d.lines)
         await c.query(
-          "INSERT INTO voucher_lines(voucher_id,account_id,project_id,debit,credit,narration,partner_id,supplier_id,buyer_id,unit_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+          "INSERT INTO voucher_lines(voucher_id,account_id,project_id,debit,credit,narration,partner_id,supplier_id,buyer_id,unit_id,created_by,cost_head_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
           [
             id,
             l.accountId,
@@ -470,6 +470,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
             l.buyerId,
             l.unitId,
             actor(r).id,
+            l.costHeadId ?? null,
           ],
         );
       return { id };
@@ -511,7 +512,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
         )
       ).rows[0];
       await c.query(
-        "INSERT INTO voucher_lines(voucher_id,account_id,project_id,debit,credit,narration,partner_id,supplier_id,buyer_id,unit_id,created_by) SELECT $1,account_id,project_id,credit,debit,narration,partner_id,supplier_id,buyer_id,unit_id,$2 FROM voucher_lines WHERE voucher_id=$3 AND NOT archived",
+        "INSERT INTO voucher_lines(voucher_id,account_id,project_id,debit,credit,narration,partner_id,supplier_id,buyer_id,unit_id,created_by,cost_head_id) SELECT $1,account_id,project_id,credit,debit,narration,partner_id,supplier_id,buyer_id,unit_id,$2,cost_head_id FROM voucher_lines WHERE voucher_id=$3 AND NOT archived",
         [v.id, actor(r).id, original.id],
       );
       return v;

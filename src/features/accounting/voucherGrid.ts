@@ -7,9 +7,10 @@ export const emptyLine = (): EntryRow => ({
   debit: "",
   credit: "",
   narration: "",
+  cost_head: "",
 });
 export function isBlankLine(row: EntryRow) {
-  return ["account", "project", "debit", "credit", "narration"].every(
+  return ["account", "project", "debit", "credit", "narration", "cost_head"].every(
     (k) => !String(row[k] ?? "").trim(),
   );
 }

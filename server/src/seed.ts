@@ -52,7 +52,7 @@ export async function seed(email: string, password: string) {
     if (!existing) await c.query("UPDATE users SET created_by=id WHERE id=$1", [admin.id]);
     for (const [code, name, type] of chart)
       await c.query(
-        "INSERT INTO accounts(code,name,type,normal_balance,is_cash_bank,created_by) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(code) DO NOTHING",
+        "INSERT INTO accounts(code,name,type,normal_balance,is_cash_bank,created_by,requires_cost_head) VALUES($1,$2,$3,$4,$5,$6,$1 IN ('1200','1210','1220','1230','1240')) ON CONFLICT(code) DO NOTHING",
         [
           code,
           name,
