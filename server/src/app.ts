@@ -22,6 +22,7 @@ import {
 } from "@baloch/shared";
 import { pool, db, transaction, audit } from "./db";
 import { accounts } from "./schema";
+import { cleanupExpiredSessions } from "./sessions";
 import { parseTrustProxy, loginEmail } from "./auth-security";
 type Actor = { id: string; email: string; role: Role };
 declare module "fastify" {
@@ -86,6 +87,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
   const dummyPasswordHash = await argon2.hash(randomBytes(32).toString("hex"), {
     type: argon2.argon2id,
   });
+  app.addHook("onReady", cleanupExpiredSessions);
   app.decorateRequest("actor", null);
   app.addHook("preHandler", async (r) => {
     if (
@@ -157,6 +159,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
             .optional(),
         })
         .parse(r.body);
+      await cleanupExpiredSessions();
       const user = (
         await pool.query("SELECT * FROM users WHERE email=$1", [data.email.toLowerCase()])
       ).rows[0];

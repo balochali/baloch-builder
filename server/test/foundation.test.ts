@@ -1,3 +1,4 @@
+import { registerSessionTests } from "./session-security";
 import { registerLoginSecurityTests } from "./login-security";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import argon2 from "argon2";
@@ -432,3 +433,5 @@ describe("runtime database privileges", () => {
 
 // Registered here so all security cases share the disposable suite database lifecycle.
 registerLoginSecurityTests();
+
+registerSessionTests();
