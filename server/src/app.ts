@@ -1,3 +1,4 @@
+import { registerAssignmentRoutes } from "./assignments";
 import { registerProjectRoutes } from "./projects";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
@@ -295,31 +296,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
     });
   });
   registerProjectRoutes(app);
-  app.get(
-    "/api/assignments",
-    { config: { permission: "users" } },
-    async () => (await pool.query("SELECT * FROM project_assignments ORDER BY created_at")).rows,
-  );
-  app.post("/api/assignments", { config: { permission: "users" } }, async (r) => {
-    const d = z
-      .object({
-        projectId: z.string().uuid(),
-        userId: z.string().uuid(),
-        active: z.boolean().default(true),
-      })
-      .strict()
-      .parse(r.body);
-    return transaction(
-      actor(r).id,
-      async (c) =>
-        (
-          await c.query(
-            "INSERT INTO project_assignments(project_id,user_id,active,created_by) VALUES($1,$2,$3,$4) ON CONFLICT(project_id,user_id) DO UPDATE SET active=excluded.active,updated_at=now() RETURNING *",
-            [d.projectId, d.userId, d.active, actor(r).id],
-          )
-        ).rows[0],
-    );
-  });
+  registerAssignmentRoutes(app);
   app.get("/api/accounts", { config: { permission: "accounts" } }, async () =>
     db.select().from(accounts).orderBy(asc(accounts.code)),
   );
