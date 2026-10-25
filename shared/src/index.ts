@@ -67,8 +67,17 @@ export const settingsSchema = z
     taxHandling: z.literal("out_of_scope"),
     currency: z.literal("PKR"),
     areaUnit: z.literal("sqft"),
+    areaDisplayUnit: z.enum(["sqft", "marla", "kanal"]).default("sqft"),
+    marlaSqft: z
+      .string()
+      .regex(/^\d{1,12}(\.\d{1,12})?$/)
+      .refine(
+        (v) => /^\d+(\.\d+)?$/.test(v) && BigInt(v.replace(".", "")) > 0n,
+        "Marla size must be greater than zero",
+      )
+      .default("272.25"),
     sqftPerMarla: z.string().regex(/^\d+(\.\d+)?$/),
-    marlaPerKanal: z.string().regex(/^\d+(\.\d+)?$/),
+    marlaPerKanal: z.literal("20"),
     fiscalYearStartMonth: z.number().int().min(1).max(12),
     singleAdminSelfApproval: z.boolean(),
     requireReceiptApproval: z.boolean(),
@@ -83,6 +92,8 @@ export const defaultSettings: z.infer<typeof settingsSchema> = {
   taxHandling: "out_of_scope",
   currency: "PKR",
   areaUnit: "sqft",
+  areaDisplayUnit: "sqft",
+  marlaSqft: "272.25",
   sqftPerMarla: "272.25",
   marlaPerKanal: "20",
   fiscalYearStartMonth: 7,
@@ -99,3 +110,4 @@ export function totals(lines: { debit: string; credit: string }[]) {
 }
 export * from "./projects";
 export * from "./costHeads";
+export * from "./areas";

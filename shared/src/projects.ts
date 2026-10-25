@@ -13,7 +13,7 @@ export const projectStatuses = [
 export type ProjectStatus = (typeof projectStatuses)[number];
 export const exactArea = z
   .string()
-  .regex(/^\d{1,24}(\.\d{1,12})?$/, "Use a non-negative exact decimal (up to 12 decimal places)");
+  .regex(/^\d{1,24}(\.\d{1,24})?$/, "Use a non-negative exact decimal (up to 24 decimal places)");
 export function compareDecimals(a: string, b: string) {
   const [ai, af = ""] = a.split("."),
     [bi, bf = ""] = b.split(".");

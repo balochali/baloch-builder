@@ -8,9 +8,19 @@ import { AppShell } from "./layout/AppShell";
 const AccountingPage = lazy(() =>
   import("@/features/accounting/AccountingPage").then((m) => ({ default: m.AccountingPage })),
 );
+const ProjectsPage = lazy(() =>
+  import("@/features/accounting/ProjectsPage").then((m) => ({ default: m.ProjectsPage })),
+);
+const ProjectWorkspace = lazy(() =>
+  import("@/features/accounting/ProjectWorkspace").then((m) => ({ default: m.ProjectWorkspace })),
+);
+const CostHeadsPage = lazy(() =>
+  import("@/features/accounting/CostHeadsPage").then((m) => ({ default: m.CostHeadsPage })),
+);
 const LegacyRouter = lazy(() => import("./LegacyRouter").then((m) => ({ default: m.AppRouter })));
 const screens: [string, Permission][] = [
   ["projects", "projects"],
+  ["cost-heads", "costHeads"],
   ["vouchers", "ledger"],
   ["journal", "ledger"],
   ["trial-balance", "ledger"],
@@ -96,6 +106,14 @@ function ServerRouter() {
           }
         >
           <Route path="/" element={<Navigate to="/projects" replace />} />
+          <Route
+            path="/projects/:id"
+            element={
+              <Suspense fallback={<p>Loading project…</p>}>
+                <ProjectWorkspace user={user} />
+              </Suspense>
+            }
+          />
           {screens
             .filter(([, permission]) => can(user.role, permission))
             .map(([screen]) => (
@@ -106,7 +124,13 @@ function ServerRouter() {
                   <>
                     {error && <p role="alert">{error}</p>}
                     <Suspense fallback={<p>Loading records…</p>}>
-                      <AccountingPage key={screen} screen={screen} user={user} />
+                      {screen === "projects" ? (
+                        <ProjectsPage user={user} />
+                      ) : screen === "cost-heads" ? (
+                        <CostHeadsPage />
+                      ) : (
+                        <AccountingPage key={screen} screen={screen} user={user} />
+                      )}
                     </Suspense>
                   </>
                 }

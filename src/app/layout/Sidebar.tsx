@@ -54,6 +54,7 @@ export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
   const visibleGroups = role ? [
     {label:"WORKSPACE",items:[{to:"/projects",label:"Projects",icon:Building2,color:"#d2ad65"}]},
     {label:"PEOPLE & MONEY",items:[
+      ...(can(role,"costHeads")?[{to:"/cost-heads",label:"Cost heads",icon:Wallet,color:"#8b5cf6"}]:[]),
       ...(can(role,"ledger")?[{to:"/vouchers",label:"Vouchers",icon:ReceiptText,color:"#ec4899"},{to:"/journal",label:"General journal",icon:BookUser,color:"#06b6d4"},{to:"/trial-balance",label:"Trial Balance",icon:Landmark,color:"#10b981"},{to:"/accounts",label:"Chart of accounts",icon:Wallet,color:"#8b5cf6"},{to:"/periods",label:"Fiscal periods",icon:ShieldCheck,color:"#2dd4bf"}]:[]),
       ...(can(role,"users")?[{to:"/users",label:"Users and roles",icon:Users,color:"#f97316"},{to:"/assignments",label:"Project assignments",icon:BookUser,color:"#06b6d4"},{to:"/audit",label:"Audit log",icon:ShieldCheck,color:"#2dd4bf"}]:[])
     ]}

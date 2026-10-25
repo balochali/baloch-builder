@@ -25,6 +25,7 @@ export function Grid({
   columns,
   onChange,
   onSelect,
+  onCellChange,
   totals,
   short = false,
 }: {
@@ -33,6 +34,7 @@ export function Grid({
   columns: ColDef<Row>[];
   onChange?: (rows: Row[]) => void;
   onSelect?: (row: Row) => void;
+  onCellChange?: (row: Row, field: string, oldValue: unknown) => void;
   totals?: (rows: Row[]) => Row;
   short?: boolean;
 }) {
@@ -189,16 +191,14 @@ export function Grid({
       <div
         className={short ? "grid-short" : "grid"}
         onPasteCapture={(e) => {
-          if (!onChange) return;
+          if (!onChange && !onCellChange) return;
           const text = e.clipboardData.getData("text");
           if (!text.includes("\t") && !text.includes("\n")) return;
           e.preventDefault();
           e.stopPropagation();
           const a = ref.current!.api;
           const focus = a.getFocusedCell();
-          const cols = a
-            .getAllDisplayedColumns()
-            .filter((c) => columns.find((def) => def.field === c.getColId())?.editable === true);
+          const cols = a.getAllDisplayedColumns();
           const start = Math.max(
             0,
             cols.findIndex((c) => c.getColId() === focus?.column.getColId()),
@@ -206,6 +206,7 @@ export function Grid({
           const next = rows.map((r) => ({ ...r }));
           const firstDisplayed = focus?.rowIndex ?? a.getDisplayedRowCount();
           if (focus?.rowPinned) return;
+          const changes: { row: Row; field: string; oldValue: unknown }[] = [];
           text
             .replace(/\r/g, "")
             .replace(/\n$/, "")
@@ -216,11 +217,22 @@ export function Grid({
               const target = next[index] ?? {};
               line.split("\t").forEach((value, j) => {
                 const col = cols[start + j];
-                if (col) target[col.getColId()] = value;
+                if (
+                  col &&
+                  (displayed
+                    ? col.isCellEditable(displayed)
+                    : columns.find((def) => def.field === col.getColId())?.editable === true)
+                ) {
+                  const field = col.getColId();
+                  const oldValue = target[field];
+                  target[field] = value;
+                  if (oldValue !== value) changes.push({ row: target, field, oldValue });
+                }
               });
               next[index] = target;
             });
-          onChange(next);
+          onChange?.(next);
+          for (const change of changes) onCellChange?.(change.row, change.field, change.oldValue);
         }}
       >
         <AgGridReact<Row>
@@ -234,7 +246,7 @@ export function Grid({
           stopEditingWhenCellsLoseFocus
           singleClickEdit={false}
           rowClassRules={{
-            "error-row": (p) => Boolean(p.data?.error),
+            "error-row": (p) => Boolean(p.data?.error || p.data?.cost_head_error),
             "unbalanced-row": (p) => Boolean(p.data?._unbalanced),
           }}
           onGridReady={async (e) => {
@@ -253,7 +265,9 @@ export function Grid({
           }}
           onRowDataUpdated={(e) => updateFooter(e.api)}
           onFilterChanged={(e) => updateFooter(e.api)}
-          onCellValueChanged={() => {
+          onCellValueChanged={(event) => {
+            if (event.data && event.colDef.field)
+              onCellChange?.(event.data, event.colDef.field, event.oldValue);
             const next: Row[] = [];
             ref.current!.api.forEachNode((n) => {
               if (n.data) {
@@ -267,7 +281,7 @@ export function Grid({
             if (e.data) onSelect?.(e.data);
           }}
           onCellKeyDown={(e) => {
-            if ((e.event as KeyboardEvent)?.key === "Enter" && !onChange && e.data)
+            if ((e.event as KeyboardEvent)?.key === "Enter" && !onChange && !onCellChange && e.data)
               onSelect?.(e.data);
           }}
         />

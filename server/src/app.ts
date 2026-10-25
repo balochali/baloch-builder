@@ -296,6 +296,13 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
       return result.rows[0];
     });
   });
+  app.get("/api/area-settings", { config: { permission: "projects" } }, async () => {
+    const value = (await pool.query("SELECT value FROM settings")).rows[0]?.value;
+    return {
+      areaDisplayUnit: value?.areaDisplayUnit ?? "sqft",
+      marlaSqft: value?.marlaSqft ?? "272.25",
+    };
+  });
   registerProjectRoutes(app);
   registerCostHeadRoutes(app);
   registerAssignmentRoutes(app);
