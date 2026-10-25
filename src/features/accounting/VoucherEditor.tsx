@@ -44,7 +44,7 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
           setStatus(String(v.status));
           setLines(
             (v.lines as Row[])
-              .map((l) => ({
+              .map<Row>((l) => ({
                 ...l,
                 account: a.find((x) => x.id === l.accountId)?.code ?? "",
                 project: p.find((x) => x.id === l.projectId)?.code ?? "",
