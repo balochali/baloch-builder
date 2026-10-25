@@ -1,3 +1,4 @@
+import { registerProjectProfileTests, referenceSnapshot } from "./project-profile";
 import { registerSessionTests } from "./session-security";
 import { registerLoginSecurityTests } from "./login-security";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
@@ -14,6 +15,7 @@ for (const key of ["DATABASE_URL", "OWNER_DATABASE_URL"] as const) {
   if (url.pathname !== "/baloch_test")
     throw new Error(`${key} must target the dedicated baloch_test database`);
 }
+const seedProof: { before?: unknown; after?: unknown } = {};
 const app = await buildApp();
 const ids = {} as Record<Role, string>;
 const cookies = {} as Record<Role, string>;
@@ -64,6 +66,9 @@ beforeAll(async () => {
   await migrate();
   await assertRuntimeRole();
   ids.admin = await seed("admin@example.test", "Test-password-123!");
+  seedProof.before = await referenceSnapshot();
+  await seed("admin@example.test", "Test-password-123!");
+  seedProof.after = await referenceSnapshot();
   materialHead = (await pool.query("SELECT id FROM cost_heads WHERE code='MATERIALS'")).rows[0].id;
   for (const role of ["accountant", "sales", "construction"] as const) {
     ids[role] = (
@@ -448,3 +453,5 @@ describe("runtime database privileges", () => {
 registerLoginSecurityTests();
 
 registerSessionTests();
+
+registerProjectProfileTests(app, ids, cookies, account, seedProof);
