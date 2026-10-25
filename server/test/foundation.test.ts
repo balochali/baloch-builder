@@ -2,12 +2,16 @@ import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import argon2 from "argon2";
 import { randomUUID } from "node:crypto";
 import { buildApp } from "../src/app";
-import { pool, transaction } from "../src/db";
-import { migrate } from "../src/migrate";
+import { pool, transaction, assertRuntimeRole } from "../src/db";
+import { migrate, ownerPool } from "../src/migrate";
 import { seed } from "../src/seed";
 import type { Role } from "@baloch/shared";
-if (!process.env.DATABASE_URL?.includes("baloch_test"))
-  throw new Error("Tests require a dedicated DATABASE_URL containing baloch_test");
+import { deniedRuntimeStatement, verifyFutureTable } from "./runtime-privileges";
+for (const key of ["DATABASE_URL", "OWNER_DATABASE_URL"] as const) {
+  const url = new URL(process.env[key] ?? "postgres://invalid/invalid");
+  if (url.pathname !== "/baloch_test")
+    throw new Error(`${key} must target the dedicated baloch_test database`);
+}
 const app = await buildApp();
 const ids = {} as Record<Role, string>;
 const cookies = {} as Record<Role, string>;
@@ -50,9 +54,12 @@ const sql = (text: string, values: unknown[] = [], role: Role = "accountant") =>
   transaction(ids[role], (c) => c.query(text, values));
 beforeAll(async () => {
   // Dedicated disposable database only. Reset the schema, never a production database.
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+  await ownerPool.query(
+    "DROP SCHEMA public CASCADE; CREATE SCHEMA public AUTHORIZATION baloch_owner",
+  );
   await migrate();
   await migrate();
+  await assertRuntimeRole();
   ids.admin = await seed("admin@example.test", "Test-password-123!");
   for (const role of ["accountant", "sales", "construction"] as const) {
     ids[role] = (
@@ -88,6 +95,7 @@ const argonHash = await argon2.hash("Test-password-123!");
 afterAll(async () => {
   await app.close();
   await pool.end();
+  await ownerPool.end();
 });
 describe("authentication and permissions", () => {
   it("requires sessions and CSRF header", async () => {
@@ -195,10 +203,12 @@ describe("PostgreSQL ledger invariants", () => {
     await expect(
       sql("UPDATE voucher_lines SET debit=debit+1 WHERE voucher_id=$1 AND debit>0", [id]),
     ).rejects.toThrow("draft");
-    await expect(sql("DELETE FROM vouchers WHERE id=$1", [id])).rejects.toThrow("deletes");
-    await expect(sql("DELETE FROM voucher_lines WHERE voucher_id=$1", [id])).rejects.toThrow(
-      "deletes",
-    );
+    await expect(sql("DELETE FROM vouchers WHERE id=$1", [id])).rejects.toMatchObject({
+      code: "42501",
+    });
+    await expect(sql("DELETE FROM voucher_lines WHERE voucher_id=$1", [id])).rejects.toMatchObject({
+      code: "42501",
+    });
     const tb = (await request("accountant", "GET", "trial-balance")).json();
     expect(tb.find((r: { code: string }) => r.code === "1220").debit).toBe("9007199254740993");
     expect(tb.find((r: { code: string }) => r.code === "2000").credit).toBe("9007199254740993");
@@ -276,11 +286,11 @@ describe("PostgreSQL ledger invariants", () => {
     ).rejects.toThrow("classification");
   });
   it("audit is append-only and excludes password hashes and secrets", async () => {
-    await expect(pool.query("UPDATE audit_log SET action='changed'")).rejects.toThrow(
+    await expect(ownerPool.query("UPDATE audit_log SET action='changed'")).rejects.toThrow(
       "append-only",
     );
-    await expect(pool.query("DELETE FROM audit_log")).rejects.toThrow("append-only");
-    await expect(pool.query("TRUNCATE audit_log")).rejects.toThrow("append-only");
+    await expect(ownerPool.query("DELETE FROM audit_log")).rejects.toThrow("append-only");
+    await expect(ownerPool.query("TRUNCATE audit_log")).rejects.toThrow("append-only");
     const logs = (await request("admin", "GET", "audit")).json();
     expect(JSON.stringify(logs)).not.toContain("password_hash");
     expect(logs.some((l: { action: string }) => l.action === "permission_denied")).toBe(true);
@@ -384,7 +394,7 @@ it("stores attachments on drafts and blocks posted changes", async () => {
   ).toBe(400);
   await expect(
     sql("UPDATE attachments SET filename=$1 WHERE id=$2", ["tamper", result.json().id]),
-  ).rejects.toThrow("draft");
+  ).rejects.toMatchObject({ code: "42501" });
 });
 it("rejects altered reversing amounts even when balanced", async () => {
   const id = await make();
@@ -404,4 +414,17 @@ it("saves user views privately and audits their changes", async () => {
   });
   expect((await request("accountant", "GET", "views/projects")).json()).toBeNull();
   expect((await request("admin", "GET", "views/projects")).json().filters.code.filter).toBe("P1");
+});
+
+describe("runtime database privileges", () => {
+  it.each([
+    "TRUNCATE voucher_lines",
+    "UPDATE audit_log SET action='changed'",
+    "DELETE FROM audit_log",
+    "ALTER TABLE vouchers DISABLE TRIGGER ALL",
+    "DROP TABLE saved_views",
+    "CREATE ROLE privilege_escalation_probe",
+    "CREATE TABLE public.unauthorized_table(id integer)",
+  ])("denies %s", deniedRuntimeStatement);
+  it("grants only intended defaults to future business tables", verifyFutureTable);
 });

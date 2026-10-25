@@ -8,6 +8,7 @@ COPY src src
 COPY public public
 COPY server server
 COPY shared shared
+COPY scripts scripts
 COPY index.html vite.config.ts tsconfig*.json ./
 RUN npm run build
 EXPOSE 3000

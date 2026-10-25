@@ -1,10 +1,20 @@
 import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { pool } from "./db";
+import pg from "pg";
+// Never fall back to the runtime credentials for DDL.
+export const ownerPool = new pg.Pool({
+  connectionString: process.env.OWNER_DATABASE_URL,
+  connectionTimeoutMillis: 5000,
+});
 export async function migrate() {
-  const c = await pool.connect();
+  if (!process.env.OWNER_DATABASE_URL)
+    throw new Error("OWNER_DATABASE_URL is required for migrations");
+  const c = await ownerPool.connect();
   try {
+    const identity = await c.query("SELECT current_user");
+    if (identity.rows[0].current_user !== "baloch_owner")
+      throw new Error("Migrations require baloch_owner; run scripts/init-database.mjs first");
     await c.query("SELECT pg_advisory_lock(782104)");
     await c.query(
       "CREATE TABLE IF NOT EXISTS schema_migrations(name text PRIMARY KEY,checksum text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())",
@@ -42,6 +52,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     await migrate();
   } finally {
-    await pool.end();
+    await ownerPool.end();
   }
 }

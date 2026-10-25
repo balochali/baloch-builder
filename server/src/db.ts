@@ -5,6 +5,27 @@ export const pool = new pg.Pool({
   connectionTimeoutMillis: 5000,
 });
 export const db = drizzle(pool);
+export async function assertRuntimeRole() {
+  const { rows } =
+    await pool.query(`SELECT r.rolname, r.rolsuper, r.rolcreatedb, r.rolcreaterole, r.rolbypassrls,
+    EXISTS(SELECT 1 FROM pg_class WHERE relowner=r.oid AND relnamespace='public'::regnamespace) AS owns_tables,
+    EXISTS(SELECT 1 FROM pg_proc WHERE proowner=r.oid AND pronamespace='public'::regnamespace) AS owns_functions,
+    EXISTS(SELECT 1 FROM pg_auth_members WHERE member=r.oid) AS has_membership
+    FROM pg_roles r WHERE rolname=current_user`);
+  const r = rows[0];
+  if (
+    !r ||
+    r.rolname !== "baloch_app" ||
+    r.rolsuper ||
+    r.rolcreatedb ||
+    r.rolcreaterole ||
+    r.rolbypassrls ||
+    r.owns_tables ||
+    r.owns_functions ||
+    r.has_membership
+  )
+    throw new Error("DATABASE_URL must use the limited, non-owner baloch_app role");
+}
 export async function transaction<T>(
   actor: string | null,
   fn: (client: pg.PoolClient) => Promise<T>,

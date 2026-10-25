@@ -12,7 +12,7 @@ Use Node.js 24+ and PostgreSQL 18. From the repository root:
 npm ci
 ```
 
-Set `DATABASE_URL` to a dedicated application database, for example `postgres://baloch:your-password@127.0.0.1:5432/baloch`. Then:
+Provision a dedicated database once using administrator credentials. Use `.env.example` as a guide and export its variables in your shell (Node does not automatically load `.env`). Set distinct `OWNER_PASSWORD` and `APP_PASSWORD`, and `ADMIN_DATABASE_URL` to the dedicated database. Run `node scripts/init-database.mjs` (repeatable). Then set `OWNER_DATABASE_URL` to the `baloch_owner` connection and `DATABASE_URL` to the `baloch_app` connection. For an existing Phase 1 database, back it up first and run provisioning with `--adopt-existing` to transfer its public tables/functions to the owner. Never use that flag on a shared database. Then:
 
 ```sh
 npm run migrate -w @baloch/server
@@ -32,7 +32,7 @@ For optional TOTP, set `TOTP_ENCRYPTION_KEY` to 64 random hexadecimal characters
 Tests must use a disposable database named `baloch_test`. Server tests reset **that database's public schema** and run all migrations in order; never point tests at real accounting data.
 
 ```sh
-# Set DATABASE_URL=postgres://.../baloch_test
+# Provision baloch_test as above; set both OWNER_DATABASE_URL and DATABASE_URL to it
 npm run typecheck
 npm run lint
 npm test
@@ -46,7 +46,7 @@ npm run build
 
 Use one HTTPS origin for the frontend and API. Fastify serves the root `dist/` after `npm run build`. Set `NODE_ENV=production`, `DATABASE_URL`, `TOTP_ENCRYPTION_KEY`, and an absolute persistent `ATTACHMENT_DIR`. Put the server behind an HTTPS reverse proxy; port 3000 and PostgreSQL must not be publicly exposed. Do not enable unrestricted CORS. The default login limit is based on the direct peer IP; with a reverse proxy it is shared by that proxy until a narrowly trusted proxy configuration is explicitly added.
 
-For local Compose, set `POSTGRES_PASSWORD` and `TOTP_ENCRYPTION_KEY` in the shell or an untracked `.env`, then:
+For local Compose, set `POSTGRES_PASSWORD`, `OWNER_PASSWORD`, `APP_PASSWORD` and `TOTP_ENCRYPTION_KEY` in the shell or an untracked `.env`, then:
 
 ```sh
 docker compose up --build -d
@@ -68,7 +68,7 @@ This creates a timestamped directory with a custom-format `database.dump` and co
 
 Install `scripts/baloch-backup.service` and `scripts/baloch-backup.timer` into `/etc/systemd/system`, adapt the service user/paths, and create `/etc/baloch-backup.env` with mode 0600 containing the environment settings. Then enable the timer with `systemctl enable --now baloch-backup.timer`. It schedules 02:00 Asia/Karachi and catches missed runs. Monitor the unit's exit status and alert on failures.
 
-Restore only to a newly created, empty database. Set `TARGET_DATABASE_URL` and optionally an empty `RESTORE_ATTACHMENT_DIR`:
+Restore only to a newly created, empty database. Provision the empty target with `scripts/init-database.mjs`, then set `OWNER_DATABASE_URL` and optionally an empty `RESTORE_ATTACHMENT_DIR`:
 
 ```sh
 node scripts/restore.mjs /path/to/timestamped-backup
@@ -81,3 +81,13 @@ Restore runs in one transaction with no destructive `--clean`. Verify migrations
 `npm run dev:legacy` previews the retained frontend wiring; actual SQLite/desktop authentication needs Tauri. The Tauri source, migrations and Rust Drive backup are unchanged by this rewrite except for pre-existing local work. To build the historical offline frontend, use `vite build --mode legacy` with the retained Tauri build configuration. The new multi-user browser application is the supported Phase 1 path; no packaged Tauri/server integration is claimed as tested.
 
 See [REWRITE_PLAN](docs/REWRITE_PLAN.md), [DECISIONS](docs/DECISIONS.md) and [CHANGES](docs/CHANGES.md). Stop after Phase 1 for review before building payment approval.
+
+### Database privilege boundary
+
+`baloch_owner` owns the dedicated database, public schema, tables and functions and is used only for migrations/restores. `baloch_app` owns nothing and has no role memberships or superuser/createdb/createrole/bypassrls rights. Startup rejects an unsafe runtime identity. Business tables allow SELECT/INSERT/UPDATE; only sessions allow DELETE. Attachments and audit allow SELECT/INSERT; schema_migrations is read-only. No runtime role gets DDL or TRUNCATE. Trigger functions use the caller's privileges, including writes to audit_log and voucher_series.
+
+Migration 004 defines owner-specific defaults for future public business tables (SELECT/INSERT/UPDATE only) and functions (EXECUTE to the app, not PUBLIC). Always migrate as baloch_owner. In the same migration transaction, revoke UPDATE for append-only tables and explicitly grant DELETE only where application code needs it. No sequence privileges are needed by the current UUID-based schema; future sequence-backed migrations must explicitly grant USAGE on their sequences. Keep audit triggers even though table grants also enforce immutability.
+
+Compose runs an administrator-only provisioning job, then migrations with the owner connection. It unsets OWNER_DATABASE_URL before starting the application process. The owner URL remains available to container administration through configuration; restrict Docker access and use a separate deployment migration job if stronger secret separation is required. Existing Compose volumes keep their original POSTGRES_USER: for an old `baloch` superuser installation, use that administrator in provisioning and the health check while upgrading, or restore into a new volume. Changing POSTGRES_USER does not rename an existing role.
+
+Backups use the app URL: SELECT on all current tables is enough for pg_dump. Restore uses the owner URL against an empty, pre-provisioned database (never the live runtime URL); --no-owner makes restored objects owned by baloch_owner and retains ACL/default privilege records. Keep role names stable across recovery environments. After restoring, run migrations as owner and verify the limited app role before reopening traffic.

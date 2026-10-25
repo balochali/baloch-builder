@@ -3,20 +3,31 @@ services:
     image: postgres:18
     environment:
       POSTGRES_DB: baloch
-      POSTGRES_USER: baloch
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U baloch -d baloch"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d baloch"]
       interval: 5s
       retries: 20
+  provision:
+    build: .
+    environment:
+      ADMIN_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/baloch
+      OWNER_PASSWORD: ${OWNER_PASSWORD:?Set OWNER_PASSWORD}
+      APP_PASSWORD: ${APP_PASSWORD:?Set APP_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: node scripts/init-database.mjs
   server:
     build: .
     environment:
-      DATABASE_URL: postgres://baloch:${POSTGRES_PASSWORD}@postgres:5432/baloch
+      OWNER_DATABASE_URL: postgres://baloch_owner:${OWNER_PASSWORD}@postgres:5432/baloch
+      DATABASE_URL: postgres://baloch_app:${APP_PASSWORD}@postgres:5432/baloch
       NODE_ENV: production
       TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Set a 64-character hex key}
       ATTACHMENT_DIR: /data/attachments
@@ -27,7 +38,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npm run migrate -w @baloch/server && npm run start -w @baloch/server"
+      provision:
+        condition: service_completed_successfully
+    command: sh -c "npm run migrate -w @baloch/server && unset OWNER_DATABASE_URL && exec npm run start -w @baloch/server"
 volumes:
   postgres_data:
   attachments:
