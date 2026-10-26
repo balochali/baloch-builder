@@ -1,3 +1,4 @@
+import { entryError } from "./sheetMessages";
 import { SearchSelectEditor } from "./SearchSelectEditor";
 import { tagVoucherRows, resolveHead } from "./costHeadGrid";
 import { useEffect, useState } from "react";
@@ -15,6 +16,8 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
   const [accounts, setAccounts] = useState<Row[]>([]);
   const [projects, setProjects] = useState<Row[]>([]);
   const [heads, setHeads] = useState<Row[]>([]);
+  const [projectCode, setProjectCode] = useState("");
+  const [voucherNumber, setVoucherNumber] = useState("Assigned on posting");
   const [status, setStatus] = useState("draft");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,6 +41,11 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
         setHeads(h);
         setAttachments(files);
         if (v) {
+          setVoucherNumber(String(v.number ?? "Assigned on posting"));
+          const codes = [
+            ...new Set((v.lines as Row[]).map((l) => p.find((x) => x.id === l.projectId)?.code)),
+          ];
+          if (codes.length === 1) setProjectCode(String(codes[0] ?? ""));
           setHeader([
             {
               date: v.date,
@@ -72,14 +80,15 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
   const columns: ColDef<Row>[] = [
     {
       field: "account",
-      headerName: "Account code",
+      headerName: "Account",
       editable,
       cellEditor: "agSelectCellEditor",
       cellEditorParams: { values: accounts.filter((a) => !a.archived).map((a) => a.code) },
     },
     {
       field: "project",
-      headerName: "Project code",
+      headerName: "Project",
+      hide: new Set(lines.filter((l) => !isBlankLine(l)).map((l) => l.project)).size < 2,
       editable,
       cellEditor: "agSelectCellEditor",
       cellEditorParams: { values: projects.filter((p) => !p.archived).map((p) => p.code) },
@@ -95,11 +104,9 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
           .map((h) => ({ value: String(h.code), label: String(h.name) })),
       },
     },
-    { field: "debit", headerName: "Debit PKR", editable },
-    { field: "credit", headerName: "Credit PKR", editable },
-    { field: "narration", editable },
-    { field: "difference", headerName: "Difference", editable: false },
-    { field: "error", valueGetter: (p) => p.data?.cost_head_error || p.data?.error || "" },
+    { field: "narration", headerName: "Description", editable, flex: 2 },
+    { field: "debit", headerName: "Debit", editable },
+    { field: "credit", headerName: "Credit", editable },
   ];
   const { debit, credit, invalid } = entryTotals(lines);
   const cannotSave =
@@ -144,7 +151,7 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
             error: "",
           };
         } catch (e) {
-          return { ...l, error: String(e) };
+          return { ...l, error: entryError(e) };
         }
       });
     setLines(withBlankLine(checked));
@@ -183,42 +190,119 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
           {error}
         </p>
       )}
-      <Grid
-        short
-        screen="voucher-header"
-        rows={header}
-        columns={[
-          { field: "date", editable },
-          {
-            field: "type",
-            editable,
-            cellEditor: "agSelectCellEditor",
-            cellEditorParams: { values: ["BRV", "BPV", "CRV", "CPV", "JV", "PIV", "SIV"] },
-          },
-          { field: "narration", editable },
-          { field: "correctionOfId", headerName: "Corrects voucher ID", editable },
-        ]}
-        onChange={editable ? setHeader : undefined}
-      />
+      <div className="journal-header">
+        <label>
+          Date
+          <input
+            type="date"
+            disabled={!editable}
+            value={String(header[0].date)}
+            onChange={(e) => setHeader([{ ...header[0], date: e.target.value }])}
+          />
+        </label>
+        <label>
+          Voucher No.
+          <input readOnly value={voucherNumber} />
+        </label>
+        <label>
+          Type
+          <select
+            disabled={!editable}
+            value={String(header[0].type)}
+            onChange={(e) => setHeader([{ ...header[0], type: e.target.value }])}
+          >
+            {["BRV", "BPV", "CRV", "CPV", "JV", "PIV", "SIV"].map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Narration
+          <input
+            disabled={!editable}
+            value={String(header[0].narration)}
+            onChange={(e) => setHeader([{ ...header[0], narration: e.target.value }])}
+          />
+        </label>
+        <label>
+          Project for new lines
+          <select
+            disabled={!editable}
+            value={projectCode}
+            onChange={(e) => {
+              setProjectCode(e.target.value);
+              setLines((v) =>
+                v.map((r) => (r.project || isBlankLine(r) ? r : { ...r, project: e.target.value })),
+              );
+            }}
+          >
+            <option value="">Choose project…</option>
+            {projects
+              .filter((p) => !p.archived)
+              .map((p) => (
+                <option key={String(p.id)} value={String(p.code)}>
+                  {String(p.code)} — {String(p.name)}
+                </option>
+              ))}
+          </select>
+        </label>
+        <details>
+          <summary>Correction reference</summary>
+          <label>
+            Corrects voucher ID
+            <input
+              disabled={!editable}
+              value={String(header[0].correctionOfId)}
+              onChange={(e) => setHeader([{ ...header[0], correctionOfId: e.target.value }])}
+            />
+          </label>
+        </details>
+      </div>
+      <p className="sheet-hint">
+        Amounts in PKR. For multiple projects, show the Project column from More → Columns and
+        pinning.
+      </p>
       <Grid
         screen="voucher-lines"
         rows={editable ? tagVoucherRows(lines, accounts, heads) : lines}
         columns={columns}
         onChange={
           editable
-            ? (rows) => setLines(withBlankLine(tagVoucherRows(rows, accounts, heads)))
+            ? (rows) =>
+                setLines(
+                  withBlankLine(
+                    tagVoucherRows(
+                      rows.map((r) => ({
+                        ...r,
+                        project: r.project || (!isBlankLine(r) ? projectCode : ""),
+                      })),
+                      accounts,
+                      heads,
+                    ),
+                  ),
+                )
             : undefined
         }
         totals={entryFooter}
       />
-      <p role="status">
-        Debit {formatPKR(debit)} · Credit {formatPKR(credit)} ·{" "}
-        {invalid
-          ? "Invalid amount"
-          : debit === credit
-            ? "Balanced"
-            : `Out of balance by ${formatPKR(debit - credit)}`}
-      </p>
+      <div className="journal-totals" role="status">
+        <span>
+          Total Debit<strong>{formatPKR(debit)}</strong>
+        </span>
+        <span>
+          Total Credit<strong>{formatPKR(credit)}</strong>
+        </span>
+        <span>
+          Difference<strong>{formatPKR(debit - credit)}</strong>
+        </span>
+        <span>
+          {invalid
+            ? "Invalid amount"
+            : debit === credit
+              ? "Balanced"
+              : `Out of balance by ${formatPKR(debit - credit)}`}
+        </span>
+      </div>
       <div className="toolbar">
         {editable && (
           <>
@@ -253,6 +337,7 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
           <h2>Attachments</h2>
           <Grid
             short
+            toolbar={false}
             screen="voucher-attachments"
             rows={attachments}
             columns={[
@@ -300,6 +385,7 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
           <h2>Reversing voucher</h2>
           <Grid
             short
+            toolbar={false}
             screen="reversal"
             rows={reverse}
             columns={[
@@ -333,12 +419,14 @@ export function VoucherEditor({ id, onSaved }: { id: string; onSaved: (id: strin
         <summary>Account and project lookup</summary>
         <Grid
           short
+          toolbar={false}
           screen="voucher-account-lookup"
           rows={accounts}
           columns={[{ field: "code" }, { field: "name" }, { field: "type" }]}
         />
         <Grid
           short
+          toolbar={false}
           screen="voucher-project-lookup"
           rows={projects}
           columns={[{ field: "code" }, { field: "name" }]}

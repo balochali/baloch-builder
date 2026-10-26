@@ -1,3 +1,4 @@
+import { entryError } from "./sheetMessages";
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { can, type Permission, formatPKR, defaultSettings } from "@baloch/shared";
@@ -62,7 +63,7 @@ const blank: Record<string, Row> = {
     parentId: "",
     isCashBank: false,
   },
-  periods: { month: new Date().toISOString().slice(0, 7) + "-01", locked: false },
+  periods: { month: "", locked: false },
   users: { email: "", role: "accountant", password: "" },
   assignments: { project_id: "", user_id: "", active: true },
 };
@@ -134,7 +135,7 @@ export function AccountingPage({ screen, user }: { screen: string; user: Session
       active = false;
     };
   }, [user, revision]);
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<Row[] | undefined> => {
     if (!user) return;
     const query = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
     const data = await api<Row[] | Record<string, unknown>>(
@@ -213,6 +214,102 @@ export function AccountingPage({ screen, user }: { screen: string; user: Session
             ? (p: ValueFormatterParams<Row>) => formatPKR(BigInt(String(p.value ?? "0")))
             : undefined,
         }));
+  const isDraftTouched = (row: Row) =>
+    JSON.stringify(prepare(screen, row)) !== JSON.stringify(prepare(screen, blank[screen]));
+  const allColumns: ColDef<Row>[] = columns.map((c) => ({
+    ...c,
+    headerName:
+      (
+        {
+          name: "Account Name",
+          normalBalance: "Normal Balance",
+          parentId: "Parent",
+          isCashBank: "Cash / Bank",
+          email: "Email / Username",
+          month: "Month",
+        } as Record<string, string>
+      )[c.field ?? ""] ?? c.headerName,
+    hide: screen === "accounts" && ["parentId", "isCashBank"].includes(c.field ?? ""),
+    editable: (p) => !busy && (p.data?._new ? editable : Boolean(c.editable)),
+    ...(["active", "archived", "locked", "isCashBank"].includes(c.field ?? "")
+      ? { cellDataType: "boolean" }
+      : {}),
+    ...(c.field === "role"
+      ? {
+          cellEditor: "agSelectCellEditor",
+          cellEditorParams: { values: ["admin", "accountant", "sales", "construction"] },
+        }
+      : {}),
+    ...(c.field === "type" && screen === "accounts"
+      ? {
+          cellEditor: "agSelectCellEditor",
+          cellEditorParams: { values: ["asset", "liability", "equity", "revenue", "expense"] },
+        }
+      : {}),
+    ...(c.field === "normalBalance"
+      ? { cellEditor: "agSelectCellEditor", cellEditorParams: { values: ["debit", "credit"] } }
+      : {}),
+  }));
+  if (screen === "users")
+    allColumns.push({
+      field: "password",
+      headerName: "Initial Password",
+      editable: (p) => Boolean(p.data?._new) && !busy,
+      cellEditor: PasswordEditor,
+      valueFormatter: (p) => (p.value ? "••••••••" : ""),
+    });
+  async function saveSheet() {
+    if (screen === "settings") {
+      const value = { ...defaultSettings } as Record<string, unknown>;
+      for (const r of rows) {
+        const key = String(r.key),
+          original = value[key];
+        value[key] =
+          typeof original === "boolean"
+            ? bool(r.value)
+            : typeof original === "number"
+              ? Number(r.value)
+              : String(r.value);
+      }
+      await api("settings", "PUT", value);
+      setRevision((v) => v + 1);
+      return;
+    }
+    const failedExisting: Row[] = [],
+      remaining: Row[] = [];
+    for (const row of rows.filter(
+      (r) =>
+        JSON.stringify(prepare(screen, r, true)) !==
+        JSON.stringify(
+          prepare(screen, originalRows.current.find((o) => o.id === r.id) ?? {}, true),
+        ),
+    )) {
+      try {
+        await api(
+          screen === "assignments" ? "assignments" : screen + "/" + row.id,
+          screen === "assignments" ? "POST" : "PATCH",
+          prepare(screen, row, true),
+        );
+      } catch (e) {
+        failedExisting.push({ ...row, error: entryError(e) });
+      }
+    }
+    for (const row of draft.filter(isDraftTouched)) {
+      try {
+        await api(screen, "POST", prepare(screen, row));
+      } catch (e) {
+        remaining.push({ ...row, error: entryError(e) });
+      }
+    }
+    const fresh = await load();
+    if (fresh) {
+      originalRows.current = structuredClone(fresh);
+      setRows(fresh.map((r) => failedExisting.find((f) => f.id === r.id) ?? r));
+    }
+    setDraft([...remaining, { ...blank[screen] }]);
+    if (remaining.length || failedExisting.length)
+      throw Error("Correct the highlighted rows and save again");
+  }
   return (
     <>
       <div className="accounting-workspace">
@@ -304,7 +401,7 @@ export function AccountingPage({ screen, user }: { screen: string; user: Session
             </label>
           </div>
         )}
-        {screen === "vouchers" && (
+        {screen === "vouchers" && !voucher && (
           <div className="toolbar">
             <button onClick={() => setVoucher("new")}>New voucher</button>
             <small>
@@ -312,125 +409,54 @@ export function AccountingPage({ screen, user }: { screen: string; user: Session
             </small>
           </div>
         )}
-        <Grid
-          key={`${screen}-${user.id}`}
-          screen={screen}
-          rows={rows}
-          columns={columns}
-          onChange={editable || screen === "settings" ? setRows : undefined}
-          onSelect={screen === "vouchers" ? (r) => setVoucher(String(r.id)) : undefined}
-          totals={["journal", "trial-balance"].includes(screen) ? reportTotals : undefined}
-        />
-        {(editable || screen === "settings") && (
-          <button
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                if (screen === "settings") {
-                  const value = { ...defaultSettings } as Record<string, unknown>;
-                  for (const r of rows) {
-                    const key = String(r.key);
-                    const original = value[key];
-                    value[key] =
-                      typeof original === "boolean"
-                        ? bool(r.value)
-                        : typeof original === "number"
-                          ? Number(r.value)
-                          : String(r.value);
-                  }
-                  await api("settings", "PUT", value);
-                } else
-                  for (const row of rows.filter(
-                    (r) =>
-                      JSON.stringify(r) !==
-                      JSON.stringify(originalRows.current.find((o) => o.id === r.id)),
-                  ))
-                    await api(
-                      screen === "assignments" ? "assignments" : `${screen}/${row.id}`,
-                      screen === "assignments" ? "POST" : "PATCH",
-                      prepare(screen, row, true),
-                    );
-                setRevision((v) => v + 1);
-              })
-            }
-          >
-            Save grid changes
-          </button>
+        {screen === "vouchers" && voucher && (
+          <button onClick={() => setVoucher(null)}>← Back to Vouchers</button>
         )}
-        {editable && (
-          <section>
-            <h2>Add rows</h2>
-            {screen === "assignments" && (
-              <details>
-                <summary>Project and user IDs</summary>
-                <Grid
-                  short
-                  screen="assignment-project-lookup"
-                  rows={projects}
-                  columns={fields(["id", "code", "name"])}
-                />
-                <Grid
-                  short
-                  screen="assignment-user-lookup"
-                  rows={users}
-                  columns={fields(["id", "email", "role"])}
-                />
-              </details>
-            )}
-            <Grid
-              short
-              screen={`${screen}-new`}
-              rows={draft}
-              columns={[
-                ...fields(Object.keys(blank[screen]), true).map((c) =>
-                  c.field === "password"
-                    ? {
-                        ...c,
-                        valueFormatter: () => "••••••••",
-                        cellEditorParams: { type: "password" },
-                      }
-                    : c,
-                ),
-                { field: "error", editable: false },
-              ]}
-              onChange={(values) =>
-                setDraft(
-                  values.length &&
-                    JSON.stringify(prepare(screen, values[values.length - 1])) ===
-                      JSON.stringify(prepare(screen, blank[screen]))
-                    ? values
-                    : [...values, { ...blank[screen] }],
-                )
-              }
-            />
-            <div className="toolbar">
-              <button onClick={() => setDraft((d) => [...d, { ...blank[screen] }])}>Add row</button>
-              <button
-                disabled={busy || !draft.length}
-                onClick={() =>
-                  run(async () => {
-                    const remaining: Row[] = [];
-                    for (const row of draft.filter(
-                      (row) =>
-                        JSON.stringify(prepare(screen, row)) !==
-                        JSON.stringify(prepare(screen, blank[screen])),
-                    )) {
-                      try {
-                        await api(screen, "POST", prepare(screen, row));
-                      } catch (e) {
-                        remaining.push({ ...row, error: String(e) });
-                      }
+        {!(screen === "vouchers" && voucher) && (
+          <Grid
+            key={screen + "-" + user.id}
+            screen={screen}
+            rows={[
+              ...rows,
+              ...(editable
+                ? draft.map((r) => ({ ...r, _new: true, _placeholder: !isDraftTouched(r) }))
+                : []),
+            ]}
+            columns={allColumns}
+            newLabel={
+              editable
+                ? ((
+                    {
+                      accounts: "New Account",
+                      periods: "New Period",
+                      users: "New User",
+                      assignments: "New Assignment",
+                    } as Record<string, string>
+                  )[screen] ?? "New Row")
+                : undefined
+            }
+            onChange={
+              editable || screen === "settings"
+                ? (values) => {
+                    setRows(values.filter((r) => (!r._new && r.id) || screen === "settings"));
+                    if (editable) {
+                      const next = values
+                        .filter((r) => r._new || !r.id)
+                        .map((r) => ({ ...blank[screen], ...r }));
+                      setDraft(
+                        next.length && !isDraftTouched(next[next.length - 1])
+                          ? next
+                          : [...next, { ...blank[screen] }],
+                      );
                     }
-                    setDraft([...remaining, { ...blank[screen] }]);
-                    setRevision((v) => v + 1);
-                    if (remaining.length) throw new Error("Correct the marked rows and save again");
-                  })
-                }
-              >
-                Save new rows
-              </button>
-            </div>
-          </section>
+                  }
+                : undefined
+            }
+            onSave={editable || screen === "settings" ? () => void run(saveSheet) : undefined}
+            busy={busy}
+            onSelect={screen === "vouchers" ? (r) => setVoucher(String(r.id)) : undefined}
+            totals={["journal", "trial-balance"].includes(screen) ? reportTotals : undefined}
+          />
         )}
         {screen === "vouchers" && voucher && (
           <VoucherEditor

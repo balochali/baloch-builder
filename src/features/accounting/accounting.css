@@ -82,3 +82,131 @@
 .accounting-workspace input:focus-visible {
   outline: 2px solid var(--ring);
 }
+
+/* Spreadsheet entry windows: scoped to accounting workspaces. */
+.accounting-workspace .sheet-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0;
+  margin: 0;
+}
+.accounting-workspace .sheet-search {
+  flex: 1;
+  min-width: 120px;
+  max-width: 280px;
+}
+.accounting-workspace .sheet-primary {
+  font-weight: 650;
+  border-color: var(--foreground);
+}
+.accounting-workspace .sheet-archive {
+  font-size: 13px;
+  white-space: nowrap;
+}
+.accounting-workspace .sheet-archive input {
+  width: 16px;
+  height: 16px;
+}
+.accounting-workspace .sheet-more {
+  position: relative;
+  margin: 0;
+}
+.accounting-workspace .sheet-more > summary {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.accounting-workspace .sheet-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 30;
+  min-width: 240px;
+  max-height: 400px;
+  overflow: auto;
+  padding: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px #0002;
+  display: grid;
+  gap: 8px;
+}
+.accounting-workspace .sheet-menu label {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0;
+}
+.accounting-workspace .sheet-hint,
+.accounting-workspace .sheet-empty {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  margin: 0;
+}
+.accounting-workspace .sheet-empty {
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+.accounting-workspace .sheet-validation {
+  color: var(--destructive);
+  font-size: 13px;
+  margin: 0;
+}
+.accounting-workspace .grid {
+  height: clamp(300px, 58vh, 640px);
+}
+.accounting-workspace .ag-row-odd {
+  background: color-mix(in srgb, var(--muted) 38%, var(--card));
+}
+.accounting-workspace .ag-cell.invalid-cell {
+  color: var(--destructive);
+  background: color-mix(in srgb, var(--destructive) 9%, var(--card));
+  box-shadow: inset 0 -2px var(--destructive);
+}
+.accounting-workspace .ag-row.new-entry-row {
+  background: color-mix(in srgb, var(--muted) 20%, var(--card));
+}
+.accounting-workspace .project-status {
+  color: #16806a;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.accounting-workspace .journal-header {
+  display: grid;
+  grid-template-columns: 150px 140px 110px minmax(200px, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.accounting-workspace .journal-header label {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  font-size: 13px;
+}
+.accounting-workspace .journal-header input,
+.accounting-workspace .journal-header select {
+  min-width: 0;
+  width: 100%;
+}
+.accounting-workspace .journal-totals {
+  display: flex;
+  justify-content: flex-end;
+  gap: 28px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.accounting-workspace .journal-totals strong {
+  display: block;
+  font-size: 18px;
+}
+@media (max-width: 900px) {
+  .accounting-workspace .journal-header {
+    grid-template-columns: 1fr 1fr;
+  }
+}

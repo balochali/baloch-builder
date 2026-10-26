@@ -1,3 +1,4 @@
+import { entryError } from "./sheetMessages";
 import { useEffect, useState } from "react";
 import { costHeadSchema } from "@baloch/shared";
 import { api } from "@/data/api";
@@ -57,7 +58,7 @@ export function CostHeadsPage() {
     return String(v ?? "");
   }
   async function edit(r: Row, field: string, old: unknown) {
-    if (r[field] === old) return;
+    if (r._new || r[field] === old) return;
     setError("");
     try {
       await api(`cost-heads/${r.id}`, "PATCH", { [field]: value(field, r[field]) });
@@ -78,7 +79,7 @@ export function CostHeadsPage() {
         );
         await api("cost-heads", "POST", body);
       } catch (e) {
-        remaining.push({ ...r, error: String(e) });
+        remaining.push({ ...r, error: entryError(e) });
       }
     }
     setDraft([...remaining, empty()]);
@@ -89,7 +90,18 @@ export function CostHeadsPage() {
   const columns = Object.keys(empty()).map((field) => ({
     field,
     editable: !busy,
-    headerName: field.replace(/_/g, " "),
+    headerName: (
+      {
+        code: "Code",
+        name: "Cost Head",
+        parent_id: "Parent",
+        default_account_id: "Default Account",
+        budget_only: "Budget Only",
+        active: "Active",
+        sort_order: "Order",
+      } as Record<string, string>
+    )[field],
+    hide: field === "sort_order",
     ...(["budget_only", "active"].includes(field) ? { cellDataType: "boolean" } : {}),
     ...(["parent_id", "default_account_id"].includes(field)
       ? {
@@ -117,26 +129,24 @@ export function CostHeadsPage() {
       {error && <p role="alert">{error}</p>}
       <Grid
         screen="cost-heads"
-        rows={visible}
-        columns={[
-          ...columns,
-          { field: "in_use_count", editable: false },
-          { field: "is_system", editable: false },
+        rows={[
+          ...visible,
+          ...draft.map((r) => ({ ...r, _new: true, _placeholder: !r.code && !r.name })),
         ]}
+        columns={[...columns, { field: "in_use_count", headerName: "In Use", editable: false }]}
+        newLabel="New Cost Head"
         onCellChange={(r, f, o) => void edit(r, f, o)}
+        onChange={(values) => {
+          const next = values.filter((r) => r._new || !r.id).map((r) => ({ ...empty(), ...r }));
+          setDraft(
+            next.length && !next[next.length - 1].code && !next[next.length - 1].name
+              ? next
+              : [...next, empty()],
+          );
+        }}
+        onSave={draft.some((r) => r.code || r.name) ? () => void create() : undefined}
+        busy={busy}
       />
-      <h3>Add cost heads</h3>
-      <Grid
-        short
-        screen="cost-heads-new"
-        rows={draft}
-        columns={[...columns, { field: "error", editable: false }]}
-        onChange={setDraft}
-      />
-      <button onClick={() => setDraft((v) => [...v, empty()])}>Add row</button>
-      <button disabled={busy} onClick={() => void create()}>
-        Save new cost heads
-      </button>
     </div>
   );
 }

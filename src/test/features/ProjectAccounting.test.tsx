@@ -1,3 +1,4 @@
+import { AccountingPage } from "@/features/accounting/AccountingPage";
 import { act, fireEvent, render, screen, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
@@ -16,7 +17,12 @@ const grids = vi.hoisted(() => new Map<string, GridProps>());
 vi.mock("@/features/accounting/Grid", () => ({
   Grid: (props: GridProps) => {
     grids.set(props.screen, props);
-    return <div data-testid={props.screen} />;
+    return (
+      <div data-testid={props.screen}>
+        {props.toolbarContent}
+        {props.onSave && <button onClick={props.onSave}>Save Changes</button>}
+      </div>
+    );
   },
 }));
 vi.mock("@/data/api", () => ({ api: vi.fn() }));
@@ -76,24 +82,22 @@ it("validates added project rows before sending and converts chosen units to sqf
     </MemoryRouter>,
   );
   await waitFor(() =>
-    expect(
-      grids.get("projects")?.columns.some((c) => c.headerName === "Saleable area (marla)"),
-    ).toBe(true),
+    expect(grids.get("projects")?.columns.some((c) => c.headerName === "Area marla")).toBe(true),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Add row" }));
-  expect(grids.get("projects-new")!.rows).toHaveLength(2);
+  expect(grids.has("projects-new")).toBe(false);
+  expect(grids.get("projects")!.rows).toHaveLength(2);
   act(() =>
-    grids.get("projects-new")!.onChange!([{ code: "OK", name: "New", city: "", type: "plots" }]),
+    grids.get("projects")!.onChange!([{ code: "OK", name: "New", city: "", type: "plots" }]),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Save new projects" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Correct the marked");
   expect(vi.mocked(api).mock.calls.filter((c) => c[1] === "POST")).toHaveLength(0);
   act(() =>
-    grids.get("projects-new")!.onChange!([
+    grids.get("projects")!.onChange!([
       { code: "OK", name: "New", city: "Karachi", type: "plots", saleable_area_sqft: "2.25" },
     ]),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Save new projects" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
   await waitFor(() =>
     expect(api).toHaveBeenCalledWith(
       "projects",
@@ -101,7 +105,7 @@ it("validates added project rows before sending and converts chosen units to sqf
       expect.objectContaining({ saleable_area_sqft: "6.75", city: "Karachi" }),
     ),
   );
-  fireEvent.click(screen.getByLabelText("Show archived projects"));
+  fireEvent.click(screen.getByLabelText("Show archived"));
   await waitFor(() => expect(api).toHaveBeenCalledWith("projects?includeArchived=true"));
 });
 for (const role of ["admin", "accountant", "sales", "construction"] as const)
@@ -242,4 +246,69 @@ it("allows a balanced incomplete draft but disables posting until its WIP line h
   const g = [...grids.values()].find((g) => g.columns.some((c) => c.field === "cost_head"))!;
   act(() => g.onChange!(g.rows.map((r, i) => (i === 0 ? { ...r, cost_head: "MAT" } : r))));
   expect(screen.getByRole("button", { name: "Save and post" })).toBeEnabled();
+});
+
+it.each([
+  [
+    "accounts",
+    {
+      code: "5301",
+      name: "Office Costs",
+      type: "expense",
+      normalBalance: "debit",
+      parentId: "",
+      isCashBank: false,
+    },
+    {
+      code: "5301",
+      name: "Office Costs",
+      type: "expense",
+      normalBalance: "debit",
+      parentId: null,
+      isCashBank: false,
+    },
+  ],
+  ["periods", { month: "2026-11-01", locked: false }, { month: "2026-11-01", locked: false }],
+  [
+    "users",
+    { email: "new@example.test", password: "Local-fixture-123!", role: "accountant" },
+    { email: "new@example.test", password: "Local-fixture-123!", role: "accountant" },
+  ],
+] as const)(
+  "adds %s in the same sheet using the unchanged API payload",
+  async (name, entry, expected) => {
+    render(<AccountingPage screen={name} user={user("admin")} />);
+    await act(async () => {});
+    const g = grids.get(name)!;
+    expect(grids.has(name + "-new")).toBe(false);
+    expect(g.rows.slice(-1)[0]?._placeholder).toBe(true);
+    act(() => g.onChange!([...g.rows.filter((r) => !r._new), { ...entry, _new: true }]));
+    expect(grids.get(name)!.rows.slice(-1)[0]?._placeholder).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith(name, "POST", expected));
+  },
+);
+it("keeps existing account identity cells read-only while the last row accepts entry", async () => {
+  render(<AccountingPage screen="accounts" user={user("accountant")} />);
+  await act(async () => {});
+  const column = grids.get("accounts")!.columns.find((c) => c.field === "code")!;
+  if (typeof column.editable !== "function") throw Error("Expected row-specific editability");
+  expect(
+    column.editable({ data: { id: "a1" } } as unknown as Parameters<typeof column.editable>[0]),
+  ).toBe(false);
+  expect(
+    column.editable({ data: { _new: true } } as unknown as Parameters<typeof column.editable>[0]),
+  ).toBe(true);
+});
+it("does not offer new project entry to an accountant", async () => {
+  render(
+    <MemoryRouter>
+      <ProjectsPage user={user("accountant")} />
+    </MemoryRouter>,
+  );
+  await act(async () => {});
+  const g = grids.get("projects")!;
+  expect(g.newLabel).toBeUndefined();
+  expect(g.onChange).toBeUndefined();
+  expect(g.rows.some((r) => r._new)).toBe(false);
 });
