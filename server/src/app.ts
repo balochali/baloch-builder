@@ -1,6 +1,7 @@
 import { registerCostHeadRoutes } from "./cost-heads";
 import { registerAssignmentRoutes } from "./assignments";
 import { registerProjectRoutes } from "./projects";
+import { registerWorkbookRoutes } from "./workbook";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -304,6 +305,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
     };
   });
   registerProjectRoutes(app);
+  registerWorkbookRoutes(app);
   registerCostHeadRoutes(app);
   registerAssignmentRoutes(app);
   app.get("/api/accounts", { config: { permission: "accounts" } }, async () =>

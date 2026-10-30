@@ -1,6 +1,7 @@
 import { dateSchema } from "./validation";
 export { dateSchema } from "./validation";
 import { z } from "zod";
+export * from "./workbook";
 export * from "./money";
 export const roles = ["admin", "accountant", "sales", "construction"] as const;
 export const roleSchema = z.enum(roles);

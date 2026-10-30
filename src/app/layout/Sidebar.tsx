@@ -1,4 +1,4 @@
-import {can,type Role} from "@baloch/shared";
+import { can, type Role } from "@baloch/shared";
 import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useRef, type CSSProperties } from "react";
 import "./sidebar.css";
@@ -51,14 +51,55 @@ interface SidebarProps {
 
 export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
   const { pathname } = useLocation();
-  const visibleGroups = role ? [
-    {label:"WORKSPACE",items:[{to:"/projects",label:"Projects",icon:Building2,color:"#d2ad65"}]},
-    {label:"PEOPLE & MONEY",items:[
-      ...(can(role,"costHeads")?[{to:"/cost-heads",label:"Cost heads",icon:Wallet,color:"#8b5cf6"}]:[]),
-      ...(can(role,"ledger")?[{to:"/vouchers",label:"Vouchers",icon:ReceiptText,color:"#ec4899"},{to:"/journal",label:"General journal",icon:BookUser,color:"#06b6d4"},{to:"/trial-balance",label:"Trial Balance",icon:Landmark,color:"#10b981"},{to:"/accounts",label:"Chart of accounts",icon:Wallet,color:"#8b5cf6"},{to:"/periods",label:"Fiscal periods",icon:ShieldCheck,color:"#2dd4bf"}]:[]),
-      ...(can(role,"users")?[{to:"/users",label:"Users and roles",icon:Users,color:"#f97316"},{to:"/assignments",label:"Project assignments",icon:BookUser,color:"#06b6d4"},{to:"/audit",label:"Audit log",icon:ShieldCheck,color:"#2dd4bf"}]:[])
-    ]}
-  ].filter(group=>group.items.length) : groups;
+  const visibleGroups = role
+    ? [
+        {
+          label: "WORKSPACE",
+          items: [
+            { to: "/projects", label: "Projects", icon: Building2, color: "#d2ad65" },
+            { to: "/land", label: "Lands", icon: MapPin, color: "#f59e0b" },
+            ...(can(role, "ledger")
+              ? [
+                  {
+                    to: "/personal-expense",
+                    label: "Personal Expenses",
+                    icon: ReceiptText,
+                    color: "#ec4899",
+                  },
+                  { to: "/credit-udhaar", label: "Udhaar", icon: Wallet, color: "#8b5cf6" },
+                  {
+                    to: "/personal-deposit",
+                    label: "Personal Deposit",
+                    icon: ShieldCheck,
+                    color: "#2dd4bf",
+                  },
+                ]
+              : []),
+          ],
+        },
+        ...(can(role, "ledger")
+          ? [
+              {
+                label: "BANK",
+                items: [
+                  {
+                    to: "/bank/personal",
+                    label: "Personal Account",
+                    icon: Landmark,
+                    color: "#10b981",
+                  },
+                  {
+                    to: "/bank/builder",
+                    label: "Builder Account",
+                    icon: Building2,
+                    color: "#3b82f6",
+                  },
+                ],
+              },
+            ]
+          : []),
+      ]
+    : groups;
   const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!window.matchMedia("(max-width: 760px)").matches) return;
@@ -121,17 +162,19 @@ export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
             <span>Records stored on this device</span>
           </div>
         </div>
-        {(!role || can(role,"settings")) && <NavLink
-          to="/settings"
-          style={{ "--nav-color": "#94a3b8" } as CSSProperties}
-          className={({ isActive }) => cn("workspace-nav-link", isActive && "is-active")}
-        >
-          <span className="sidebar-link-icon">
-            <Settings size={19} aria-hidden="true" />
-          </span>
-          <span className="sidebar-link-label">Settings</span>
-          <ArrowUpRight className="sidebar-settings-arrow" size={15} aria-hidden="true" />
-        </NavLink>}
+        {(!role || can(role, "settings")) && (
+          <NavLink
+            to="/settings"
+            style={{ "--nav-color": "#94a3b8" } as CSSProperties}
+            className={({ isActive }) => cn("workspace-nav-link", isActive && "is-active")}
+          >
+            <span className="sidebar-link-icon">
+              <Settings size={19} aria-hidden="true" />
+            </span>
+            <span className="sidebar-link-label">Settings</span>
+            <ArrowUpRight className="sidebar-settings-arrow" size={15} aria-hidden="true" />
+          </NavLink>
+        )}
         <button
           type="button"
           className="workspace-nav-link sidebar-logout"

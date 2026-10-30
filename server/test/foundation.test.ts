@@ -1,4 +1,5 @@
 import { registerProjectProfileTests, referenceSnapshot } from "./project-profile";
+import { registerWorkbookTests } from "./workbook";
 import { registerSessionTests } from "./session-security";
 import { registerLoginSecurityTests } from "./login-security";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
@@ -455,3 +456,4 @@ registerLoginSecurityTests();
 registerSessionTests();
 
 registerProjectProfileTests(app, ids, cookies, account, seedProof);
+registerWorkbookTests(app, ids, cookies);

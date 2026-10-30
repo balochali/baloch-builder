@@ -109,7 +109,7 @@ it("validates added project rows before sending and converts chosen units to sqf
   await waitFor(() => expect(api).toHaveBeenCalledWith("projects?includeArchived=true"));
 });
 for (const role of ["admin", "accountant", "sales", "construction"] as const)
-  it("profile cells apply " + role + " permissions and future tabs remain disabled", async () => {
+  it("profile cells apply " + role + " permissions and workbook tabs are enabled", async () => {
     render(
       <MemoryRouter initialEntries={["/projects/p1"]}>
         <Routes>
@@ -119,26 +119,24 @@ for (const role of ["admin", "accountant", "sales", "construction"] as const)
     );
     await screen.findByRole("heading", { name: "Tower" });
     const g = grids.get("project-profile-p1")!;
-    const editable = g.columns.find((c) => c.field === "value")!.editable;
-    expect(typeof editable).toBe("function");
-    if (typeof editable !== "function") throw Error("Expected row-specific editing");
     for (const key of [
       "city",
       "saleable_area_sqft",
       "cost_allocation_method",
       "revenue_recognition",
     ]) {
-      expect(editable({ data: { key } } as unknown as Parameters<typeof editable>[0])).toBe(
+      const editable = g.columns.find(c => c.field === key)!.editable;
+      if (typeof editable !== "function") throw Error("Expected field-specific editing");
+      expect(editable({ data: {} } as unknown as Parameters<typeof editable>[0])).toBe(
         role === "admin" ||
           (role === "accountant" &&
             ["cost_allocation_method", "revenue_recognition"].includes(key)),
       );
     }
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(11);
+    expect(tabs).toHaveLength(9);
     tabs.slice(1).forEach((tab) => {
-      expect(tab).toBeDisabled();
-      expect(tab).toHaveTextContent("Coming soon");
+      expect(tab).toBeEnabled();
     });
   });
 it("does not rewrite rounded profile display values until a cell actually changes", async () => {
@@ -151,11 +149,11 @@ it("does not rewrite rounded profile display values until a cell actually change
   );
   await screen.findByRole("heading", { name: "Tower" });
   const g = grids.get("project-profile-p1")!;
-  const row = g.rows.find((r) => r.key === "saleable_area_sqft")!;
-  expect(row.value).toBe("0.333333333333");
-  act(() => g.onCellChange!(row, "value", row.value));
+  const row = g.rows[0];
+  expect(row.saleable_area_sqft).toBe("0.333333333333");
+  act(() => g.onCellChange!(row, "saleable_area_sqft", row.saleable_area_sqft));
   expect(vi.mocked(api).mock.calls.filter((c) => c[1] === "PATCH")).toHaveLength(0);
-  await act(async () => g.onCellChange!({ ...row, value: "2.25" }, "value", row.value));
+  await act(async () => g.onCellChange!({ ...row, saleable_area_sqft: "2.25" }, "saleable_area_sqft", row.saleable_area_sqft));
   expect(api).toHaveBeenCalledWith("projects/p1", "PATCH", { saleable_area_sqft: "6.75" });
 });
 it("asks for a backward status reason before calling the server", async () => {
@@ -217,9 +215,9 @@ for (const role of ["admin", "accountant", "sales", "construction"] as const)
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: "Projects" })).toBeInTheDocument();
-    const head = screen.queryByRole("link", { name: "Cost heads" });
+    const head = screen.queryByRole("link", { name: "Personal Account" });
     if (role === "admin" || role === "accountant")
-      expect(head).toHaveAttribute("href", "/cost-heads");
+      expect(head).toHaveAttribute("href", "/bank/personal");
     else expect(head).toBeNull();
   });
 

@@ -5,6 +5,11 @@ import { api, SESSION_EXPIRED_EVENT, SESSION_EXPIRED_MESSAGE } from "@/data/api"
 import type { SessionUser } from "@/data/session";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { AppShell } from "./layout/AppShell";
+import {
+  WorkspaceSection,
+  workspaceSections,
+  type WorkspaceSectionName,
+} from "@/features/accounting/WorkspaceSection";
 const AccountingPage = lazy(() =>
   import("@/features/accounting/AccountingPage").then((m) => ({ default: m.AccountingPage })),
 );
@@ -125,6 +130,18 @@ function ServerRouter() {
           }
         >
           <Route path="/" element={<Navigate to="/projects" replace />} />
+          {Object.keys(workspaceSections)
+            .filter((section) => can(user.role, section === "land" ? "projects" : "ledger"))
+            .map((section) => (
+              <Route
+                key={section}
+                path={"/" + section}
+                element={
+                  <WorkspaceSection key={section} section={section as WorkspaceSectionName} />
+                }
+              />
+            ))}
+          <Route path="/bank" element={<Navigate to="/bank/personal" replace />} />
           <Route
             path="/projects/:id"
             element={

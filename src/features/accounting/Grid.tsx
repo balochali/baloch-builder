@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo, type ReactNode } from "react";
+import { useRef, useState, useMemo, useImperativeHandle, type Ref, type ReactNode } from "react";
 import { AgGridReact } from "ag-grid-react";
 import {
   themeQuartz,
@@ -19,6 +19,7 @@ const accountingTheme = themeQuartz.withParams({
   fontSize: 14,
 });
 export type Row = Record<string, unknown>;
+export type GridEditHandle = { commit: () => Row[] };
 export const titleCase = (name: string) =>
   name
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -35,7 +36,12 @@ export function Grid({
   totals,
   short = false,
   toolbarContent,
+  showSearch = true,
+  singleClickEdit = false,
+  editHandle,
   newLabel,
+  onNew,
+  summary,
   onSave,
   saveLabel = "Save Changes",
   busy = false,
@@ -51,7 +57,12 @@ export function Grid({
   totals?: (rows: Row[]) => Row;
   short?: boolean;
   toolbarContent?: ReactNode;
+  showSearch?: boolean;
+  singleClickEdit?: boolean;
+  editHandle?: Ref<GridEditHandle>;
   newLabel?: string;
+  onNew?: () => void;
+  summary?: (rows: Row[]) => ReactNode;
   onSave?: () => void;
   saveLabel?: string;
   busy?: boolean;
@@ -59,11 +70,27 @@ export function Grid({
   toolbar?: boolean;
 }) {
   const ref = useRef<AgGridReact<Row>>(null);
+  useImperativeHandle(editHandle, () => ({
+    commit() {
+      const grid = ref.current?.api;
+      if (!grid) return rows;
+      grid.stopEditing();
+      const current: Row[] = [];
+      grid.forEachNode((node) => {
+        if (node.data) {
+          const { _rowIndex: _index, _gridId: _id, ...row } = node.data;
+          current.push(row);
+        }
+      });
+      return current;
+    },
+  }));
   const [message, setMessage] = useState(""),
     [search, setSearch] = useState("");
   const [filterRow, setFilterRow] = useState(false),
     [selected, setSelected] = useState<Row | null>(null);
   const [footer, setFooter] = useState<Row[]>([]);
+  const [summaryRows, setSummaryRows] = useState<Row[]>([]);
   const viewRows = useMemo(
     () =>
       rows.map((r, index) => ({
@@ -79,7 +106,7 @@ export function Grid({
         .filter((c) => c.field !== "error")
         .map((c, index) => ({
           ...c,
-          headerName: titleCase(c.headerName ?? c.field ?? ""),
+          headerName: c.headerName ?? titleCase(c.field ?? ""),
           pinned: c.pinned ?? (index === 0 ? "left" : undefined),
           floatingFilter: filterRow && c.filter !== false,
           tooltipValueGetter: (p) => errorText(p.data) || String(p.value ?? ""),
@@ -110,12 +137,13 @@ export function Grid({
     [],
   );
   const updateFooter = (a: GridApi<Row>) => {
-    if (!totals) return;
+    if (!totals && !summary) return;
     const visible: Row[] = [];
     a.forEachNodeAfterFilter((n) => {
       if (n.data && !n.data._placeholder) visible.push(n.data);
     });
-    setFooter([totals(visible)]);
+    if (totals) setFooter([totals(visible)]);
+    if (summary) setSummaryRows(visible);
   };
   async function exportFile() {
     try {
@@ -206,17 +234,19 @@ export function Grid({
       {toolbar && (
         <div className="sheet-toolbar" role="toolbar" aria-label={titleCase(screen) + " tools"}>
           {newLabel && (
-            <button className="sheet-primary" disabled={busy} onClick={focusNew}>
+            <button className="sheet-primary" disabled={busy} onClick={onNew ?? focusNew}>
               + {newLabel}
             </button>
           )}
-          <input
-            className="sheet-search"
-            aria-label={"Search " + titleCase(screen)}
-            placeholder="Search…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          {showSearch && (
+            <input
+              className="sheet-search"
+              aria-label={"Search " + titleCase(screen)}
+              placeholder="Search…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          )}
           {toolbarContent}
           <button aria-pressed={filterRow} onClick={() => setFilterRow((v) => !v)}>
             Filter
@@ -382,7 +412,7 @@ export function Grid({
           enterNavigatesVertically
           enterNavigatesVerticallyAfterEdit
           stopEditingWhenCellsLoseFocus
-          singleClickEdit={false}
+          singleClickEdit={singleClickEdit}
           overlayNoRowsTemplate="<span>No matching records.</span>"
           postSortRows={(p) => {
             const normal = p.nodes.filter((n) => !n.data?._new),
@@ -450,6 +480,11 @@ export function Grid({
           }}
         />
       </div>
+      {summary && (
+        <section className="sheet-summary" aria-label="Sheet calculations" aria-live="polite">
+          {summary(summaryRows)}
+        </section>
+      )}
     </>
   );
 }

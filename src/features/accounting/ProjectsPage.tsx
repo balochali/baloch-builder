@@ -14,7 +14,10 @@ import {
   validateNewProject,
 } from "./projectGridModel";
 import "./accounting.css";
+import { ProjectEntry } from "./ProjectEntry";
+import { projectSummary } from "./projectSummary";
 export function ProjectsPage({ user }: { user: SessionUser }) {
+  const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
   const [rows, setRows] = useState<Row[]>([]),
     [draft, setDraft] = useState<Row[]>([newProjectRow()]),
@@ -137,9 +140,22 @@ export function ProjectsPage({ user }: { user: SessionUser }) {
   return (
     <div className="accounting-workspace">
       <h2>Projects</h2>
+      {creating && (
+        <ProjectEntry
+          settings={settings}
+          users={users}
+          onCancel={() => setCreating(false)}
+          onCreated={(project) => {
+            setCreating(false);
+            setRevision((v) => v + 1);
+            if (project.id) navigate("/projects/" + project.id);
+          }}
+        />
+      )}
       {error && <p role="alert">{error}</p>}
       <p className="sheet-hint">
-        Enter a project in the blank last row, then save. Open a project for its full profile.
+        Click New Project for guided entry, or type in the blank row. Open a project to edit its
+        details.
       </p>
       <Grid
         screen="projects"
@@ -151,6 +167,30 @@ export function ProjectsPage({ user }: { user: SessionUser }) {
         ]}
         columns={columns}
         newLabel={admin ? "New Project" : undefined}
+        onNew={admin ? () => setCreating(true) : undefined}
+        summary={(visible) => {
+          const summary = projectSummary(visible);
+          return (
+            <>
+              <span className="sheet-summary-label">Visible rows · includes unsaved entries</span>
+              <span>
+                Projects<strong>{summary.count}</strong>
+              </span>
+              <span>
+                Active<strong>{summary.active}</strong>
+              </span>
+              <span>
+                Unsaved<strong>{summary.drafts}</strong>
+              </span>
+              <span>
+                Saleable Area ({settings.areaDisplayUnit})<strong>{summary.area}</strong>
+              </span>
+              {summary.excluded > 0 && (
+                <span role="status">{summary.excluded} invalid area value(s) excluded</span>
+              )}
+            </>
+          );
+        }}
         emptyMessage="No projects yet. Click + New Project or type in the first row."
         toolbarContent={
           <label className="sheet-archive">

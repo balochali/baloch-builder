@@ -1,13 +1,15 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   defaultAreaSettings,
   projectTypes,
   type AreaSettings,
   type ProjectStatus,
+  type WorkbookSheet,
 } from "@baloch/shared";
 import type { SessionUser } from "@/data/session";
 import { api } from "@/data/api";
+import { ProjectRegister } from "./ProjectRegister";
 import { Grid, type Row } from "./Grid";
 import { AssignedUsersGrid } from "./AssignedUsersGrid";
 import { BuildingsGrid } from "./BuildingsGrid";
@@ -21,18 +23,17 @@ import {
   projectValue,
 } from "./projectGridModel";
 import "./accounting.css";
-export const futureProjectTabs = [
-  "Land",
+export const projectTabs = [
+  "Overview",
+  "Estimate",
   "Partners",
-  "Budget",
-  "Units",
   "Construction",
+  "Flats",
   "Sales",
-  "Payments and Receipts",
-  "Documents",
-  "Ledger and Reports",
-  "Closing",
-];
+  "Buildings",
+  "Team",
+  "History",
+] as const;
 export function ProjectWorkspace({ user }: { user: SessionUser }) {
   const { id = "" } = useParams();
   const [project, setProject] = useState<Row | null>(null),
@@ -43,6 +44,16 @@ export function ProjectWorkspace({ user }: { user: SessionUser }) {
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false);
   const pending = useRef(Promise.resolve());
+  const [tab, setTab] = useState<(typeof projectTabs)[number]>("Overview");
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (!dirty) return;
+    const prevent = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", prevent);
+    return () => window.removeEventListener("beforeunload", prevent);
+  }, [dirty]);
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -103,79 +114,193 @@ export function ProjectWorkspace({ user }: { user: SessionUser }) {
           : key === "project_manager_id"
             ? users.map((u) => ({ value: String(u.email), label: String(u.role) }))
             : null;
+  const register = (
+    {
+      Partners: "partners",
+      Construction: "construction",
+      Estimate: "estimate",
+      Flats: "flats",
+      Sales: "flats",
+    } as Record<string, WorkbookSheet>
+  )[tab];
+  const chooseTab = (next: (typeof projectTabs)[number]) => {
+    if (next === tab) return;
+    if (dirty || busy) {
+      setError("Save or discard your sheet edits before changing tabs.");
+      return;
+    }
+    setError("");
+    setTab(next);
+  };
   return (
-    <div className="accounting-workspace">
-      <h2>{project ? String(project.name) : "Project profile"}</h2>
+    <div className="accounting-workspace project-workbook">
+      <header className="project-workbook-heading">
+        <div>
+          <Link to="/projects">Projects</Link>
+          <h2>{project ? String(project.name) : "Opening project…"}</h2>
+          <p>
+            {String(project?.code ?? "")} · {String(project?.city ?? "")}{" "}
+            <span className="project-status">
+              {String(project?.status ?? "").replace(/_/g, " ")}
+            </span>
+          </p>
+        </div>
+        <span>
+          {busy
+            ? "Saving…"
+            : dirty
+              ? "Unsaved changes"
+              : project?.archived
+                ? "Archived"
+                : "Project workbook"}
+        </span>
+      </header>
       {error && <p role="alert">{error}</p>}
       {project && (
         <>
-          <nav role="tablist" aria-label="Project workspace">
-            <button role="tab" aria-selected="true">
-              Profile
-            </button>
-            {futureProjectTabs.map((tab) => (
-              <button key={tab} role="tab" disabled aria-selected="false">
-                {tab} — Coming soon
+          <nav className="project-sheet-tabs" role="tablist" aria-label="Project workspace">
+            {projectTabs.map((name, index) => (
+              <button
+                key={name}
+                id={`project-tab-${name}`}
+                role="tab"
+                aria-selected={tab === name}
+                aria-controls="project-sheet-panel"
+                tabIndex={tab === name ? 0 : -1}
+                onClick={() => chooseTab(name)}
+                onKeyDown={(e) => {
+                  if (["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) {
+                    e.preventDefault();
+                    const next =
+                      e.key === "Home"
+                        ? 0
+                        : e.key === "End"
+                          ? projectTabs.length - 1
+                          : (index + (e.key === "ArrowRight" ? 1 : projectTabs.length - 1)) %
+                            projectTabs.length;
+                    if (!dirty && !busy) {
+                      chooseTab(projectTabs[next]);
+                      document.getElementById(`project-tab-${projectTabs[next]}`)?.focus();
+                    }
+                  }
+                }}
+              >
+                {name}
               </button>
             ))}
           </nav>
-          <p>
-            Status: {String(project.status)} · {project.archived ? "Archived" : "Active"} · Areas in{" "}
-            {settings.areaDisplayUnit}. 1 marla = {settings.marlaSqft} sqft; 1 kanal = 20 marla.
-            Converted display rounds to 12 decimal places; unchanged cells retain their exact stored
-            square feet.
-          </p>
-          {user.role === "admin" && (
-            <button onClick={() => void archive()}>
-              {project.archived ? "Unarchive project" : "Archive project"}
-            </button>
-          )}
-          <Grid
-            screen={`project-profile-${id}`}
-            rows={Object.entries(profileLabels).map(([key, label]) => ({
-              id: key,
-              key,
-              field: label + (areaFields.includes(key) ? ` (${settings.areaDisplayUnit})` : ""),
-              value: displayProjectValue(project, key, settings),
-            }))}
-            columns={[
-              { field: "field", headerName: "Field", editable: false },
-              {
-                field: "value",
-                headerName: "Value",
-                editable: (p) => !busy && canEditProfile(user.role, String(p.data?.key)),
-                cellEditorSelector: (p) => {
-                  const values = choices(String(p.data?.key));
-                  return values
-                    ? { component: SearchSelectEditor, params: { choices: values } }
-                    : undefined;
-                },
-              },
-            ]}
-            onCellChange={edit}
-          />
-          <BuildingsGrid projectId={id} role={user.role} />
-          <AssignedUsersGrid projectId={id} role={user.role} />
-          {user.role === "admin" && (
-            <ProjectStatusControl
-              key={String(project.status)}
-              projectId={id}
-              status={project.status as ProjectStatus}
-              onSaved={(p) => {
-                setProject(p);
-                setRevision((v) => v + 1);
-              }}
-            />
-          )}
-          <h3>Status history</h3>
-          <Grid
-            short
-            screen={`status-history-${id}`}
-            rows={history}
-            columns={["from_status", "to_status", "changed_by_name", "changed_at", "reason"].map(
-              (field) => ({ field, editable: false }),
+          <div
+            role="tabpanel"
+            id="project-sheet-panel"
+            aria-labelledby={`project-tab-${tab}`}
+            className="project-sheet-panel"
+          >
+            {tab === "Overview" && (
+              <>
+                <p className="sheet-hint">
+                  Project details · Double-click to edit. Areas in {settings.areaDisplayUnit}.
+                  Additional fields are available under More → Columns and pinning.
+                </p>
+                <Grid
+                  screen={`project-profile-${id}`}
+                  rows={[
+                    {
+                      ...project,
+                      ...Object.fromEntries(
+                        Object.keys(profileLabels).map((key) => [
+                          key,
+                          displayProjectValue(project, key, settings),
+                        ]),
+                      ),
+                    },
+                  ]}
+                  columns={Object.entries(profileLabels).map(([key, label]) => ({
+                    field: key,
+                    headerName:
+                      label + (areaFields.includes(key) ? ` (${settings.areaDisplayUnit})` : ""),
+                    minWidth: key === "name" ? 150 : 95,
+                    hide: ![
+                      "code",
+                      "name",
+                      "type",
+                      "city",
+                      "land_area_sqft",
+                      "saleable_area_sqft",
+                      "start_date",
+                    ].includes(key),
+                    editable: () => !busy && canEditProfile(user.role, key),
+                    cellEditorSelector: () => {
+                      const values = choices(key);
+                      return values
+                        ? { component: SearchSelectEditor, params: { choices: values } }
+                        : undefined;
+                    },
+                  }))}
+                  onCellChange={(row, field, old) =>
+                    edit({ key: field, value: row[field] }, field, old)
+                  }
+                  summary={() => (
+                    <>
+                      <span className="sheet-summary-label">
+                        Project areas · {settings.areaDisplayUnit}
+                      </span>
+                      {areaFields.map((key) => (
+                        <span key={key}>
+                          {profileLabels[key]}
+                          <strong>
+                            {String(displayProjectValue(project, key, settings) || "Not entered")}
+                          </strong>
+                        </span>
+                      ))}
+                    </>
+                  )}
+                />
+                {user.role === "admin" && (
+                  <details className="project-controls">
+                    <summary>Project status and archive</summary>
+                    <ProjectStatusControl
+                      key={String(project.status)}
+                      projectId={id}
+                      status={project.status as ProjectStatus}
+                      onSaved={(p) => {
+                        setProject(p);
+                        setRevision((v) => v + 1);
+                      }}
+                    />
+                    <button onClick={() => void archive()}>
+                      {project.archived ? "Unarchive project" : "Archive project"}
+                    </button>
+                  </details>
+                )}
+              </>
             )}
-          />
+            {register && (
+              <ProjectRegister
+                key={tab}
+                projectId={id}
+                sheet={register}
+                user={user}
+                archived={Boolean(project.archived)}
+                sales={tab === "Sales"}
+                onDirty={setDirty}
+              />
+            )}
+            {tab === "Buildings" && <BuildingsGrid projectId={id} role={user.role} />}
+            {tab === "Team" && <AssignedUsersGrid projectId={id} role={user.role} />}
+            {tab === "History" && (
+              <Grid
+                screen={`status-history-${id}`}
+                rows={history}
+                columns={[
+                  "from_status",
+                  "to_status",
+                  "changed_by_name",
+                  "changed_at",
+                  "reason",
+                ].map((field) => ({ field, editable: false }))}
+              />
+            )}
+          </div>
         </>
       )}
     </div>
