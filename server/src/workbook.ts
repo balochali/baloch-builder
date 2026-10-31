@@ -48,28 +48,30 @@ export function registerWorkbookRoutes(app: FastifyInstance) {
       });
     },
   );
-  app.delete(
-    "/api/projects/:id/workbook/estimate/:rowId",
-    { config: { permission: "manageProjects" } },
-    async (r) => {
-      const p = params.parse({ ...(r.params as object), sheet: "estimate" });
-      await requireProject(r, p.id);
-      const body = z.object({ version: z.number().int().positive() }).strict().parse(r.body);
-      return transaction(r.actor!.id, async (c) => {
-        await c.query("SELECT accounting_lock()");
-        const result = await c.query(
-          "UPDATE project_workbook_rows SET removed=true WHERE id=$1 AND project_id=$2 AND sheet='estimate' AND version=$3 AND NOT removed RETURNING id",
-          [p.rowId, p.id, body.version],
-        );
-        if (!result.rowCount)
-          throw failure(
-            "This row changed or was already removed. Reopen the sheet before deleting it.",
-            409,
+  // Cost and sales estimates keep removed rows for the audit trail; other registers cannot be removed.
+  for (const removable of ["estimate", "sales_estimate"] as const)
+    app.delete(
+      `/api/projects/:id/workbook/${removable}/:rowId`,
+      { config: { permission: "manageProjects" } },
+      async (r) => {
+        const p = params.parse({ ...(r.params as object), sheet: removable });
+        await requireProject(r, p.id);
+        const body = z.object({ version: z.number().int().positive() }).strict().parse(r.body);
+        return transaction(r.actor!.id, async (c) => {
+          await c.query("SELECT accounting_lock()");
+          const result = await c.query(
+            "UPDATE project_workbook_rows SET removed=true WHERE id=$1 AND project_id=$2 AND sheet=$3 AND version=$4 AND NOT removed RETURNING id",
+            [p.rowId, p.id, removable, body.version],
           );
-        return { id: p.rowId, removed: true };
-      });
-    },
-  );
+          if (!result.rowCount)
+            throw failure(
+              "This row changed or was already removed. Reopen the sheet before deleting it.",
+              409,
+            );
+          return { id: p.rowId, removed: true };
+        });
+      },
+    );
   app.patch(
     "/api/projects/:id/workbook/:sheet/:rowId",
     { config: { permission: "manageProjects" } },

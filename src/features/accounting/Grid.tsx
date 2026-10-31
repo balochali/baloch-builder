@@ -413,6 +413,7 @@ export function Grid({
           enterNavigatesVerticallyAfterEdit
           stopEditingWhenCellsLoseFocus
           singleClickEdit={singleClickEdit}
+          suppressNoRowsOverlay={rows.every((row) => row._placeholder)}
           overlayNoRowsTemplate="<span>No matching records.</span>"
           postSortRows={(p) => {
             const normal = p.nodes.filter((n) => !n.data?._new),

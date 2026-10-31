@@ -282,6 +282,7 @@ export function ProjectWorkspace({ user }: { user: SessionUser }) {
                 user={user}
                 archived={Boolean(project.archived)}
                 sales={tab === "Sales"}
+                marlaSqft={settings.marlaSqft}
                 onDirty={setDirty}
               />
             )}

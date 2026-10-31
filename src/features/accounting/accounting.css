@@ -471,3 +471,223 @@
   flex: 1;
   min-height: 0;
 }
+
+.accounting-workspace .sales-quick-add {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-right: auto;
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+.accounting-workspace .estimate-actions .sales-quick-add button {
+  min-width: 0;
+  padding: 5px 10px;
+  font-weight: 500;
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+.accounting-workspace .estimate-actions .sales-quick-add button:disabled {
+  opacity: 0.5;
+}
+.accounting-workspace .sales-sheet .ag-cell,
+.accounting-workspace .sales-sheet .ag-header-cell {
+  padding-inline: 10px;
+}
+
+/* Keep the active sales editor visible and use the full cell width. */
+.accounting-workspace .sales-sheet .ag-cell-inline-editing {
+  padding: 0;
+}
+.accounting-workspace .sales-sheet .ag-cell-inline-editing input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  color: var(--foreground);
+  background: var(--card);
+  line-height: normal;
+}
+
+.accounting-workspace .estimate-dashboard {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  color: var(--foreground);
+}
+.accounting-workspace .estimate-dashboard-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+.accounting-workspace .dashboard-eyebrow {
+  color: #087f6d;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+.accounting-workspace .estimate-dashboard h3 {
+  margin: 4px 0;
+  font-size: 21px;
+}
+.accounting-workspace .estimate-dashboard p {
+  margin: 6px 0 14px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.accounting-workspace .estimate-dashboard button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.accounting-workspace .estimate-dashboard .dashboard-partner-button {
+  color: white;
+  background: #087f6d;
+  border-color: #087f6d;
+}
+.accounting-workspace .dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.accounting-workspace .dashboard-card {
+  border-radius: 14px;
+  padding: 18px;
+  border: 1px solid;
+}
+.accounting-workspace .cost-card {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+.accounting-workspace .sales-card {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+.accounting-workspace .profit-card {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+.accounting-workspace .loss-card {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+.accounting-workspace .dashboard-card-icon {
+  display: inline-flex;
+  padding: 9px;
+  background: #ffffffa0;
+  border-radius: 10px;
+}
+.accounting-workspace .dashboard-card h4 {
+  margin: 12px 0;
+  font-size: 15px;
+}
+.accounting-workspace .dashboard-card dl {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+.accounting-workspace .dashboard-card dt {
+  font-size: 12px;
+}
+.accounting-workspace .dashboard-card dd {
+  margin: 3px 0 0;
+  font-size: clamp(16px, 1.6vw, 25px);
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.accounting-workspace .estimate-dashboard .dashboard-formula {
+  font-size: 12px;
+  margin-top: 12px;
+}
+.accounting-workspace .dashboard-notice {
+  background: var(--muted);
+  border-radius: 8px;
+  padding: 10px;
+}
+.accounting-workspace .partner-planner {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 18px;
+}
+.accounting-workspace .partner-plan-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+.accounting-workspace .partner-plan-controls label,
+.accounting-workspace .partner-plan-inputs label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+.accounting-workspace .partner-plan-controls input {
+  width: 100px;
+}
+.accounting-workspace .share-total {
+  margin-left: auto;
+  color: #087f6d;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.accounting-workspace .share-total.invalid,
+.accounting-workspace .forecast-loss {
+  color: #be123c;
+}
+.accounting-workspace .forecast-profit {
+  color: #087f6d;
+}
+.accounting-workspace .partner-plan-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.accounting-workspace .partner-plan-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid #8b5cf6;
+  padding: 14px;
+  border-radius: 10px;
+}
+.accounting-workspace .partner-plan-inputs {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  gap: 10px;
+}
+.accounting-workspace .partner-plan-inputs input {
+  width: 100%;
+  min-width: 0;
+}
+.accounting-workspace .partner-plan-result {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+.accounting-workspace .partner-plan-result span {
+  color: var(--muted-foreground);
+  margin-top: 7px;
+}
+@media (max-width: 900px) {
+  .accounting-workspace .dashboard-cards,
+  .accounting-workspace .partner-plan-cards {
+    grid-template-columns: 1fr;
+  }
+  .accounting-workspace .estimate-dashboard-title {
+    flex-wrap: wrap;
+  }
+}

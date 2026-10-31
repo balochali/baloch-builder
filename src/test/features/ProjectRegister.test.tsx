@@ -177,9 +177,10 @@ it("shows bottom tabs and stages row deletion only in edit mode until Save", asy
   await screen.findByRole("button", { name: "Edit" });
   expect(capture.grid!.columns.some((c) => c.colId === "remove")).toBe(false);
   fireEvent.click(screen.getByRole("tab", { name: "Overview" }));
-  expect(screen.getByText("Coming soon")).toBeVisible();
+  expect(await screen.findByRole("tabpanel", { name: "Estimate overview" })).toBeVisible();
   fireEvent.click(screen.getByRole("tab", { name: "Sales" }));
-  expect(screen.getByText("Coming soon")).toBeVisible();
+  expect(screen.queryByText("Coming soon")).not.toBeInTheDocument();
+  await waitFor(() => expect(api).toHaveBeenCalledWith("projects/p1/workbook/sales_estimate"));
   fireEvent.click(screen.getByRole("tab", { name: "Cost" }));
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   const DeleteCell = capture.grid!.columns.find((c) => c.colId === "remove")!.cellRenderer;

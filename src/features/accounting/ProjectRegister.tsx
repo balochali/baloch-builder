@@ -14,6 +14,8 @@ import { api } from "@/data/api";
 import { Grid, type GridEditHandle, type Row } from "./Grid";
 import { entryError } from "./sheetMessages";
 import { RegisterSummary } from "./RegisterSummary";
+import { EstimateOverview } from "./EstimateOverview";
+import { SalesEstimate } from "./SalesEstimate";
 
 export function ProjectRegister({
   projectId,
@@ -21,6 +23,7 @@ export function ProjectRegister({
   user,
   archived = false,
   sales = false,
+  marlaSqft = "272.25",
   onDirty,
 }: {
   projectId: string;
@@ -28,6 +31,7 @@ export function ProjectRegister({
   user: SessionUser;
   archived?: boolean;
   sales?: boolean;
+  marlaSqft?: string;
   onDirty: (dirty: boolean) => void;
 }) {
   const [rows, setRows] = useState<Row[]>([]),
@@ -68,6 +72,8 @@ export function ProjectRegister({
   }, [sheet]);
   const [removed, setRemoved] = useState<Row[]>([]);
   const [estimateTab, setEstimateTab] = useState("Cost");
+  const [salesEditing, setSalesEditing] = useState(false),
+    [salesDirty, setSalesDirty] = useState(false);
   const gridEdit = useRef<GridEditHandle>(null);
   const [original, setOriginal] = useState<Row[]>([]);
   const canEdit = user.role === "admin" && !archived;
@@ -103,8 +109,8 @@ export function ProjectRegister({
         JSON.stringify(workbookData(sheet, original.find((r) => r.id === row.id) ?? {}));
   const dirty = removed.length > 0 || rows.some(changed);
   useEffect(() => {
-    onDirty(dirty);
-  }, [dirty, onDirty]);
+    onDirty(dirty || salesDirty);
+  }, [dirty, salesDirty, onDirty]);
   const normalizeRows = (values: Row[]): Row[] =>
     values.map((row) => ({
       ...row,
@@ -254,6 +260,7 @@ export function ProjectRegister({
                     construction: "Work Item",
                     estimate: "Estimate Item",
                     flats: "Flat",
+                    sales_estimate: "Unit Type",
                   }[sheet]
                 : undefined
             }
@@ -328,11 +335,17 @@ export function ProjectRegister({
       </div>
       {sheet === "estimate" && (
         <>
-          {estimateTab !== "Cost" && (
-            <div className="estimate-coming-soon" role="tabpanel">
-              <h3>{estimateTab}</h3>
-              <p>Coming soon</p>
-            </div>
+          {estimateTab === "Overview" && (
+            <EstimateOverview projectId={projectId} marlaSqft={marlaSqft} />
+          )}
+          {estimateTab === "Sales" && (
+            <SalesEstimate
+              projectId={projectId}
+              canEdit={canEdit}
+              marlaSqft={marlaSqft}
+              onEditingChange={setSalesEditing}
+              onDirty={setSalesDirty}
+            />
           )}
           <div className="estimate-bottom-tabs" role="tablist" aria-label="Estimate sheets">
             {["Overview", "Cost", "Sales"].map((name) => (
@@ -340,7 +353,7 @@ export function ProjectRegister({
                 key={name}
                 role="tab"
                 aria-selected={estimateTab === name}
-                disabled={editing || busy}
+                disabled={editing || salesEditing || busy}
                 onClick={() => setEstimateTab(name)}
               >
                 {name}

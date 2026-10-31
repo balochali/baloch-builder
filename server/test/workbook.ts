@@ -15,6 +15,7 @@ export function registerWorkbookTests(
   ) =>
     app.inject({
       method,
+      remoteAddress: "10.9.0." + (Object.keys(cookies).indexOf(role) + 1),
       url: "/api/" + path,
       headers: { cookie: cookies[role], "x-requested-with": "BalochBuilder" },
       payload: payload as Record<string, unknown>,
@@ -44,6 +45,19 @@ export function registerWorkbookTests(
         },
       ],
       ["estimate", { item: "Concrete", quantity: "2.5", rate: "100.25", unit: "yards" }],
+      [
+        "sales_estimate",
+        {
+          unitType: "Flat",
+          rooms: 2,
+          totalArea: "20400",
+          size: "850",
+          sizeUnit: "sq ft",
+          units: 24,
+          minimumPrice: "9000000",
+          maximumPrice: "11000000",
+        },
+      ],
       [
         "flats",
         {
@@ -126,6 +140,79 @@ export function registerWorkbookTests(
         ).statusCode,
       ).toBe(409);
     });
+    it("validates sales estimates, retains removed rows and keeps them separate from cost estimates", async () => {
+      const id = await project(),
+        path = `projects/${id}/workbook/sales_estimate`;
+      const good = {
+        unitType: "Shop",
+        size: "400",
+        sizeUnit: "sq ft",
+        units: 12,
+        minimumPrice: "5000000",
+        maximumPrice: "6500000",
+      };
+      for (const bad of [
+        { ...good, units: 0 },
+        { ...good, minimumPrice: "7000000" },
+        { ...good, sizeUnit: "acre" },
+        { ...good, unitType: " " },
+        { ...good, maximumPrice: "-1" },
+        { ...good, extra: "not allowed" },
+      ])
+        expect((await request("admin", "POST", path, bad)).statusCode).toBe(400);
+      for (const role of ["accountant", "sales", "construction"] as const)
+        expect((await request(role, "POST", path, good)).statusCode).toBe(403);
+      const row = (await request("admin", "POST", path, good)).json();
+      expect(row).toMatchObject({ ...good, version: 1 });
+      expect((await request("admin", "GET", `projects/${id}/workbook/estimate`)).json()).toEqual(
+        [],
+      );
+      expect((await request("accountant", "GET", path)).json()).toHaveLength(1);
+      const edited = await request("admin", "PATCH", path + "/" + row.id, {
+        version: row.version,
+        data: { ...good, units: 14 },
+      });
+      expect(edited.json()).toMatchObject({ units: 14, version: 2 });
+      expect(
+        (await request("admin", "DELETE", path + "/" + row.id, { version: 1 })).statusCode,
+      ).toBe(409);
+      expect(
+        (await request("accountant", "DELETE", path + "/" + row.id, { version: 2 })).statusCode,
+      ).toBe(403);
+      expect(
+        (await request("admin", "DELETE", path + "/" + row.id, { version: 2 })).statusCode,
+      ).toBe(200);
+      expect((await request("admin", "GET", path)).json()).toEqual([]);
+      expect(
+        (await pool.query("SELECT removed,data FROM project_workbook_rows WHERE id=$1", [row.id]))
+          .rows[0],
+      ).toMatchObject({ removed: true, data: { unitType: "Shop", units: 14 } });
+      expect(
+        (await pool.query("SELECT count(*)::int AS n FROM voucher_lines WHERE project_id=$1", [id]))
+          .rows[0].n,
+      ).toBe(0);
+    });
+    it("only lets the estimate sheets be removed, including through direct SQL", async () => {
+      const id = await project();
+      const partner = (
+        await request("admin", "POST", `projects/${id}/workbook/partners`, { name: "Keep me" })
+      ).json();
+      expect(
+        (
+          await request("admin", "DELETE", `projects/${id}/workbook/partners/${partner.id}`, {
+            version: partner.version,
+          })
+        ).statusCode,
+      ).toBeGreaterThanOrEqual(400);
+      await expect(
+        transaction(ids.admin, (c) =>
+          c.query("UPDATE project_workbook_rows SET removed=true WHERE id=$1", [partner.id]),
+        ),
+      ).rejects.toThrow();
+      expect(
+        (await request("admin", "GET", `projects/${id}/workbook/partners`)).json(),
+      ).toHaveLength(1);
+    });
     it("rejects stale edits and edits addressed to another project", async () => {
       const id = await project(),
         other = await project(),
@@ -183,3 +270,4 @@ export function registerWorkbookTests(
     });
   });
 }
+
