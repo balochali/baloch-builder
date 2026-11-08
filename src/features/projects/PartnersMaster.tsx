@@ -15,6 +15,21 @@ import { partnerTotals } from "./fundingView";
 import { encodeAttachments } from "./projectSite";
 import "./projects.css";
 
+export function createNamedPartner(name: string) {
+  return api<MasterPartner>("partners", "POST", {
+    name,
+    role: "Partner",
+    status: "Active",
+    phone: "",
+    email: "",
+    address: "",
+    idNumber: "",
+    bankDetails: "",
+    joinedDate: "",
+    notes: "",
+  });
+}
+
 export function PartnerEditor({
   partner,
   close,

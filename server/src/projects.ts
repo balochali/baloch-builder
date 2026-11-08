@@ -64,11 +64,7 @@ export function registerProjectRoutes(app: FastifyInstance) {
     "/api/projects/partner-options",
     write,
     async () =>
-      (
-        await pool.query(`SELECT DISTINCT ON (partner->>'partnerId') partner->>'partnerId' AS id, partner->>'name' AS name
-      FROM projects CROSS JOIN LATERAL jsonb_array_elements(COALESCE(details->'partners','[]')) partner
-      ORDER BY partner->>'partnerId', updated_at DESC`)
-      ).rows,
+      (await pool.query("SELECT id,name FROM partners WHERE status='Active' ORDER BY name")).rows,
   );
   app.post(
     "/api/projects/reserve-id",
@@ -165,29 +161,15 @@ export function registerProjectRoutes(app: FastifyInstance) {
       };
       if (input.action !== "unlock") {
         for (const partner of plan.partners) {
-          if (!partner.name.trim()) continue;
-          const byId =
-            partner.partnerId && /^[0-9a-f-]{36}$/i.test(partner.partnerId)
-              ? (
-                  await c.query("SELECT id,name FROM partners WHERE id::text=$1", [
-                    partner.partnerId,
-                  ])
-                ).rows[0]
-              : undefined;
-          if (byId) {
-            partner.name = byId.name;
-            continue;
-          }
-          await c.query(
-            "INSERT INTO partners(name,role) VALUES($1,'Partner') ON CONFLICT DO NOTHING",
-            [partner.name.trim()],
-          );
-          const stored = (
-            await c.query("SELECT id FROM partners WHERE lower(btrim(name))=lower(btrim($1))", [
-              partner.name,
+          if (!partner.name.trim() && !partner.partnerId) continue;
+          const byId = (
+            await c.query("SELECT id,name FROM partners WHERE id::text=$1", [
+              partner.partnerId ?? "",
             ])
           ).rows[0];
-          partner.partnerId = stored.id;
+          if (!byId)
+            throw Object.assign(new Error("Select a valid master partner."), { statusCode: 400 });
+          partner.name = byId.name;
         }
       }
       await c.query(
@@ -206,6 +188,16 @@ export function registerProjectRoutes(app: FastifyInstance) {
     };
     return withNameConflict(() =>
       transaction(request.actor!.id, async (c) => {
+        if ("budget" in update) {
+          for (const partner of update.budget.partners) {
+            const master = (
+              await c.query("SELECT name FROM partners WHERE id=$1", [partner.partnerId])
+            ).rows[0];
+            if (!master)
+              throw Object.assign(new Error("Select a valid master partner."), { statusCode: 400 });
+            partner.name = master.name;
+          }
+        }
         const row = (
           await c.query(
             `UPDATE projects SET name=COALESCE($2,name), details=details || $3::jsonb,

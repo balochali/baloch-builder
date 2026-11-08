@@ -17,7 +17,8 @@
     "dev:server": "node --env-file-if-exists=.env.local --import tsx --watch server/src/index.ts",
     "test:server": "npm run test -w @baloch/server",
     "build:web": "npm run build",
-    "seed:feasibility": "node --env-file-if-exists=.env.local --import tsx scripts/seedFeasibility.ts"
+    "seed:feasibility": "node --env-file-if-exists=.env.local --import tsx scripts/seedFeasibility.ts",
+    "test:postgres": "node --env-file-if-exists=.env.local --import tsx scripts/testProjectPostgres.ts"
   },
   "dependencies": {
     "@baloch/shared": "*",

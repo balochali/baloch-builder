@@ -1,3 +1,4 @@
+import { PartnerEditor, createNamedPartner } from "./PartnersMaster";
 import { formatPKR, formatPercent, parsePKR } from "./feasibilityFormat";
 import { sampleFeasibility } from "./sampleFeasibility";
 import { useEffect, useState } from "react";
@@ -84,7 +85,6 @@ function Metrics({ values }: { values: [string, string][] }) {
 export function Feasibility({
   id,
   manage,
-  projectPartners,
   onPendingChange,
 }: {
   id: string;
@@ -96,6 +96,8 @@ export function Feasibility({
   useEffect(() => {
     onPendingChange?.(locking || !["Saved", "Draft", "Unavailable"].includes(status));
   }, [locking, onPendingChange, status]);
+  const [creatingPartner, setCreatingPartner] = useState(false);
+  const [sampleError, setSampleError] = useState("");
   const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
     if (!manage) return;
@@ -110,11 +112,9 @@ export function Feasibility({
     };
   }, [manage]);
   const knownPartners = new Map(options.map((partner) => [partner.name, partner.id]));
-  for (const partner of projectPartners)
-    if (!knownPartners.has(partner.name)) knownPartners.set(partner.name, partner.partnerId);
   if (!plan) return <p role={error ? "alert" : "status"}>{error || "Loading feasibility..."}</p>;
   const locked = !manage || locking || plan.status === "approved";
-  function loadSample() {
+  async function loadSample() {
     if (!plan || locked) return;
     const sheet = (data: FeasibilityData) => ({
       costCategories: data.costCategories,
@@ -136,15 +136,32 @@ export function Feasibility({
       !window.confirm("This will replace the current feasibility sheet with sample data.")
     )
       return;
-    update((current) => ({
-      ...current,
-      ...structuredClone(sampleFeasibility.feasibility),
-      costCategories: sampleFeasibility.feasibility.costCategories.map((category) => ({
-        ...structuredClone(category),
-        ...(category.id === "c4" ? { contractor: true } : {}),
-      })),
-    }));
+    setSampleError("");
+    try {
+      const sample = structuredClone(sampleFeasibility.feasibility);
+      const partners: FeasibilityData["partners"] = [];
+      for (const row of sample.partners) {
+        const existing = options.find(
+          (p) => p.name.trim().toLowerCase() === row.name.toLowerCase(),
+        );
+        const master = existing ?? (await createNamedPartner(row.name));
+        if (!existing) setOptions((current) => [...current, master]);
+        partners.push({ ...row, partnerId: master.id, name: master.name });
+      }
+      update((current) => ({
+        ...current,
+        ...sample,
+        partners,
+        costCategories: sample.costCategories.map((category) => ({
+          ...category,
+          ...(category.id === "c4" ? { contractor: true } : {}),
+        })),
+      }));
+    } catch (cause) {
+      setSampleError(String(cause));
+    }
   }
+
   const totals = calculateFeasibility(plan);
   const values: [string, string][] = [
     ["Total estimated cost (PKR)", moneyRange(totals.cost)],
@@ -202,6 +219,7 @@ export function Feasibility({
           </div>
         </div>
         <Metrics values={values} />
+        {sampleError && <p role="alert">{sampleError}</p>}
         {error && (
           <div className="feasibility-error" role="alert">
             {error}{" "}
@@ -410,6 +428,31 @@ export function Feasibility({
         />
       </Section>
       <Section title="Partners & funding">
+        {!locked && (
+          <button
+            type="button"
+            className="projects-secondary"
+            onClick={() => setCreatingPartner(true)}
+          >
+            Create new partner
+          </button>
+        )}
+        {creatingPartner && (
+          <PartnerEditor
+            close={() => setCreatingPartner(false)}
+            onSaved={(partner) => {
+              setOptions((current) => [...current, partner]);
+              update((p) => ({
+                ...p,
+                partners: [
+                  ...p.partners,
+                  { ...fundingRow(), partnerId: partner.id, name: partner.name },
+                ],
+              }));
+            }}
+          />
+        )}
+
         <FeasibilityGrid
           groups={[
             { label: "Partner funding", columns: 5 },
@@ -433,7 +476,7 @@ export function Feasibility({
           rows={plan.partners.map((row, i) => ({
             id: row.id,
             cells: [
-              { value: row.name, choices: [...knownPartners.keys()], allowCustom: true },
+              { value: row.name, choices: [...knownPartners.keys()], allowCustom: false },
               choice(row.contributionType, ["Cash", "Land", "Cash + Land"]),
               moneyInput(row.capital),
               computed(totals.returns[i].capitalPercent, true),

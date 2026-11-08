@@ -9,7 +9,6 @@ import {
   partySchema,
   type LandParcel,
   type SiteBuilding,
-  type SitePartner,
 } from "@baloch/shared";
 import { z } from "zod";
 import type pg from "pg";
@@ -23,7 +22,6 @@ const code = (request: FastifyRequest) =>
   z.object({ id: z.string().regex(/^P-\d+$/) }).parse(request.params).id;
 type Site = {
   landParcels?: LandParcel[];
-  sitePartners?: SitePartner[];
   building?: SiteBuilding;
   feasibility?: unknown;
 };
@@ -62,7 +60,7 @@ export function registerProjectSite(app: FastifyInstance) {
     );
     return {
       parcels: row.details.landParcels ?? [],
-      partners: row.details.sitePartners ?? [],
+      partners: (await pool.query("SELECT id,name FROM partners ORDER BY name")).rows,
       sellers,
       building: row.details.building ?? emptyBuilding(row.name),
     };
@@ -76,18 +74,6 @@ export function registerProjectSite(app: FastifyInstance) {
         [data.name, data.type, data.phone, data.address, data.notes],
       )
     ).rows[0];
-  });
-  app.post("/api/projects/:id/site/partners", write, async (request) => {
-    const { name } = z.object({ name: z.string().trim().min(1).max(120) }).parse(request.body);
-    return transaction(request.actor!.id, async (client) => {
-      const row = await project(client, code(request), true);
-      const partners = row.details.sitePartners ?? [];
-      const existing = partners.find((p) => p.name.toLowerCase() === name.toLowerCase());
-      if (existing) return existing;
-      const partner = { id: randomUUID(), name };
-      await save(client, row.id, "sitePartners", [...partners, partner]);
-      return partner;
-    });
   });
   app.put("/api/projects/:id/site/parcel", write, async (request) => {
     const { parcel, files } = z
@@ -106,16 +92,11 @@ export function registerProjectSite(app: FastifyInstance) {
           ).rowCount
         )
           throw fail("Select a valid seller.");
-      } else if (!row.details.sitePartners?.some((p) => p.id === parcel.contributingPartnerId)) {
-        if (
-          !(
-            await client.query(
-              "SELECT 1 FROM projects WHERE details->'partners' @> $1::jsonb LIMIT 1",
-              [JSON.stringify([{ partnerId: parcel.contributingPartnerId }])],
-            )
-          ).rowCount
-        )
-          throw fail("Select a valid partner.");
+      } else if (
+        !(await client.query("SELECT 1 FROM partners WHERE id=$1", [parcel.contributingPartnerId]))
+          .rowCount
+      ) {
+        throw fail("Select a valid partner.");
       }
       const now = new Date().toISOString();
       const attachments = [...(existing?.attachments ?? [])];

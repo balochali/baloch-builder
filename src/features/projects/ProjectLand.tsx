@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { PartnerEditor } from "./PartnersMaster";
+import { useState, type FormEvent } from "react";
 import { Plus, MapPin, FileText } from "lucide-react";
 import {
   parcelSchema,
@@ -7,7 +8,6 @@ import {
   type LandParcel,
   type Project,
   type SiteParty,
-  type SitePartner,
 } from "@baloch/shared";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -21,15 +21,13 @@ import {
 } from "./projectSite";
 
 function QuickAdd({
-  kind,
   id,
   close,
   onAdded,
 }: {
-  kind: "seller" | "partner";
   id: string;
   close: () => void;
-  onAdded: (item: SitePartner | SiteParty) => void;
+  onAdded: (item: SiteParty) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -45,18 +43,12 @@ function QuickAdd({
     setBusy(true);
     setError("");
     try {
-      const item = await api<SiteParty | SitePartner>(
-        `projects/${id}/site/${kind}s`,
-        "POST",
-        kind === "seller"
-          ? {
-              name,
-              phone: fields.get("phone"),
-              address: fields.get("address"),
-              notes: fields.get("notes"),
-            }
-          : { name },
-      );
+      const item = await api<SiteParty>(`projects/${id}/site/sellers`, "POST", {
+        name,
+        phone: fields.get("phone"),
+        address: fields.get("address"),
+        notes: fields.get("notes"),
+      });
       onAdded(item);
       close();
     } catch (cause) {
@@ -73,7 +65,7 @@ function QuickAdd({
       }}
     >
       <DialogContent className="project-detail-dialog">
-        <DialogTitle>Add {kind}</DialogTitle>
+        <DialogTitle>Add seller</DialogTitle>
         <DialogDescription>Save the contact and select it for this parcel.</DialogDescription>
         <form onSubmit={submit}>
           <fieldset disabled={busy} className="project-form-grid">
@@ -81,7 +73,7 @@ function QuickAdd({
               Name
               <Input name="name" autoFocus required maxLength={120} />
             </label>
-            {kind === "seller" && (
+            {
               <>
                 <label>
                   Phone
@@ -96,7 +88,7 @@ function QuickAdd({
                   <Input name="notes" maxLength={500} />
                 </label>
               </>
-            )}
+            }
           </fieldset>
           {error && <p role="alert">{error}</p>}
           <div className="project-modal-actions">
@@ -104,7 +96,7 @@ function QuickAdd({
               Cancel
             </button>
             <button className="projects-primary" disabled={busy}>
-              {busy ? "Saving..." : "Save " + kind}
+              {busy ? "Saving..." : "Save seller"}
             </button>
           </div>
         </form>
@@ -130,30 +122,9 @@ export function ProjectLand({
   const [seller, setSeller] = useState("");
   const [partner, setPartner] = useState("");
   const [quick, setQuick] = useState<"seller" | "partner">();
-  const [known, setKnown] = useState<SitePartner[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const partners = [
-    ...new Map(
-      [
-        ...project.partners.map((p) => ({ id: p.partnerId, name: p.name })),
-        ...known,
-        ...site.partners,
-      ].map((p) => [p.id, p]),
-    ).values(),
-  ];
-  useEffect(() => {
-    if (!manage) return;
-    let active = true;
-    api<SitePartner[]>("projects/partner-options")
-      .then((rows) => {
-        if (active && Array.isArray(rows)) setKnown(rows);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [manage]);
+  const partners = site.partners;
   function open(parcel: LandParcel | null) {
     setEditing(parcel);
     setAcquisition(parcel?.acquisitionType ?? "purchase");
@@ -449,7 +420,7 @@ export function ProjectLand({
                     type="button"
                     onClick={() => setQuick(acquisition === "purchase" ? "seller" : "partner")}
                   >
-                    Add {acquisition === "purchase" ? "seller" : "partner"}
+                    {acquisition === "purchase" ? "Add seller" : "Create new partner"}
                   </button>
                 </div>
                 <label>
@@ -503,24 +474,22 @@ export function ProjectLand({
           </DialogContent>
         </Dialog>
       )}
-      {quick && (
+      {quick === "seller" && (
         <QuickAdd
-          kind={quick}
           id={project.id}
           close={() => setQuick(undefined)}
           onAdded={(item) => {
-            if ("type" in item) {
-              onSite((current) => ({ ...current, sellers: [...current.sellers, item] }));
-              setSeller(item.id);
-            } else {
-              onSite((current) => ({
-                ...current,
-                partners: current.partners.some((p) => p.id === item.id)
-                  ? current.partners
-                  : [...current.partners, item],
-              }));
-              setPartner(item.id);
-            }
+            onSite((current) => ({ ...current, sellers: [...current.sellers, item] }));
+            setSeller(item.id);
+          }}
+        />
+      )}
+      {quick === "partner" && (
+        <PartnerEditor
+          close={() => setQuick(undefined)}
+          onSaved={(item) => {
+            onSite((current) => ({ ...current, partners: [...current.partners, item] }));
+            setPartner(item.id);
           }}
         />
       )}

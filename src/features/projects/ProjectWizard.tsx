@@ -1,3 +1,4 @@
+import { createNamedPartner } from "./PartnersMaster";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Building2, Plus, X } from "lucide-react";
 import {
@@ -76,7 +77,7 @@ export function ProjectWizard({
       active = false;
     };
   }, [step]);
-  function addPartner() {
+  async function addPartner() {
     const option = options.find((item) => item.id === partnerChoice);
     const label = option?.name ?? partnerName.trim();
     if (!label) return;
@@ -88,7 +89,21 @@ export function ProjectWizard({
       setError("This partner is already on the project.");
       return;
     }
-    const partner = { partnerId: option?.id ?? crypto.randomUUID(), name: label, sharePercent: 0 };
+    if (pending.current) return;
+    pending.current = true;
+    setSaving(true);
+    let selected: PartnerOption;
+    try {
+      selected = option ?? (await createNamedPartner(label));
+      if (!option) setOptions((current) => [...current, selected]);
+    } catch (cause) {
+      setError(String(cause));
+      return;
+    } finally {
+      pending.current = false;
+      setSaving(false);
+    }
+    const partner = { partnerId: selected.id, name: selected.name, sharePercent: 0 };
     setBudget({ ...budget, partners: [...budget.partners, partner] });
     setPartnerChoice("");
     setPartnerName("");
@@ -390,7 +405,7 @@ export function ProjectWizard({
                       disabled={!partnerChoice && !partnerName.trim()}
                       onClick={addPartner}
                     >
-                      <Plus size={16} /> Add partner
+                      <Plus size={16} /> {partnerChoice ? "Add partner" : "Create new partner"}
                     </button>
                     {budget.partners.length > 0 && Math.abs(share - 100) > 0.001 && (
                       <p role="status" className="project-share-warning">

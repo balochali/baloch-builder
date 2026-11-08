@@ -176,6 +176,8 @@ export function registerFunding(app: FastifyInstance) {
   });
   app.post("/api/projects/:id/funding/partners", write, async (request) => {
     const { partnerId } = z.object({ partnerId: id }).parse(request.body);
+    if (!(await pool.query("SELECT id FROM partners WHERE id=$1", [partnerId])).rowCount)
+      throw fail("Select a valid partner.");
     await pool.query(
       "INSERT INTO project_partner_links(project_id,partner_id) SELECT id,$2 FROM projects WHERE code=$1 ON CONFLICT DO NOTHING",
       [projectCode(request), partnerId],
