@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto";
+import type pg from "pg";
+import { postFundingEntry } from "../server/src/funding";
 import { formatPKR, formatPercent } from "../src/features/projects/feasibilityFormat";
 import { pool, transaction, assertRuntimeRole } from "../server/src/db";
-import { feasibilitySchema } from "@baloch/shared";
+import { emptyBuilding, feasibilitySchema } from "@baloch/shared";
 import { sampleFeasibility } from "../src/features/projects/sampleFeasibility";
 import { calculateFeasibility } from "../src/features/projects/feasibilityCalc";
 
@@ -70,6 +73,222 @@ function verify(plan: ReturnType<typeof feasibilitySchema.parse>) {
     throw new Error("Feasibility verification failed.");
 }
 
+const demo = process.argv.includes("--demo");
+function stableId(projectId: string, key: string) {
+  const h = createHash("sha256")
+    .update(projectId + ":" + key)
+    .digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+async function masterPartner(client: pg.PoolClient, name: string, owner = false) {
+  const query = owner
+    ? "SELECT id,name FROM partners WHERE role='Owner'"
+    : "SELECT id,name FROM partners WHERE status='Active' AND lower(btrim(name))=lower(btrim($1))";
+  const parameters = owner ? [] : [name];
+  let row = (await client.query(query, parameters)).rows[0];
+  if (!row) {
+    await client.query("INSERT INTO partners(name,role) VALUES($1,$2) ON CONFLICT DO NOTHING", [
+      name,
+      owner ? "Owner" : "Partner",
+    ]);
+    row = (await client.query(query, parameters)).rows[0];
+  }
+  if (!row) throw new Error("Could not link demo partner " + name);
+  return row as { id: string; name: string };
+}
+async function seedProjectDemo(
+  client: pg.PoolClient,
+  project: { id: string; details: Record<string, unknown> },
+  br: string,
+  ap: string,
+) {
+  const sid = (key: string) => stableId(project.id, key);
+  async function contact(type: "seller" | "lender", name: string) {
+    const existing = (
+      await client.query("SELECT id FROM parties WHERE type=$1 AND name=$2 LIMIT 1", [type, name])
+    ).rows[0];
+    return (
+      existing ??
+      (
+        await client.query("INSERT INTO parties(name,type) VALUES($1,$2) RETURNING id", [
+          name,
+          type,
+        ])
+      ).rows[0]
+    ).id as string;
+  }
+  const seller = await contact("seller", "Demo land seller");
+  const lender = await contact("lender", "Demo lender");
+  const now = new Date().toISOString();
+  const base = {
+    address: "Islamabad",
+    mapLink: "",
+    area: { value: 1, unit: "Kanal" },
+    stage: "Identified",
+    agreementRef: "",
+    agreementDate: "",
+    facing: "",
+    notes: "Demo parcel",
+    createdAt: now,
+    updatedAt: now,
+    attachments: [],
+  };
+  const parcels = Array.isArray(project.details.landParcels) ? project.details.landParcels : [];
+  for (const parcel of [
+    {
+      ...base,
+      id: sid("seller-parcel"),
+      name: "Plot 1",
+      acquisitionType: "purchase",
+      sellerPartyId: seller,
+    },
+    {
+      ...base,
+      id: sid("partner-parcel"),
+      name: "Plot 2",
+      acquisitionType: "partner_contribution",
+      contributingPartnerId: ap,
+    },
+  ])
+    if (!parcels.some((p) => p.id === parcel.id)) parcels.push(parcel);
+  const building = project.details.building ?? {
+    ...emptyBuilding(name),
+    buildingType: "Flats + shops (mixed)",
+    floorsAboveGround: 5,
+    coveredAreaPerFloor: 4000,
+    floors: ["Ground", "1st", "2nd", "3rd", "4th"].map((label, i) => ({
+      id: sid("floor-" + i),
+      label,
+      use: i === 0 ? "Shops" : "Flats",
+      unitCount: i === 0 ? 4 : i === 4 ? 3 : 4,
+      floorAreaSqft: 4000,
+      notes: "",
+      generatedKey: i === 0 ? "ground" : "floor-" + (i - 1),
+    })),
+    units: [
+      {
+        id: sid("2bed"),
+        category: "Flat",
+        name: "2-bed flat",
+        count: 10,
+        sizeSqft: 900,
+        bedrooms: 2,
+        bathrooms: 2,
+        kitchens: 1,
+        lounges: 1,
+        balconies: 1,
+        floorsText: "1st-4th",
+        notes: "",
+      },
+      {
+        id: sid("3bed"),
+        category: "Flat",
+        name: "3-bed flat",
+        count: 5,
+        sizeSqft: 1300,
+        bedrooms: 3,
+        bathrooms: 2,
+        kitchens: 1,
+        lounges: 1,
+        balconies: 1,
+        floorsText: "1st-4th",
+        notes: "",
+      },
+      {
+        id: sid("shop"),
+        category: "Shop",
+        name: "Shop",
+        count: 4,
+        sizeSqft: 300,
+        bedrooms: 0,
+        bathrooms: 0,
+        kitchens: 0,
+        lounges: 0,
+        balconies: 0,
+        floorsText: "Ground",
+        notes: "",
+      },
+    ],
+  };
+  await client.query("UPDATE projects SET details=details || $2::jsonb WHERE id=$1", [
+    project.id,
+    JSON.stringify({ landParcels: parcels, building }),
+  ]);
+  const common = {
+    date: "2026-11-08",
+    account: "company_bank" as const,
+    refNo: "Demo",
+    notes: "Demo funding scenario",
+  };
+  const entries = [
+    [
+      "br",
+      {
+        direction: "in",
+        data: {
+          ...common,
+          sourceType: "partner",
+          purpose: "Land",
+          partnerId: br,
+          amount: 10_000_000,
+        },
+      },
+    ],
+    [
+      "owner",
+      {
+        direction: "in",
+        data: {
+          ...common,
+          sourceType: "owner",
+          purpose: "General",
+          account: "company_cash",
+          amount: 5_000_000,
+        },
+      },
+    ],
+    [
+      "loan",
+      {
+        direction: "in",
+        data: {
+          ...common,
+          sourceType: "loan",
+          purpose: "Construction",
+          lenderPartyId: lender,
+          loanTerms: { loanType: "Bank loan", dueDate: "" },
+          amount: 20_000_000,
+        },
+      },
+    ],
+    [
+      "return",
+      {
+        direction: "out",
+        data: { ...common, kind: "capital_return", partnerId: br, amount: 2_000_000 },
+      },
+    ],
+    [
+      "principal",
+      {
+        direction: "out",
+        data: { ...common, kind: "loan_principal", loanFundingId: sid("loan"), amount: 5_000_000 },
+      },
+    ],
+    [
+      "markup",
+      {
+        direction: "out",
+        data: { ...common, kind: "loan_markup", loanFundingId: sid("loan"), amount: 500_000 },
+      },
+    ],
+  ] satisfies [string, Parameters<typeof postFundingEntry>[2]][];
+  for (const [key, entry] of entries) {
+    const id = sid(key);
+    if (!(await client.query("SELECT 1 FROM project_money_entries WHERE id=$1", [id])).rowCount)
+      await postFundingEntry(client, project.id, entry, id);
+  }
+}
 try {
   if (!process.env.DATABASE_URL)
     throw new Error("Configure DATABASE_URL in .env.local before seeding.");
@@ -88,14 +307,14 @@ try {
     await client.query("SELECT pg_advisory_xact_lock(hashtext('seed:baloch-heights:feasibility'))");
     let project = (
       await client.query(
-        "SELECT code FROM projects WHERE lower(btrim(name))=lower($1) FOR UPDATE",
+        "SELECT id,code,details FROM projects WHERE lower(btrim(name))=lower($1) FOR UPDATE",
         [name],
       )
     ).rows[0];
     if (!project) {
       project = (
         await client.query(
-          "INSERT INTO projects(name,created_by,details,draft) VALUES($1,$2,$3::jsonb,false) RETURNING code",
+          "INSERT INTO projects(name,created_by,details,draft) VALUES($1,$2,$3::jsonb,false) RETURNING id,code,details",
           [
             name,
             actor.id,
@@ -109,8 +328,21 @@ try {
         )
       ).rows[0];
     }
+    const owner = await masterPartner(client, "Owner", true);
+    const partners = [];
+    for (const row of sampleFeasibility.feasibility.partners) {
+      const master = await masterPartner(client, row.name);
+      partners.push({ ...row, partnerId: master.id, name: master.name });
+    }
+    for (const partnerId of [owner.id, ...partners.map((row) => row.partnerId)])
+      await client.query(
+        "INSERT INTO project_partner_links(project_id,partner_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+        [project.id, partnerId],
+      );
+    if (demo) await seedProjectDemo(client, project, partners[1].partnerId, partners[0].partnerId);
     const plan = feasibilitySchema.parse({
       ...sampleFeasibility.feasibility,
+      partners,
       costCategories: sampleFeasibility.feasibility.costCategories.map((category) =>
         category.id === "c4" ? { ...category, contractor: true } : category,
       ),

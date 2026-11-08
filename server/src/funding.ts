@@ -1,3 +1,4 @@
+import type pg from "pg";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -58,6 +59,96 @@ const input = z.discriminatedUnion("direction", [
   }),
   z.object({ direction: z.literal("out"), data: moneyOut, replaceId: id.optional() }),
 ]);
+
+export async function postFundingEntry(
+  client: pg.PoolClient,
+  projectId: string,
+  payload: z.infer<typeof input>,
+  recordId = randomUUID(),
+) {
+  const previous = payload.replaceId
+    ? (
+        await client.query(
+          "SELECT * FROM project_money_entries WHERE id=$1 AND project_id=$2 FOR UPDATE",
+          [payload.replaceId, projectId],
+        )
+      ).rows[0]
+    : null;
+  if (
+    payload.replaceId &&
+    (!previous ||
+      previous.status !== "posted" ||
+      previous.direction !== payload.direction ||
+      previous.data.receivedInto === "direct_payment")
+  )
+    throw fail("This entry cannot be edited.", 409);
+  let partyId: string | undefined;
+  let sourceName: string;
+  const data: (Funding | Payout) & { loanKey?: string } = { ...payload.data };
+  if ("sourceType" in data && data.sourceType === "loan") {
+    const lender = (
+      await client.query("SELECT id,name FROM parties WHERE id=$1 AND type='lender'", [
+        data.lenderPartyId ?? null,
+      ])
+    ).rows[0];
+    if (!lender || !data.loanTerms) throw fail("Select a lender and loan type.");
+    partyId = lender.id;
+    sourceName = lender.name;
+    delete data.partnerId;
+    data.loanKey =
+      previous?.data.sourceType === "loan" ? (previous.data.loanKey ?? previous.id) : recordId;
+  } else if ("kind" in data && data.kind.startsWith("loan_")) {
+    const loan = (
+      await client.query(
+        `SELECT e.id,e.data,p.name FROM project_money_entries e JOIN parties p ON p.id=(e.data->>'lenderPartyId')::uuid
+     WHERE e.project_id=$1 AND e.status='posted' AND e.data->>'sourceType'='loan' AND COALESCE(e.data->>'loanKey',e.id::text)=$2`,
+        [projectId, data.loanFundingId ?? ""],
+      )
+    ).rows[0];
+    if (!loan) throw fail("Select an active loan for this project.");
+    partyId = loan.data.lenderPartyId;
+    sourceName = loan.name;
+    delete data.partnerId;
+  } else {
+    const partner =
+      "sourceType" in data && data.sourceType === "owner"
+        ? (await client.query("SELECT id,name FROM partners WHERE role='Owner'")).rows[0]
+        : (await client.query("SELECT id,name FROM partners WHERE id=$1", [data.partnerId ?? null]))
+            .rows[0];
+    if (!partner) throw fail("Select a partner.");
+    data.partnerId = partner.id;
+    sourceName = partner.name;
+  }
+  if (previous) {
+    await voidVoucher(client, previous.voucher_id, "Entry edited");
+    await client.query("UPDATE project_money_entries SET status='void' WHERE id=$1", [previous.id]);
+  }
+  const label =
+    "sourceType" in data
+      ? `Money in: ${sourceName} (${data.purpose.toLowerCase()})`
+      : `${{ capital_return: "Capital returned", profit_distribution: "Profit distributed", loan_principal: "Loan principal repaid", loan_markup: "Loan markup paid" }[data.kind]}: ${sourceName}`;
+  const voucherId = await postVoucher(client, {
+    date: data.date,
+    projectId: projectId,
+    narration: label,
+    source: { module: "project_funding", refId: recordId },
+    lines: fundingLines(payload.direction, data, projectId, partyId),
+  });
+  let attachmentId = previous?.attachment_id ?? null;
+  if ("attachment" in payload && payload.attachment)
+    attachmentId = (
+      await client.query(
+        "INSERT INTO project_files(project_id,name,content) VALUES($1,$2,$3) RETURNING id",
+        [projectId, payload.attachment.name, payload.attachment.content],
+      )
+    ).rows[0].id;
+  return (
+    await client.query(
+      `INSERT INTO project_money_entries(id,project_id,direction,data,voucher_id,attachment_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING ${entriesColumns}`,
+      [recordId, projectId, payload.direction, JSON.stringify(data), voucherId, attachmentId],
+    )
+  ).rows[0];
+}
 
 export function registerFunding(app: FastifyInstance) {
   app.get("/api/accounts", accountsRead, async () =>
@@ -193,94 +284,7 @@ export function registerFunding(app: FastifyInstance) {
         ])
       ).rows[0];
       if (!project) throw fail("Project not found.", 404);
-      const previous = payload.replaceId
-        ? (
-            await client.query(
-              "SELECT * FROM project_money_entries WHERE id=$1 AND project_id=$2 FOR UPDATE",
-              [payload.replaceId, project.id],
-            )
-          ).rows[0]
-        : null;
-      if (
-        payload.replaceId &&
-        (!previous ||
-          previous.status !== "posted" ||
-          previous.direction !== payload.direction ||
-          previous.data.receivedInto === "direct_payment")
-      )
-        throw fail("This entry cannot be edited.", 409);
-      const recordId = randomUUID();
-      let partyId: string | undefined;
-      let sourceName: string;
-      const data: (Funding | Payout) & { loanKey?: string } = { ...payload.data };
-      if ("sourceType" in data && data.sourceType === "loan") {
-        const lender = (
-          await client.query("SELECT id,name FROM parties WHERE id=$1 AND type='lender'", [
-            data.lenderPartyId ?? null,
-          ])
-        ).rows[0];
-        if (!lender || !data.loanTerms) throw fail("Select a lender and loan type.");
-        partyId = lender.id;
-        sourceName = lender.name;
-        delete data.partnerId;
-        data.loanKey =
-          previous?.data.sourceType === "loan" ? (previous.data.loanKey ?? previous.id) : recordId;
-      } else if ("kind" in data && data.kind.startsWith("loan_")) {
-        const loan = (
-          await client.query(
-            `SELECT e.id,e.data,p.name FROM project_money_entries e JOIN parties p ON p.id=(e.data->>'lenderPartyId')::uuid
-     WHERE e.project_id=$1 AND e.status='posted' AND e.data->>'sourceType'='loan' AND COALESCE(e.data->>'loanKey',e.id::text)=$2`,
-            [project.id, data.loanFundingId ?? ""],
-          )
-        ).rows[0];
-        if (!loan) throw fail("Select an active loan for this project.");
-        partyId = loan.data.lenderPartyId;
-        sourceName = loan.name;
-        delete data.partnerId;
-      } else {
-        const partner =
-          "sourceType" in data && data.sourceType === "owner"
-            ? (await client.query("SELECT id,name FROM partners WHERE role='Owner'")).rows[0]
-            : (
-                await client.query("SELECT id,name FROM partners WHERE id=$1", [
-                  data.partnerId ?? null,
-                ])
-              ).rows[0];
-        if (!partner) throw fail("Select a partner.");
-        data.partnerId = partner.id;
-        sourceName = partner.name;
-      }
-      if (previous) {
-        await voidVoucher(client, previous.voucher_id, "Entry edited");
-        await client.query("UPDATE project_money_entries SET status='void' WHERE id=$1", [
-          previous.id,
-        ]);
-      }
-      const label =
-        "sourceType" in data
-          ? `Money in: ${sourceName} (${data.purpose.toLowerCase()})`
-          : `${{ capital_return: "Capital returned", profit_distribution: "Profit distributed", loan_principal: "Loan principal repaid", loan_markup: "Loan markup paid" }[data.kind]}: ${sourceName}`;
-      const voucherId = await postVoucher(client, {
-        date: data.date,
-        projectId: project.id,
-        narration: label,
-        source: { module: "project_funding", refId: recordId },
-        lines: fundingLines(payload.direction, data, project.id, partyId),
-      });
-      let attachmentId = previous?.attachment_id ?? null;
-      if ("attachment" in payload && payload.attachment)
-        attachmentId = (
-          await client.query(
-            "INSERT INTO project_files(project_id,name,content) VALUES($1,$2,$3) RETURNING id",
-            [project.id, payload.attachment.name, payload.attachment.content],
-          )
-        ).rows[0].id;
-      return (
-        await client.query(
-          `INSERT INTO project_money_entries(id,project_id,direction,data,voucher_id,attachment_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING ${entriesColumns}`,
-          [recordId, project.id, payload.direction, JSON.stringify(data), voucherId, attachmentId],
-        )
-      ).rows[0];
+      return postFundingEntry(client, project.id, payload);
     });
   });
   app.post("/api/projects/:id/funding/:entryId/void", write, async (request) => {
