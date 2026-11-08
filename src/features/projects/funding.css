@@ -1,0 +1,106 @@
+.funding-table-scroll {
+  overflow: auto;
+  max-width: 100%;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.app-main .funding-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.app-main .funding-table th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  background: var(--muted);
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+.app-main .funding-table td {
+  height: 42px;
+  padding: 5px 10px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+  min-width: 90px;
+}
+.funding-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+.funding-money {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.funding-numeric {
+  text-align: right;
+}
+.funding-void td {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+.funding-band {
+  background: color-mix(in srgb, var(--card) 80%, #d8ad58);
+}
+.funding-actions,
+.funding-pills,
+.funding-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.funding-options label {
+  display: flex;
+  flex: 1 1 150px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+.funding-pills {
+  margin: 16px 0;
+}
+.funding-pills [aria-pressed="true"] {
+  background: #ead095;
+  color: #242015;
+}
+.funding-metrics {
+  margin-bottom: 16px;
+}
+.funding-table button {
+  white-space: nowrap;
+}
+.funding-confirmation {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--muted);
+}
+.funding-progress {
+  width: 100%;
+  max-width: 130px;
+  accent-color: #b88b35;
+}
+.funding-details {
+  margin-top: 16px;
+}
+.funding-details summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.funding-statement[data-slot="dialog-content"] {
+  max-width: min(880px, calc(100vw - 32px));
+}
+.funding-clickable {
+  cursor: pointer;
+}
+.funding-name {
+  text-decoration: underline;
+  font-weight: 650;
+}
+.funding-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}

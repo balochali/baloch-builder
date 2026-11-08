@@ -1,0 +1,95 @@
+.project-site {
+  padding-bottom: 24px;
+}
+.site-banner {
+  border: 1px solid color-mix(in srgb, var(--border) 65%, #d2a950);
+  background: #d2a95018;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.site-unit-select {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.site-unit-select select,
+.project-form-grid textarea {
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.project-form-grid textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+.site-contact-field {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+}
+.site-contact-field label {
+  flex: 1;
+}
+.site-checks,
+.site-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.site-checks label {
+  display: flex;
+  align-items: center;
+}
+.site-chips {
+  margin-top: 8px;
+}
+.site-chips button {
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+.site-chips button[aria-pressed="true"] {
+  background: #ead095;
+  color: #242015;
+  border-color: #cba857;
+}
+.site-building-fields {
+  margin-top: 16px;
+}
+.site-breakdown,
+.site-sync-preview {
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+}
+.site-breakdown {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.site-breakdown li,
+.site-sync-preview li {
+  padding: 9px 12px;
+  background: var(--muted);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.site-sync-preview {
+  display: grid;
+  gap: 8px;
+}
+.site-sync-preview p {
+  color: var(--muted-foreground);
+  margin: 4px 0 0;
+}
+.project-site h3 svg {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+}

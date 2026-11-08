@@ -2,12 +2,11 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Least-privilege capability permissions for the Baloch Builder main window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
-    "opener:default",
-    "sql:default",
-    "sql:allow-execute",
-    "fs:default"
+    "opener:default"
   ]
 }

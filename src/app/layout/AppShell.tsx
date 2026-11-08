@@ -1,3 +1,5 @@
+import { navigation } from "../navigation";
+import type { Role } from "@baloch/shared";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { useRef, useState } from "react";
 import { ChevronRight, CalendarDays, Sun, Moon, Menu } from "lucide-react";
@@ -7,31 +9,23 @@ import { useThemeStore } from "@/stores/themeStore";
 
 interface AppShellProps {
   onLogout: () => void;
+  role?: Role;
 }
 
-export function AppShell({ onLogout }: AppShellProps) {
+export function AppShell({ onLogout, role }: AppShellProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
+  const detailPath = pathname.match(/^\/projects\/[^/]+/)?.[0];
+  const [projectTitle, setProjectTitle] = useState<string>();
+
   const { theme, setTheme } = useThemeStore();
-  const section = pathname.startsWith("/projects/")
-    ? "Project details"
-    : ((
-      {
-        "/": "Dashboard",
-        "/contacts": "Contacts",
-        "/land": "Land",
-        "/sheet": "Sheet Entry",
-        "/documents": "Documents",
-        "/projects": "Projects",
-        "/partners": "Partners",
-        "/personal-expense": "Personal Expense",
-        "/credit-udhaar": "Credit / Udhaar",
-        "/personal-deposit": "Personal Deposit / Amanat",
-        "/bank": "Bank",
-        "/settings": "Settings",
-      } as Record<string, string>
-    )[pathname] ?? "Workspace");
+  const section =
+    navigation
+      .flatMap((group) => [...group.items])
+      .find(
+        (item) => pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to + "/")),
+      )?.label ?? "Workspace";
   return (
     <div className="app-shell">
       <a
@@ -44,7 +38,7 @@ export function AppShell({ onLogout }: AppShellProps) {
       >
         Skip to content
       </a>
-      <Sidebar onLogout={onLogout} />
+      <Sidebar onLogout={onLogout} role={role} />
       <Dialog open={navigationOpen} onOpenChange={setNavigationOpen}>
         <DialogContent
           className="mobile-navigation"
@@ -58,6 +52,7 @@ export function AppShell({ onLogout }: AppShellProps) {
             Choose a page in your workspace.
           </DialogDescription>
           <Sidebar
+            role={role}
             onNavigate={() => setNavigationOpen(false)}
             onLogout={() => {
               setNavigationOpen(false);
@@ -89,7 +84,7 @@ export function AppShell({ onLogout }: AppShellProps) {
                   <ChevronRight size={14} />
                 </>
               )}
-              <strong>{section}</strong>
+              <strong>{detailPath ? (projectTitle ?? "Project details") : section}</strong>
             </div>
           </div>
           <div className="topbar-tools">
@@ -114,8 +109,13 @@ export function AppShell({ onLogout }: AppShellProps) {
             </span>
           </div>
         </header>
-        <main key={pathname} id="workspace-content" tabIndex={-1} className="app-main">
-          <Outlet />
+        <main
+          key={detailPath ?? pathname}
+          id="workspace-content"
+          tabIndex={-1}
+          className="app-main"
+        >
+          <Outlet context={setProjectTitle} />
         </main>
       </div>
     </div>

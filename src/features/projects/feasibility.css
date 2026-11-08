@@ -1,0 +1,292 @@
+.project-coming-soon {
+  max-width: 620px;
+  margin: clamp(24px, 6vw, 72px) auto;
+  padding: clamp(24px, 5vw, 48px);
+  text-align: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 10px 28px #0a172311;
+}
+.project-coming-soon-icon {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  color: #e5c47c;
+  background: linear-gradient(135deg, #1c3145, #102031);
+}
+.project-coming-soon h2 {
+  margin: 14px 0 8px;
+  font-size: 24px;
+}
+.project-coming-soon p,
+.feasibility-intro {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.feasibility {
+  min-width: 0;
+  padding-bottom: 24px;
+}
+.feasibility-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  padding: 14px;
+  box-shadow: 0 7px 22px #09192b1a;
+}
+.feasibility-toolbar,
+.feasibility-toolbar > div,
+.feasibility-band,
+.feasibility-total {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.feasibility-toolbar,
+.feasibility-total {
+  justify-content: space-between;
+}
+.feasibility-toolbar h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.feasibility-toolbar [role="status"] {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.feasibility-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.feasibility-metrics > div {
+  background: var(--muted);
+  border-radius: 9px;
+  padding: 9px 12px;
+  min-width: 0;
+}
+.feasibility-metrics dt {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.feasibility-metrics dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.feasibility-intro {
+  margin: 14px 0;
+}
+.feasibility-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  margin: 0 0 18px;
+  box-shadow: 0 5px 14px #0b15290d;
+}
+.feasibility-section summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  padding: 14px 18px;
+  font-size: 16px;
+  font-weight: 750;
+}
+.feasibility-section summary::-webkit-details-marker {
+  display: none;
+}
+.feasibility-section:not([open]) summary svg {
+  transform: rotate(-90deg);
+}
+.feasibility-section-body {
+  padding: 0 16px 16px;
+  min-width: 0;
+}
+.feasibility-category {
+  margin-bottom: 14px;
+}
+.feasibility-band {
+  background: #d9ac5630;
+  border-radius: 8px 8px 0 0;
+  padding: 6px 10px;
+}
+.feasibility-band input {
+  flex: 1;
+  min-width: 100px;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  padding: 4px;
+}
+.feasibility-band strong {
+  font-size: 13px;
+}
+.feasibility-delete-category {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.feasibility-grid-scroll {
+  max-width: 100%;
+  max-height: 410px;
+  overflow: auto;
+}
+.feasibility-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.feasibility-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--muted);
+  padding: 7px 9px;
+  text-align: left;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.feasibility-grid :is(th, td) {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.feasibility-grid :is(th, td):first-child {
+  border-left: 1px solid var(--border);
+}
+.feasibility-grid tbody tr:nth-child(even) {
+  background: var(--muted);
+}
+.feasibility-grid input {
+  width: 100%;
+  min-width: 106px;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  padding: 4px 8px;
+  font: inherit;
+}
+.feasibility-grid td:first-child input {
+  min-width: 164px;
+}
+.feasibility-grid .number input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.feasibility-grid .computed {
+  background: #b9984c13;
+}
+.feasibility-grid input:focus,
+.feasibility-band input:focus {
+  outline: 2px solid #bf953f;
+  outline-offset: -2px;
+}
+.feasibility-grid tfoot td,
+.feasibility-total {
+  background: #d9ac561a;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.feasibility-total {
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.feasibility-add {
+  min-height: 32px;
+  padding: 6px 10px;
+  margin: 8px 0;
+}
+.feasibility-delete {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  color: var(--destructive);
+}
+@media (hover: hover) {
+  .feasibility-delete {
+    opacity: 0;
+  }
+  .feasibility-grid tr:hover .feasibility-delete,
+  .feasibility-delete:focus-visible {
+    opacity: 1;
+  }
+}
+.funding-gap strong,
+.feasibility-error {
+  color: var(--destructive);
+}
+.funding-covered strong {
+  color: #15803d;
+}
+.dark .funding-covered strong {
+  color: #75d59d;
+}
+.feasibility-error {
+  margin-top: 10px;
+  font-size: 13px;
+}
+@media (max-width: 540px) {
+  .feasibility-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .feasibility-section-body {
+    padding-inline: 10px;
+  }
+  .feasibility-sticky {
+    padding: 10px;
+  }
+}
+.app-main .feasibility-grid :is(th, td) {
+  min-width: 108px;
+}
+.app-main .feasibility-grid tbody td {
+  height: 42px;
+  padding: 2px 0;
+  vertical-align: middle;
+}
+.app-main .feasibility-grid tbody td:last-child:has(.feasibility-delete) {
+  width: 36px;
+  min-width: 36px;
+}
+.app-main .feasibility-grid th.range-min {
+  background: color-mix(in srgb, var(--card) 86%, #53a77c);
+}
+.app-main .feasibility-grid th.range-max {
+  background: color-mix(in srgb, var(--card) 82%, #d6a044);
+}
+.app-main .feasibility-grid :is(th.range-min, th.range-max) {
+  width: 128px;
+  min-width: 128px;
+}
+.feasibility-grid input[aria-invalid="true"] {
+  outline: 2px solid color-mix(in srgb, var(--destructive) 68%, transparent);
+  outline-offset: -2px;
+}
+.feasibility-grid-grouped thead tr:last-child th {
+  top: 28px;
+}
+.app-main .feasibility-grid .feasibility-column-groups th {
+  height: 28px;
+  padding: 4px 9px;
+  background: var(--card);
+}
+.app-main .feasibility-grid .feasibility-column-groups th:nth-child(2) {
+  background: color-mix(in srgb, var(--card) 85%, #d6a044);
+}
+.app-main .feasibility-grid .feasibility-column-groups th:nth-child(3) {
+  background: color-mix(in srgb, var(--card) 85%, #53a77c);
+}

@@ -28,3 +28,21 @@ describe("AuthPage", () => {
     await waitFor(() => expect(success).toHaveBeenCalledOnce());
   });
 });
+
+it('uses server credentials without changing the default login wording',async()=>{
+ const authenticate=vi.fn().mockResolvedValue(undefined);const success=vi.fn();
+ render(<AuthPage mode="login" authenticate={authenticate} onSuccess={success}/>);
+ fireEvent.change(screen.getByLabelText('Username'),{target:{value:'accountant@example.test'}});
+ fireEvent.change(screen.getByLabelText('Password'),{target:{value:'example-password'}});
+ fireEvent.click(screen.getByRole('button',{name:'Sign in'}));
+ await waitFor(()=>expect(authenticate).toHaveBeenCalledWith('accountant@example.test','example-password',undefined));
+ expect(screen.getByText('Welcome back')).toBeInTheDocument();expect(screen.getByText('Your records stay on this device.')).toBeInTheDocument();
+});
+it('requests a two-factor code only when the server requires it',async()=>{
+ const authenticate=vi.fn().mockRejectedValueOnce(new Error('A valid, unused two-factor code is required')).mockResolvedValue(undefined);
+ render(<AuthPage mode="login" authenticate={authenticate} onSuccess={vi.fn()}/>);
+ expect(screen.queryByLabelText('Two-factor code')).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Username'),{target:{value:'admin@example.test'}});fireEvent.change(screen.getByLabelText('Password'),{target:{value:'example-password'}});fireEvent.click(screen.getByRole('button',{name:'Sign in'}));
+ fireEvent.change(await screen.findByLabelText('Two-factor code'),{target:{value:'123456'}});fireEvent.click(screen.getByRole('button',{name:'Sign in'}));
+ await waitFor(()=>expect(authenticate).toHaveBeenLastCalledWith('admin@example.test','example-password','123456'));
+});
