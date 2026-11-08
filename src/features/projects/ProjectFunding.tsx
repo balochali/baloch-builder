@@ -9,6 +9,7 @@ import { FundingTable, JournalTable, Metrics, Money, downloadFundingFile } from 
 import {
   balance,
   bankLabel,
+  commitmentFigures,
   isFunding,
   loanOutstanding,
   partnerTotals,
@@ -200,6 +201,17 @@ export function ProjectFunding({
       active.some((l) => l.partnerId === p.id) ||
       planPartner(p.id, p.name).length,
   );
+  const pendingByPartner = linked.flatMap((partner) => {
+    const planned = planPartner(partner.id, partner.name);
+    return planned.length
+      ? [
+          commitmentFigures(
+            sum(planned.map(({ row }) => row.capital)),
+            partnerTotals(active, partner.id).contributed,
+          ),
+        ]
+      : [];
+  });
   const direction = section === "Money in" ? "in" : "out";
   const entries = sheet.entries.filter((entry) => entry.direction === direction);
   const posted = entries.filter((entry) => entry.status === "posted");
@@ -304,7 +316,22 @@ export function ProjectFunding({
         values={[
           ["Total committed", <Money value={committed} />],
           ["Total contributed", <Money value={totals.contributed} />],
-          ["Still pending", <Money value={committed - totals.contributed} />],
+          [
+            "Still pending",
+            pendingByPartner.length ? (
+              <Money value={sum(pendingByPartner.map((row) => row.pending ?? 0))} />
+            ) : (
+              "—"
+            ),
+          ],
+          [
+            "Extra contributed",
+            pendingByPartner.length ? (
+              <Money value={sum(pendingByPartner.map((row) => row.extra ?? 0))} />
+            ) : (
+              "—"
+            ),
+          ],
           ["Returned so far", <Money value={totals.returned} />],
           ["Loans outstanding", <Money value={-balance(active, "2300")} />],
           [
@@ -354,6 +381,7 @@ export function ProjectFunding({
                 "Contributed",
                 "Progress",
                 "Pending",
+                "Extra contributed",
                 "Capital returned",
                 "Profit received",
                 "Expected profit worst / best",
@@ -363,8 +391,11 @@ export function ProjectFunding({
               {linked.map((partner) => {
                 const expected = planPartner(partner.id, partner.name);
                 const shares = sum(expected.map(({ i }) => forecast!.returns[i].share));
-                const capital = sum(expected.map(({ row }) => row.capital));
+                const capital = expected.length
+                  ? sum(expected.map(({ row }) => row.capital))
+                  : null;
                 const actual = partnerTotals(active, partner.id);
+                const { pending, extra } = commitmentFigures(capital, actual.contributed);
                 const progress = capital ? (actual.contributed / capital) * 100 : null;
                 return (
                   <tr
@@ -384,9 +415,11 @@ export function ProjectFunding({
                       </button>
                     </td>
                     <td>{partner.role}</td>
-                    <td className="funding-numeric">{formatPercent(shares)}</td>
                     <td className="funding-numeric">
-                      <Money value={capital} />
+                      {formatPercent(expected.length ? shares : null)}
+                    </td>
+                    <td className="funding-numeric">
+                      {capital === null ? "—" : <Money value={capital} />}
                     </td>
                     <td className="funding-numeric">
                       <Money value={actual.contributed} />
@@ -407,7 +440,10 @@ export function ProjectFunding({
                       )}
                     </td>
                     <td className="funding-numeric">
-                      <Money value={capital - actual.contributed} />
+                      {pending === null ? "—" : <Money value={pending} />}
+                    </td>
+                    <td className="funding-numeric">
+                      {extra === null ? "—" : <Money value={extra} />}
                     </td>
                     <td className="funding-numeric">
                       <Money value={actual.returned} />
@@ -416,7 +452,7 @@ export function ProjectFunding({
                       <Money value={actual.profit} />
                     </td>
                     <td className="funding-numeric">
-                      {forecast ? (
+                      {forecast && expected.length ? (
                         <>
                           <Money value={(forecast.profit.worst * shares) / 100} /> /{" "}
                           <Money value={(forecast.profit.best * shares) / 100} />

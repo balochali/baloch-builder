@@ -57,3 +57,12 @@ export const payoutLabels = {
   loan_principal: "Loan principal repaid",
   loan_markup: "Loan markup paid",
 } as const;
+
+export function commitmentFigures(committed: number | null, contributed: number) {
+  return committed === null
+    ? { pending: null, extra: null }
+    : {
+        pending: Math.max(0, committed - contributed),
+        extra: Math.max(0, contributed - committed),
+      };
+}
