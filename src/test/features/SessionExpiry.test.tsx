@@ -28,7 +28,9 @@ it("returns from a working page to unchanged login on 401 and clears the message
   const loginStructure = baseline.container.firstElementChild!.outerHTML;
   baseline.unmount();
   const rendered = render(<AppRouter />);
-  expect(await screen.findByRole("heading", { name: "Lands" })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: "Lands (overview of all land)" }),
+  ).toBeInTheDocument();
   await act(async () => {
     await api("accounts").catch(() => {});
   });

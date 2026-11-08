@@ -1,3 +1,4 @@
+import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useState, type FormEvent } from "react";
 import { feasibilitySchema, type MasterPartner, type MoneyEntry } from "@baloch/shared";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -104,7 +105,10 @@ export function ProjectFunding({
   const [sheet, setSheet] = useState<FundingData>();
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
-  const [section, setSection] = useState<(typeof sections)[number]>("Partners");
+  const [search] = useSearchParams();
+  const [section, setSection] = useState<(typeof sections)[number]>(
+    search.get("section") === "money-in" ? "Money in" : "Partners",
+  );
   const [entryForm, setEntryForm] = useState<{ direction: "in" | "out"; entry?: MoneyEntry }>();
   const [statement, setStatement] = useState<FundingData["partners"][number]>();
   const [link, setLink] = useState(false);
@@ -177,7 +181,16 @@ export function ProjectFunding({
     return (
       <>
         {error && <p role="alert">{error}</p>}
-        <JournalTable lines={sheet.lines} />
+        <JournalTable
+          lines={sheet.lines}
+          emptyAction={
+            manage ? (
+              <Link className="projects-primary" to={`/projects/${id}/partners?section=money-in`}>
+                Record funding
+              </Link>
+            ) : undefined
+          }
+        />
       </>
     );
 

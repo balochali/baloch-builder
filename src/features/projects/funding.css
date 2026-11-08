@@ -104,3 +104,62 @@
   border-top: 1px solid var(--border);
   padding-top: 6px;
 }
+.app-main .funding-table thead th:first-child,
+.app-main .funding-table tbody td:first-child:not([colspan]) {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--card);
+  box-shadow: 1px 0 0 var(--border);
+}
+.app-main .funding-table thead th:first-child {
+  z-index: 3;
+  background: var(--muted);
+}
+.app-main .funding-table tbody tr:nth-child(even) td:first-child:not([colspan]) {
+  background: var(--muted);
+}
+.funding-table-scroll,
+.feasibility-grid-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #a88c56 var(--muted);
+}
+.app-main .funding-table td,
+.app-main .funding-table th {
+  padding-inline: 8px;
+}
+.funding-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.funding-metrics dt {
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  line-height: 1.35;
+}
+.funding-metrics dd {
+  margin-top: 5px;
+  font-size: clamp(18px, 2vw, 24px);
+  overflow-wrap: normal;
+}
+.funding-metrics .funding-money {
+  white-space: normal;
+}
+.app-main .funding-table .funding-child td:first-child {
+  padding-left: 24px;
+}
+.funding-debit {
+  color: #176845;
+}
+.funding-credit {
+  color: #8b5413;
+}
+.dark .funding-debit {
+  color: #83deb1;
+}
+.dark .funding-credit {
+  color: #f0c278;
+}
+.funding-voucher-heading {
+  white-space: normal !important;
+}

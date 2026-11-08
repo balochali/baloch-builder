@@ -93,3 +93,11 @@
   vertical-align: middle;
   margin-right: 6px;
 }
+.site-building-stats {
+  color: var(--muted-foreground);
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+.project-site .funding-details summary {
+  padding: 4px 0;
+}

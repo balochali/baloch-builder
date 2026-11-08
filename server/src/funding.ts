@@ -159,11 +159,40 @@ export function registerFunding(app: FastifyInstance) {
  GROUP BY a.code ORDER BY a.code`)
     ).rows.map((r) => ({ ...r, balance: Number(r.balance) })),
   );
-  app.get("/api/partners", read, async () =>
-    (await pool.query(`SELECT ${masterColumns} FROM partners ORDER BY role DESC,name`)).rows.map(
-      master,
-    ),
-  );
+  app.get("/api/partners", read, async () => {
+    const { rows } = await pool.query(`WITH planned AS (
+      SELECT p.id AS partner_id,j.id AS project_id,sum((f->>'capital')::numeric) AS committed
+      FROM projects j CROSS JOIN LATERAL jsonb_array_elements(coalesce(j.details->'feasibility'->'partners','[]')) f
+      JOIN partners p ON p.id::text=f->>'partnerId' GROUP BY p.id,j.id
+    ), actual AS (
+      SELECT l.partner_id,l.project_id,sum(l.credit) AS contributed,sum(l.debit) AS returned
+      FROM journal_lines l JOIN journal_vouchers v ON v.id=l.voucher_id
+      WHERE ${active} AND l.account_code='3000' AND l.partner_id IS NOT NULL
+      GROUP BY l.partner_id,l.project_id
+    ), related AS (
+      SELECT partner_id,project_id FROM planned UNION SELECT partner_id,project_id FROM actual
+      UNION SELECT partner_id,project_id FROM project_partner_links
+      UNION SELECT DISTINCT l.partner_id,l.project_id FROM journal_lines l JOIN journal_vouchers v ON v.id=l.voucher_id
+      WHERE ${active} AND l.partner_id IS NOT NULL
+    ), totals AS (
+      SELECT related.partner_id, count(related.project_id)::int AS "projectCount",sum(planned.committed) AS committed,
+        coalesce(sum(actual.contributed),0) AS contributed,coalesce(sum(actual.returned),0) AS returned,
+        sum(greatest(planned.committed-coalesce(actual.contributed,0),0)) FILTER (WHERE planned.committed IS NOT NULL) AS pending
+      FROM related LEFT JOIN planned USING(partner_id,project_id)
+      LEFT JOIN actual ON actual.partner_id=related.partner_id AND actual.project_id IS NOT DISTINCT FROM related.project_id
+      GROUP BY related.partner_id
+    )
+    SELECT ${masterColumns},totals.committed,totals.contributed,totals.returned,totals.pending,totals."projectCount"
+    FROM partners LEFT JOIN totals ON totals.partner_id=partners.id ORDER BY role DESC,name`);
+    return rows.map((row) => ({
+      ...master(row),
+      committed: row.committed === null ? null : Number(row.committed),
+      pending: row.pending === null ? null : Number(row.pending),
+      contributed: Number(row.contributed ?? 0),
+      returned: Number(row.returned ?? 0),
+      projectCount: row.projectCount ?? 0,
+    }));
+  });
   app.post("/api/partners", write, async (request) => {
     const { name, role, status, ...profile } = partnerProfile.parse(request.body);
     if (role === "Owner") throw fail("Edit the existing Owner record.");

@@ -2,11 +2,13 @@ import { HardHat, type LucideIcon } from "lucide-react";
 export function ComingSoon({
   title,
   icon: Icon = HardHat,
+  action,
   description = "We're carefully building this part of your workspace. Check back soon.",
 }: {
   title: string;
   icon?: LucideIcon;
   description?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <section className="project-coming-soon">
@@ -16,6 +18,7 @@ export function ComingSoon({
       <span className="project-status">In development</span>
       <h2>{title} is being built</h2>
       <p>{description}</p>
+      {action}
     </section>
   );
 }

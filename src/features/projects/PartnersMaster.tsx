@@ -148,9 +148,16 @@ type PartnerDetail = {
   lines: (JournalRow & { projectCode: string; projectName: string })[];
   documents: { id: string; name: string }[];
 };
+type PartnerListRow = MasterPartner & {
+  committed?: number | null;
+  contributed?: number;
+  returned?: number;
+  pending?: number | null;
+  projectCount?: number;
+};
 export function PartnersMaster({ role }: { role: Role }) {
   const { partnerId } = useParams();
-  const [partners, setPartners] = useState<MasterPartner[]>();
+  const [partners, setPartners] = useState<PartnerListRow[]>();
   const [detail, setDetail] = useState<PartnerDetail>();
   const [edit, setEdit] = useState<MasterPartner | null>();
   const [error, setError] = useState("");
@@ -167,7 +174,7 @@ export function PartnersMaster({ role }: { role: Role }) {
           if (active) setError(String(cause));
         });
     else
-      api<MasterPartner[]>("partners")
+      api<PartnerListRow[]>("partners")
         .then((value) => {
           if (active) setPartners(value);
         })
@@ -213,7 +220,7 @@ export function PartnersMaster({ role }: { role: Role }) {
           <span className="projects-eyebrow">PROJECT FUNDING</span>
           <h1>{partnerId ? (detail?.partner.name ?? "Partner") : "Partners"}</h1>
         </div>
-        {manage && (!partnerId || detail) && (
+        {manage && (partnerId ? detail : partners?.length) && (
           <button
             className="projects-primary"
             onClick={() => setEdit(partnerId ? detail?.partner : null)}
@@ -231,9 +238,28 @@ export function PartnersMaster({ role }: { role: Role }) {
         (!partners ? (
           <p role="status">Loading partners...</p>
         ) : !partners.length ? (
-          <p>No partners added yet.</p>
+          <div className="projects-empty">
+            <p>Add a partner to track commitments and contributions across projects.</p>
+            {manage && (
+              <button className="projects-primary" onClick={() => setEdit(null)}>
+                Add partner
+              </button>
+            )}
+          </div>
         ) : (
-          <FundingTable headers={["Name", "Role", "Phone", "Status"]}>
+          <FundingTable
+            headers={[
+              "Name",
+              "Role",
+              "Phone",
+              "Status",
+              "Committed",
+              "Contributed",
+              "Returned",
+              "Pending",
+              "Projects",
+            ]}
+          >
             {partners.map((p) => (
               <tr key={p.id}>
                 <td>
@@ -242,6 +268,19 @@ export function PartnersMaster({ role }: { role: Role }) {
                 <td>{p.role}</td>
                 <td>{p.phone || "—"}</td>
                 <td>{p.status}</td>
+                <td className="funding-numeric">
+                  {p.committed == null ? "—" : <Money value={p.committed} />}
+                </td>
+                <td className="funding-numeric">
+                  <Money value={p.contributed ?? 0} />
+                </td>
+                <td className="funding-numeric">
+                  <Money value={p.returned ?? 0} />
+                </td>
+                <td className="funding-numeric">
+                  {p.pending == null ? "—" : <Money value={p.pending} />}
+                </td>
+                <td className="funding-numeric">{p.projectCount ?? 0}</td>
               </tr>
             ))}
           </FundingTable>
@@ -305,14 +344,21 @@ export function PartnersMaster({ role }: { role: Role }) {
                 })}
               </FundingTable>
             ) : (
-              <p>No project activity yet.</p>
+              <div className="projects-empty">
+                <p>This partner has no posted project activity yet.</p>
+                <Link className="projects-primary" to="/projects">
+                  Open Projects
+                </Link>
+              </div>
             )}
           </section>
           <section className="project-detail-panel">
             <div className="project-section-heading">
               <h2>Documents</h2>
               {manage && (
-                <label className="projects-secondary project-upload">
+                <label
+                  className={`${detail.documents.length ? "projects-secondary" : "projects-primary"} project-upload`}
+                >
                   {busy ? "Uploading..." : "Upload document"}
                   <input
                     type="file"

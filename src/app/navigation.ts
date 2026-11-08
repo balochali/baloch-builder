@@ -32,7 +32,7 @@ export const navigation = [
       },
       {
         to: "/land",
-        label: "Lands",
+        label: "Lands (overview of all land)",
         icon: MapPin,
         permission: "projects",
         tabs: [

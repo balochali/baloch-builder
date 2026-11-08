@@ -243,7 +243,140 @@ export function ProjectBuilding({
         </p>
       )}
       <section className="project-detail-panel">
-        <h3>Building overview</h3>
+        <h3>
+          <Building2 size={18} /> Building summary
+        </h3>
+        <dl className="feasibility-metrics">
+          {[
+            ["Total units", areaNumber(count)],
+            [
+              "Flats count",
+              areaNumber(
+                building.units
+                  .filter((u) => u.category === "Flat")
+                  .reduce((sum, u) => sum + u.count, 0),
+              ),
+            ],
+            [
+              "Shops count",
+              areaNumber(
+                building.units
+                  .filter((u) => u.category === "Shop")
+                  .reduce((sum, u) => sum + u.count, 0),
+              ),
+            ],
+            ["Total built-up area", areaNumber(covered) + " sq ft"],
+            [
+              "Floors",
+              areaNumber(
+                building.floorsAboveGround + building.basements + Number(building.hasMezzanine),
+              ),
+            ],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="site-building-stats">
+          Saleable area <strong>{areaNumber(saleable)} sq ft</strong> · Efficiency{" "}
+          <strong>{formatPercent(covered ? (saleable / covered) * 100 : null)}</strong>
+        </p>
+        <ul className="site-breakdown">
+          {unitCategories.map((category) => {
+            const units = building.units.filter((u) => u.category === category);
+            return (
+              <li key={category}>
+                {category}: {areaNumber(units.reduce((sum, u) => sum + u.count, 0))} units /{" "}
+                {areaNumber(units.reduce((sum, u) => sum + u.count * u.sizeSqft, 0))} sq ft
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+      <section className="project-detail-panel">
+        <div className="project-section-heading">
+          <h3>Unit types</h3>
+          {manage && (
+            <button
+              className="projects-primary"
+              disabled={syncing || feasibilityPending || !building.units.length}
+              onClick={() => void sync()}
+            >
+              Sync to feasibility sales
+            </button>
+          )}
+        </div>
+        {feasibilityPending && manage && (
+          <p>Wait for Feasibility to finish saving before syncing.</p>
+        )}
+        {syncError && (
+          <p role="alert" className="project-save-error">
+            {syncError}
+          </p>
+        )}
+        {synced && (
+          <p role="status">
+            Feasibility sales updated. Existing rates and sold percentages were preserved.
+          </p>
+        )}
+        <FeasibilityGrid
+          emptyMessage="Add a row for each distinct unit size or layout."
+          locked={locked}
+          headers={[
+            "Category",
+            "Type name",
+            "Count",
+            "Size per unit (sq ft)",
+            "Bedrooms",
+            "Bathrooms",
+            "Kitchens",
+            "Lounge / drawing rooms",
+            "Balconies",
+            "Floors located",
+            "Notes",
+          ]}
+          rows={building.units.map((u) => ({
+            id: u.id,
+            cells: [
+              choices(u.category, categories),
+              { value: u.name },
+              numberCell(u.count, 1e6, true),
+              numberCell(u.sizeSqft, 1e12),
+              ...roomKeys.map((key) =>
+                u.category === "Flat"
+                  ? numberCell(u[key], 1e6, true)
+                  : { value: "", readOnly: true, numeric: true },
+              ),
+              { value: u.floorsText },
+              { value: u.notes },
+            ],
+          }))}
+          onAdd={() => update((b) => ({ ...b, units: [...b.units, unitRow()] }))}
+          onDelete={(index) =>
+            update((b) => ({ ...b, units: b.units.filter((_, i) => i !== index) }))
+          }
+          onChange={(changes) =>
+            update((b) => ({
+              ...b,
+              units: applyRows(b.units, changes, unitRow, (row, col, value) => {
+                if (col === 0) return { ...row, category: value as Unit["category"] };
+                if (col === 1) return { ...row, name: value };
+                if (col === 2) return { ...row, count: numericValue(value) };
+                if (col === 3) return { ...row, sizeSqft: numericValue(value) };
+                if (col >= 4 && col <= 8)
+                  return row.category === "Flat"
+                    ? { ...row, [roomKeys[col - 4]]: numericValue(value) }
+                    : row;
+                return { ...row, [col === 9 ? "floorsText" : "notes"]: value };
+              }),
+            }))
+          }
+        />
+      </section>
+      <details className="project-detail-panel funding-details">
+        <summary>Building details</summary>
         <fieldset className="project-form-grid site-building-fields" disabled={locked}>
           <label>
             Building name
@@ -425,11 +558,11 @@ export function ProjectBuilding({
             </div>
           </div>
         </fieldset>
-      </section>
-      <section className="project-detail-panel">
-        <h3>Floor plan</h3>
-        {!building.floors.length && <p>Set the floor count above or add a floor below.</p>}
+      </details>
+      <details className="project-detail-panel funding-details">
+        <summary>Floor plan</summary>
         <FeasibilityGrid
+          emptyMessage="Set the floor count in Building details or add a row below."
           headers={["Floor label", "Use", "Number of units", "Floor area (sq ft)", "Notes"]}
           locked={locked}
           rows={building.floors.map((f) => ({
@@ -465,132 +598,7 @@ export function ProjectBuilding({
             reconcile them later.
           </p>
         )}
-      </section>
-      <section className="project-detail-panel">
-        <div className="project-section-heading">
-          <h3>Unit types</h3>
-          {manage && (
-            <button
-              className="projects-primary"
-              disabled={syncing || feasibilityPending || !building.units.length}
-              onClick={() => void sync()}
-            >
-              Sync to feasibility sales
-            </button>
-          )}
-        </div>
-        {!building.units.length && <p>Add a row for each distinct unit size or layout.</p>}
-        {feasibilityPending && manage && (
-          <p>Wait for Feasibility to finish saving before syncing.</p>
-        )}
-        {syncError && (
-          <p role="alert" className="project-save-error">
-            {syncError}
-          </p>
-        )}
-        {synced && (
-          <p role="status">
-            Feasibility sales updated. Existing rates and sold percentages were preserved.
-          </p>
-        )}
-        <FeasibilityGrid
-          locked={locked}
-          headers={[
-            "Category",
-            "Type name",
-            "Count",
-            "Size per unit (sq ft)",
-            "Bedrooms",
-            "Bathrooms",
-            "Kitchens",
-            "Lounge / drawing rooms",
-            "Balconies",
-            "Floors located",
-            "Notes",
-          ]}
-          rows={building.units.map((u) => ({
-            id: u.id,
-            cells: [
-              choices(u.category, categories),
-              { value: u.name },
-              numberCell(u.count, 1e6, true),
-              numberCell(u.sizeSqft, 1e12),
-              ...roomKeys.map((key) =>
-                u.category === "Flat"
-                  ? numberCell(u[key], 1e6, true)
-                  : { value: "", readOnly: true, numeric: true },
-              ),
-              { value: u.floorsText },
-              { value: u.notes },
-            ],
-          }))}
-          onAdd={() => update((b) => ({ ...b, units: [...b.units, unitRow()] }))}
-          onDelete={(index) =>
-            update((b) => ({ ...b, units: b.units.filter((_, i) => i !== index) }))
-          }
-          onChange={(changes) =>
-            update((b) => ({
-              ...b,
-              units: applyRows(b.units, changes, unitRow, (row, col, value) => {
-                if (col === 0) return { ...row, category: value as Unit["category"] };
-                if (col === 1) return { ...row, name: value };
-                if (col === 2) return { ...row, count: numericValue(value) };
-                if (col === 3) return { ...row, sizeSqft: numericValue(value) };
-                if (col >= 4 && col <= 8)
-                  return row.category === "Flat"
-                    ? { ...row, [roomKeys[col - 4]]: numericValue(value) }
-                    : row;
-                return { ...row, [col === 9 ? "floorsText" : "notes"]: value };
-              }),
-            }))
-          }
-        />
-      </section>
-      <section className="project-detail-panel">
-        <h3>
-          <Building2 size={18} /> Building summary
-        </h3>
-        <dl className="feasibility-metrics">
-          {[
-            ["Total units", areaNumber(count)],
-            [
-              "Flats count",
-              areaNumber(
-                building.units
-                  .filter((u) => u.category === "Flat")
-                  .reduce((sum, u) => sum + u.count, 0),
-              ),
-            ],
-            [
-              "Shops count",
-              areaNumber(
-                building.units
-                  .filter((u) => u.category === "Shop")
-                  .reduce((sum, u) => sum + u.count, 0),
-              ),
-            ],
-            ["Total saleable area", areaNumber(saleable) + " sq ft"],
-            ["Total covered area", areaNumber(covered) + " sq ft"],
-            ["Efficiency", formatPercent(covered ? (saleable / covered) * 100 : null)],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-        <ul className="site-breakdown">
-          {unitCategories.map((category) => {
-            const units = building.units.filter((u) => u.category === category);
-            return (
-              <li key={category}>
-                {category}: {areaNumber(units.reduce((sum, u) => sum + u.count, 0))} units /{" "}
-                {areaNumber(units.reduce((sum, u) => sum + u.count * u.sizeSqft, 0))} sq ft
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      </details>
       {preview && (
         <Dialog
           open

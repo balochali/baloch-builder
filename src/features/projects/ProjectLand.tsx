@@ -202,7 +202,7 @@ export function ProjectLand({
     <section className="project-site">
       <div className="project-section-heading">
         <h2>Land parcels</h2>
-        {manage && (
+        {manage && site.parcels.length > 0 && (
           <button className="projects-primary" onClick={() => open(null)}>
             <Plus size={16} /> Add land
           </button>
@@ -239,6 +239,11 @@ export function ProjectLand({
           <MapPin size={28} />
           <h3>No land added yet</h3>
           <p>Add the first parcel to track its area and documents.</p>
+          {manage && (
+            <button className="projects-primary" onClick={() => open(null)}>
+              <Plus size={16} /> Add land
+            </button>
+          )}
         </div>
       )}
       <div className="project-records">

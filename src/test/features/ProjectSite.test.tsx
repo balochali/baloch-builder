@@ -84,6 +84,8 @@ it("pastes unit types, calculates the building summary and previews sync before 
       onSynced={onSynced}
     />,
   );
+  fireEvent.click(screen.getByText("Building details"));
+  fireEvent.click(screen.getByText("Floor plan"));
   fireEvent.change(screen.getByLabelText(/Floors above ground/), { target: { value: "5" } });
   expect(screen.getByRole("textbox", { name: "Floor label, row 5" })).toHaveValue("4th");
   const section = screen.getByRole("heading", { name: "Unit types" }).closest("section")!;

@@ -168,6 +168,19 @@ try {
           data: { ...data, amount: 200 },
           replaceId: first.id,
         });
+        const partners = await app.inject({ method: "GET", url: "/api/partners", headers });
+        assert.equal(partners.statusCode, 200, partners.body);
+        const summary = partners.json().find((p: { id: string }) => p.id === master.id);
+        assert.deepEqual(
+          [
+            summary.committed,
+            summary.contributed,
+            summary.returned,
+            summary.pending,
+            summary.projectCount,
+          ],
+          [125, 200, 0, 0, 1],
+        );
         const voidEntry = () =>
           app.inject({
             method: "POST",

@@ -138,11 +138,21 @@ export function ProjectDetail({ role }: { role: Role }) {
             </dl>
           )}
           {!["feasibility", "land", "building", "partners", "transactions"].includes(tab) && (
-            <ComingSoon title={section.title} icon={section.icon} />
+            <ComingSoon
+              title={section.title}
+              icon={section.icon}
+              action={
+                tab === "documents" ? (
+                  <Link className="projects-primary" to="/projects">
+                    Back to Projects
+                  </Link>
+                ) : undefined
+              }
+            />
           )}
           {(tab === "partners" || tab === "transactions") &&
             (can(role, "ledger") ? (
-              <ProjectFunding id={project.id} tab={tab} manage={manage} />
+              <ProjectFunding key={tab} id={project.id} tab={tab} manage={manage} />
             ) : (
               <p>You do not have access to project financial records.</p>
             ))}

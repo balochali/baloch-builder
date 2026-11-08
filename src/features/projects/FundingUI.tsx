@@ -6,7 +6,7 @@ import "./funding.css";
 export function Money({ value }: { value: number }) {
   return (
     <span className="funding-money" title={value.toLocaleString("en-PK") + " PKR"}>
-      {formatPKR(value)}
+      {value === 0 ? "—" : formatPKR(value)}
     </span>
   );
 }
@@ -40,26 +40,44 @@ export function Metrics({ values }: { values: [string, ReactNode][] }) {
     </dl>
   );
 }
-export function JournalTable({ lines }: { lines: JournalRow[] }) {
-  const [group, setGroup] = useState(false);
+export function JournalTable({
+  lines,
+  emptyAction,
+}: {
+  lines: JournalRow[];
+  emptyAction?: ReactNode;
+}) {
+  const [group, setGroup] = useState(true);
   const vouchers = group ? [...new Set(lines.map((l) => l.voucherId))] : [];
-  const row = (line: JournalRow) => (
-    <tr key={line.id} className={line.status === "void" ? "funding-void" : undefined}>
-      <td>{line.date}</td>
-      <td>
-        {line.voucherId}{" "}
-        {line.status === "void" ? (
-          <span className="project-status">Void</span>
-        ) : line.reversalOf ? (
-          <span className="project-status">Reversal</span>
-        ) : null}
-      </td>
-      <td>{line.narration}</td>
+  const badge = (line: JournalRow) =>
+    line.status === "void" ? (
+      <span className="project-status">Void</span>
+    ) : line.reversalOf ? (
+      <span className="project-status">Reversal</span>
+    ) : null;
+  const row = (line: JournalRow, showNarration: boolean) => (
+    <tr
+      key={line.id}
+      className={(line.status === "void" ? "funding-void " : "") + (group ? "funding-child" : "")}
+    >
+      {!group && (
+        <>
+          <td>{line.date}</td>
+          <td>
+            {line.voucherId} {badge(line)}
+          </td>
+          <td>{showNarration ? line.narration : ""}</td>
+        </>
+      )}
       <td>
         {line.accountCode} {line.accountName}
       </td>
-      <td className="funding-numeric">{line.debit ? <Money value={line.debit} /> : "—"}</td>
-      <td className="funding-numeric">{line.credit ? <Money value={line.credit} /> : "—"}</td>
+      <td className="funding-numeric funding-debit">
+        <Money value={line.debit} />
+      </td>
+      <td className="funding-numeric funding-credit">
+        <Money value={line.credit} />
+      </td>
       <td>{line.partner || line.party || "—"}</td>
     </tr>
   );
@@ -73,31 +91,38 @@ export function JournalTable({ lines }: { lines: JournalRow[] }) {
         </label>
       </div>
       {!lines.length ? (
-        <p>No project transactions posted yet.</p>
+        <div className="projects-empty">
+          <p>Record funding to see the project's posted transactions here.</p>
+          {emptyAction}
+        </div>
       ) : (
         <FundingTable
           headers={[
-            "Date",
-            "Voucher ID",
-            "Narration",
+            ...(!group ? ["Date", "Voucher ID", "Narration"] : []),
             "Account",
-            "Debit",
-            "Credit",
+            "Debit (Dr)",
+            "Credit (Cr)",
             "Party / partner",
           ]}
         >
           {group
-            ? vouchers.map((id) => (
-                <Fragment key={id}>
-                  <tr className="funding-band">
-                    <th scope="row" colSpan={7}>
-                      {id}
-                    </th>
-                  </tr>
-                  {lines.filter((l) => l.voucherId === id).map(row)}
-                </Fragment>
-              ))
-            : lines.map(row)}
+            ? vouchers.map((id) => {
+                const linesForVoucher = lines.filter((l) => l.voucherId === id);
+                const first = linesForVoucher[0];
+                return (
+                  <Fragment key={id}>
+                    <tr
+                      className={"funding-band " + (first.status === "void" ? "funding-void" : "")}
+                    >
+                      <td className="funding-voucher-heading" colSpan={4}>
+                        <strong>{id}</strong> · {first.date} · {first.narration} {badge(first)}
+                      </td>
+                    </tr>
+                    {linesForVoucher.map((line) => row(line, false))}
+                  </Fragment>
+                );
+              })
+            : lines.map((line, i) => row(line, line.voucherId !== lines[i - 1]?.voucherId))}
         </FundingTable>
       )}
     </section>

@@ -42,6 +42,7 @@ type GridProps = {
   onAdd?: () => void;
   onDelete?: (row: number) => void;
   footer?: ReactNode;
+  emptyMessage?: string;
 };
 export function FeasibilityGrid({
   headers,
@@ -52,6 +53,7 @@ export function FeasibilityGrid({
   onAdd,
   onDelete,
   footer,
+  emptyMessage = "No rows yet. Add a row to get started.",
 }: GridProps) {
   const [edit, setEdit] = useState<{ row: number; col: number; text: string }>();
   const [error, setError] = useState("");
@@ -320,8 +322,15 @@ export function FeasibilityGrid({
           {error}
         </p>
       )}
+      {!rows.length && !footer && (
+        <p className="feasibility-intro">{locked ? "No rows yet." : emptyMessage}</p>
+      )}
       {!locked && onAdd && (
-        <button type="button" className="projects-secondary feasibility-add" onClick={onAdd}>
+        <button
+          type="button"
+          className={`${rows.length ? "projects-secondary" : "projects-primary"} feasibility-add`}
+          onClick={onAdd}
+        >
           <Plus size={15} /> Add row
         </button>
       )}

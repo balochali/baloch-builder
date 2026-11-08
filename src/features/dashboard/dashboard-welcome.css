@@ -110,7 +110,7 @@
 .dashboard-gold {
   color: #ddbd79;
 }
-.dashboard-coming-soon h2 {
+.app-main .dashboard-coming-soon h2 {
   margin: 18px 0;
   font-size: clamp(30px, 3.5vw, 48px);
   font-weight: 600;

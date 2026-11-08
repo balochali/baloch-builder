@@ -1,4 +1,5 @@
 import { PartnerEditor, createNamedPartner } from "./PartnersMaster";
+import { Money } from "./FundingUI";
 import { formatPKR, formatPercent, parsePKR } from "./feasibilityFormat";
 import { sampleFeasibility } from "./sampleFeasibility";
 import { useEffect, useState } from "react";
@@ -19,15 +20,27 @@ import "./feasibility.css";
 
 type Change = { row: number; col: number; value: string };
 const computed = (value: number | null, percent = false): Cell => ({
-  value: percent ? formatPercent(value) : figure(value),
+  value: percent ? formatPercent(value) : value === 0 ? "—" : figure(value),
   title: value === null || percent ? undefined : figure(value) + " PKR",
   readOnly: true,
   numeric: true,
 });
-const moneyRange = ({ min, max }: { min: number; max: number }) =>
-  `${formatPKR(min)} – ${formatPKR(max)}`;
+const moneyRange = ({ min, max }: { min: number; max: number }) => (
+  <span title={`${figure(min)} – ${figure(max)} PKR`}>
+    {min === 0 ? "—" : formatPKR(min)} – {max === 0 ? "—" : formatPKR(max)}
+  </span>
+);
+const summaryMoney = (value: number): Cell => ({
+  ...computed(value),
+  value: value === 0 ? "—" : formatPKR(value),
+});
 const moneyInput = (value?: number, fallback?: number, warning = false): Cell => ({
-  value: value === undefined && fallback === undefined ? "" : figure(value ?? fallback!),
+  value:
+    value === undefined && fallback === undefined
+      ? ""
+      : (value ?? fallback) === 0
+        ? "—"
+        : figure(value ?? fallback!),
   editValue: value === undefined ? "" : figure(value),
   title: warning
     ? "Min should not be more than Max"
@@ -70,7 +83,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </details>
   );
 }
-function Metrics({ values }: { values: [string, string][] }) {
+function Metrics({ values }: { values: [string, React.ReactNode][] }) {
   return (
     <dl className="feasibility-metrics">
       {values.map(([label, value]) => (
@@ -163,12 +176,14 @@ export function Feasibility({
   }
 
   const totals = calculateFeasibility(plan);
-  const values: [string, string][] = [
+  const values: [string, React.ReactNode][] = [
     ["Total estimated cost (PKR)", moneyRange(totals.cost)],
     ["Expected sales (PKR)", moneyRange(totals.expected)],
     [
       "Expected profit (PKR)",
-      `Worst ${formatPKR(totals.profit.worst)} / Best ${formatPKR(totals.profit.best)}`,
+      <>
+        Worst <Money value={totals.profit.worst} /> / Best <Money value={totals.profit.best} />
+      </>,
     ],
     [
       "Profit margin",
@@ -355,10 +370,16 @@ export function Feasibility({
         )}
         <p className="feasibility-total">
           <span>
-            Total min cost <strong>PKR {formatPKR(totals.cost.min)}</strong>
+            Total min cost{" "}
+            <strong>
+              PKR <Money value={totals.cost.min} />
+            </strong>
           </span>
           <span>
-            Total max cost <strong>PKR {formatPKR(totals.cost.max)}</strong>
+            Total max cost{" "}
+            <strong>
+              PKR <Money value={totals.cost.max} />
+            </strong>
           </span>
         </p>
       </Section>
@@ -518,7 +539,7 @@ export function Feasibility({
           }
           footer={
             <span>
-              Total capital PKR {formatPKR(totals.capital)} | Profit share{" "}
+              Total capital PKR <Money value={totals.capital} /> | Profit share{" "}
               {formatPercent(totals.share)}
             </span>
           }
@@ -533,7 +554,10 @@ export function Feasibility({
             key={side}
             className={`feasibility-total ${totals.gap[side] > 0 ? "funding-gap" : "funding-covered"}`}
           >
-            Funding gap ({side} cost case) <strong>PKR {formatPKR(totals.gap[side])}</strong>
+            Funding gap ({side} cost case){" "}
+            <strong>
+              PKR <Money value={totals.gap[side]} />
+            </strong>
           </p>
         ))}
       </Section>
@@ -569,12 +593,12 @@ export function Feasibility({
             id: row.id,
             cells: [
               { value: row.name || "Unnamed partner" },
-              computed(row.capital),
-              computed(totals.returns[i].worst.gain),
-              computed(totals.returns[i].worst.total),
+              summaryMoney(row.capital),
+              summaryMoney(totals.returns[i].worst.gain),
+              summaryMoney(totals.returns[i].worst.total),
               computed(totals.returns[i].worst.roi, true),
-              computed(totals.returns[i].best.gain),
-              computed(totals.returns[i].best.total),
+              summaryMoney(totals.returns[i].best.gain),
+              summaryMoney(totals.returns[i].best.total),
               computed(totals.returns[i].best.roi, true),
             ],
           }))}

@@ -22,7 +22,7 @@ it("shows a titled work-in-progress page for every sidebar item", async () => {
   render(<AppRouter />);
   await screen.findByRole("heading", { name: "Dashboard" });
   for (const name of [
-    "Lands",
+    "Lands (overview of all land)",
     "Add Entry",
     "Ledger",
     "Bank Accounts",

@@ -23,14 +23,28 @@ export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
     .filter((group) => group.items.length);
   const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (!window.matchMedia("(max-width: 760px)").matches) return;
     const nav = navRef.current;
-    const active = nav?.querySelector<HTMLElement>(".workspace-nav-link.is-active");
-    if (!nav || !active) return;
-    const navBounds = nav.getBoundingClientRect();
-    const activeBounds = active.getBoundingClientRect();
-    nav.scrollLeft +=
-      activeBounds.left - navBounds.left - (navBounds.width - activeBounds.width) / 2;
+    if (!nav) return;
+    const update = () =>
+      nav.parentElement?.toggleAttribute(
+        "data-more",
+        nav.scrollTop + nav.clientHeight < nav.scrollHeight - 2,
+      );
+    const active = nav.querySelector<HTMLElement>(".workspace-nav-link.is-active");
+    if (active) {
+      const item = active.getBoundingClientRect();
+      const viewport = nav.getBoundingClientRect();
+      if (item.top < viewport.top) nav.scrollTop += item.top - viewport.top;
+      if (item.bottom > viewport.bottom) nav.scrollTop += item.bottom - viewport.bottom;
+    }
+    update();
+    nav.addEventListener("scroll", update, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(nav);
+    return () => {
+      nav.removeEventListener("scroll", update);
+      observer?.disconnect();
+    };
   }, [pathname]);
   return (
     <aside
@@ -48,27 +62,29 @@ export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
           <small>BUILDERS & DEVELOPERS</small>
         </span>
       </NavLink>
-      <nav ref={navRef} aria-label="Main navigation">
-        {visibleGroups.map((group) => (
-          <div className="nav-group" key={group.label}>
-            <p className="sidebar-caption">{group.label}</p>
-            {group.items.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === "/"}
-                style={{ "--nav-color": "#d2ad65" } as CSSProperties}
-                className={({ isActive }) => cn("workspace-nav-link", isActive && "is-active")}
-              >
-                <span className="sidebar-link-icon">
-                  <Icon size={19} aria-hidden="true" />
-                </span>
-                <span className="sidebar-link-label">{label}</span>
-              </NavLink>
-            ))}
-          </div>
-        ))}
-      </nav>
+      <div className="sidebar-nav-wrap">
+        <nav ref={navRef} aria-label="Main navigation">
+          {visibleGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <p className="sidebar-caption">{group.label}</p>
+              {group.items.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === "/"}
+                  style={{ "--nav-color": "#d2ad65" } as CSSProperties}
+                  className={({ isActive }) => cn("workspace-nav-link", isActive && "is-active")}
+                >
+                  <span className="sidebar-link-icon">
+                    <Icon size={19} aria-hidden="true" />
+                  </span>
+                  <span className="sidebar-link-label">{label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </nav>
+      </div>
       <div className="sidebar-building-scene" aria-hidden="true">
         <img src={buildingElevation} alt="" />
         <span>From foundation to skyline</span>
