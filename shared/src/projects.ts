@@ -34,19 +34,9 @@ export const budgetSchema = z.object({
   partners: z.array(partnerSchema).max(50),
 });
 export const projectName = z.string().trim().min(1, "Enter a project name").max(120);
-export const purchaseSchema = z
-  .object({
-    seller: projectName,
-    date: z.string().date(),
-    price: amount,
-    paid: amount,
-    area: areaSchema.nullable(),
-  })
-  .refine((d) => d.paid <= d.price, "Amount paid cannot exceed the total price.");
 export type Basics = z.infer<typeof basicsSchema>;
 export type Budget = z.infer<typeof budgetSchema>;
 export type Partner = z.infer<typeof partnerSchema>;
-export type Purchase = z.infer<typeof purchaseSchema> & { id: string };
 export type ProjectFile = { id: string; name: string; purchaseId: string | null };
 export type Project = Basics &
   Budget & { id: string; name: string; draft: boolean; createdAt: string; updatedAt: string };

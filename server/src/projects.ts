@@ -2,14 +2,7 @@ import { registerProjectSite } from "./projectSite";
 import { feasibilitySchema } from "@baloch/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import {
-  basicsSchema,
-  budgetSchema,
-  emptyBasics,
-  emptyBudget,
-  projectName,
-  purchaseSchema,
-} from "@baloch/shared";
+import { basicsSchema, budgetSchema, emptyBasics, emptyBudget, projectName } from "@baloch/shared";
 import { pool, transaction } from "./db";
 
 const read = { config: { permission: "projects" as const } };
@@ -228,26 +221,6 @@ export function registerProjectRoutes(app: FastifyInstance) {
       ),
     ]);
     return { purchases: purchases.rows.map((row) => row.purchase), files: files.rows };
-  });
-  app.post("/api/projects/:id/land", write, async (request) => {
-    const { purchase, files } = z
-      .object({ purchase: purchaseSchema, files: z.array(fileSchema).max(5) })
-      .parse(request.body);
-    return transaction(request.actor!.id, async (c) => {
-      const row = (
-        await c.query(
-          "INSERT INTO project_purchases(project_id,details) SELECT id,$2 FROM projects WHERE code=$1 RETURNING id,project_id",
-          [code(request), JSON.stringify(purchase)],
-        )
-      ).rows[0];
-      if (!row) throw missing();
-      for (const file of files)
-        await c.query(
-          "INSERT INTO project_files(project_id,purchase_id,name,content) VALUES($1,$2,$3,$4)",
-          [row.project_id, row.id, file.name, file.content],
-        );
-      return { id: row.id, ...purchase };
-    });
   });
   app.post("/api/projects/:id/files", write, async (request) => {
     const file = fileSchema.parse(request.body);
