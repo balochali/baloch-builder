@@ -237,9 +237,7 @@ export function ProjectLand({
           </button>
         )}
       </div>
-      <p className="site-banner">
-        Price, payments and funding are recorded in the Land Purchase tab (coming soon).
-      </p>
+      <p className="site-banner">Land prices, payments and funding will be added here later.</p>
       <dl className="feasibility-metrics">
         <div>
           <dt>Number of parcels</dt>
