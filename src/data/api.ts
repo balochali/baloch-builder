@@ -2,6 +2,9 @@ export const SESSION_EXPIRED_EVENT = "baloch:session-expired";
 export const SESSION_EXPIRED_MESSAGE = "Your session has expired. Please sign in again.";
 
 export async function api<T = unknown>(url: string, method = "GET", data?: unknown): Promise<T> {
+  if (localStorage.getItem("baloch:locked") && !["login", "logout"].includes(url)) {
+    throw new Error(SESSION_EXPIRED_MESSAGE);
+  }
   let response: Response;
   try {
     response = await fetch(`/api/${url}`, {

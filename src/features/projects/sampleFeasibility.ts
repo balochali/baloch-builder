@@ -1,0 +1,211 @@
+import type { FeasibilityData } from "@baloch/shared";
+
+export const sampleFeasibility = {
+  feasibility: {
+    status: "draft",
+    approvedAt: null,
+    costCategories: [
+      {
+        id: "c1",
+        name: "Land",
+        rows: [
+          {
+            id: "r1",
+            item: "Land purchase price",
+            minAmount: 60000000,
+            maxAmount: 60000000,
+            notes: "1 kanal, corner plot",
+          },
+          {
+            id: "r2",
+            item: "Registration / stamp duty",
+            minAmount: 3000000,
+            maxAmount: 3000000,
+            notes: "About 5%",
+          },
+          {
+            id: "r3",
+            item: "Broker commission",
+            minAmount: 500000,
+            maxAmount: 600000,
+            notes: "About 1%",
+          },
+          { id: "r4", item: "Legal fees", minAmount: 100000, maxAmount: 150000, notes: "" },
+        ],
+      },
+      {
+        id: "c2",
+        name: "Approvals",
+        rows: [
+          {
+            id: "r5",
+            item: "Building plan approval",
+            minAmount: 300000,
+            maxAmount: 400000,
+            notes: "",
+          },
+          { id: "r6", item: "Authority fees", minAmount: 1000000, maxAmount: 1200000, notes: "" },
+          { id: "r7", item: "NOC", minAmount: 100000, maxAmount: 150000, notes: "" },
+          {
+            id: "r8",
+            item: "Utility connections",
+            minAmount: 1200000,
+            maxAmount: 1500000,
+            notes: "Gas, electricity, water",
+          },
+        ],
+      },
+      {
+        id: "c3",
+        name: "Construction",
+        rows: [
+          {
+            id: "r9",
+            item: "Structure materials",
+            minAmount: 27000000,
+            maxAmount: 32000000,
+            notes: "Cement, steel, blocks",
+          },
+          {
+            id: "r10",
+            item: "Finishing materials",
+            minAmount: 12000000,
+            maxAmount: 15000000,
+            notes: "Tiles, paint, doors",
+          },
+          {
+            id: "r11",
+            item: "Electrical & plumbing materials",
+            minAmount: 5000000,
+            maxAmount: 6500000,
+            notes: "",
+          },
+          { id: "r12", item: "Lifts", minAmount: 5500000, maxAmount: 6500000, notes: "2 lifts" },
+          { id: "r13", item: "Elevation", minAmount: 3500000, maxAmount: 4500000, notes: "" },
+        ],
+      },
+      {
+        id: "c4",
+        name: "Contractors",
+        rows: [
+          {
+            id: "r14",
+            item: "Structure contractor",
+            minAmount: 8000000,
+            maxAmount: 9500000,
+            notes: "Quoted",
+            type: "Labour",
+          },
+          {
+            id: "r15",
+            item: "Finishing contractor",
+            minAmount: 5500000,
+            maxAmount: 6500000,
+            notes: "Quoted",
+            type: "Labour",
+          },
+          {
+            id: "r16",
+            item: "Electrical & plumbing contractor",
+            minAmount: 2500000,
+            maxAmount: 3000000,
+            notes: "Quoted",
+            type: "Labour",
+          },
+        ],
+      },
+      {
+        id: "c5",
+        name: "Site & overheads",
+        rows: [
+          {
+            id: "r17",
+            item: "Site staff",
+            minAmount: 2200000,
+            maxAmount: 2600000,
+            notes: "18 months",
+          },
+          { id: "r18", item: "Fuel", minAmount: 500000, maxAmount: 700000, notes: "" },
+          { id: "r19", item: "Utilities", minAmount: 300000, maxAmount: 500000, notes: "" },
+          { id: "r20", item: "Security", minAmount: 500000, maxAmount: 500000, notes: "" },
+          { id: "r21", item: "Office", minAmount: 500000, maxAmount: 700000, notes: "" },
+        ],
+      },
+      {
+        id: "c6",
+        name: "Sales & marketing",
+        rows: [
+          { id: "r22", item: "Advertising", minAmount: 800000, maxAmount: 1200000, notes: "" },
+          {
+            id: "r23",
+            item: "Sales commission",
+            minAmount: 2000000,
+            maxAmount: 3000000,
+            notes: "",
+          },
+        ],
+      },
+      {
+        id: "c7",
+        name: "Financing & taxes",
+        rows: [
+          { id: "r24", item: "Loan markup", minAmount: 1000000, maxAmount: 2000000, notes: "" },
+          { id: "r25", item: "Taxes", minAmount: 1800000, maxAmount: 2200000, notes: "" },
+        ],
+      },
+      { id: "c8", name: "Contingency", rows: [], contingencyPercent: 5 },
+    ],
+    salesRows: [
+      {
+        id: "s1",
+        unitType: "2-bed flat",
+        count: 10,
+        areaSqft: 900,
+        minRatePerSqft: 11000,
+        maxRatePerSqft: 12500,
+        soldPercent: 100,
+      },
+      {
+        id: "s2",
+        unitType: "3-bed flat",
+        count: 5,
+        areaSqft: 1300,
+        minRatePerSqft: 11000,
+        maxRatePerSqft: 12500,
+        soldPercent: 100,
+      },
+      {
+        id: "s3",
+        unitType: "Shop",
+        count: 4,
+        areaSqft: 300,
+        minRatePerSqft: 22000,
+        maxRatePerSqft: 27000,
+        soldPercent: 75,
+      },
+    ],
+    partners: [
+      {
+        id: "p1",
+        name: "Partner AP",
+        contributionType: "Land",
+        capital: 60000000,
+        profitSharePercent: 40,
+      },
+      {
+        id: "p2",
+        name: "Partner BR",
+        contributionType: "Cash",
+        capital: 40000000,
+        profitSharePercent: 35,
+      },
+      {
+        id: "p3",
+        name: "Partner CR",
+        contributionType: "Cash",
+        capital: 30000000,
+        profitSharePercent: 25,
+      },
+    ],
+  },
+} satisfies { feasibility: Omit<FeasibilityData, "updatedAt"> };

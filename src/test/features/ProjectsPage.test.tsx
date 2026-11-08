@@ -1,52 +1,100 @@
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
-import { listProjects } from "@/data/repositories/projectsRepository";
-
-vi.mock("@/data/repositories/projectsRepository", () => ({
-  listProjects: vi.fn(), createProject: vi.fn(),
-  CreateProjectSchema: { parse: vi.fn() },
-}));
-
-describe("ProjectsPage", () => {
-  beforeEach(() => {
-    vi.mocked(listProjects).mockResolvedValue([{
-      id: "11111111-1111-4111-8111-111111111111", name: "Baloch Residency",
-      code: "BR-01", location: "Quetta", status: "planning", start_date: null,
-      description: null, archived: 0, custom: "{}", created_at: "2026-09-22",
-      updated_at: "2026-09-22",
-    }]);
+import { afterEach, expect, it, vi } from "vitest";
+import { ProjectsPage } from "@/features/projects/ProjectsPage";
+import { api } from "@/data/api";
+vi.mock("@/data/api", () => ({ api: vi.fn() }));
+afterEach(() => vi.resetAllMocks());
+it("lists saved projects and saves the trimmed name as a new card", async () => {
+  vi.mocked(api)
+    .mockResolvedValueOnce([{ id: "1", name: "Existing Heights", created_at: "2026-11-06" }])
+    .mockResolvedValueOnce({ id: "P-002" })
+    .mockResolvedValueOnce({ id: "P-002", name: "Baloch Heights", draft: true });
+  render(
+    <MemoryRouter>
+      <ProjectsPage role="admin" />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole("heading", { name: "Existing Heights" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "New project" }));
+  expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("Project name"), {
+    target: { value: "  Baloch Heights  " },
   });
+  await waitFor(() => expect(screen.getByLabelText("Project ID")).toHaveValue("P-002"));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(await screen.findByRole("heading", { name: "Project basics" })).toBeInTheDocument();
+  expect(api).toHaveBeenLastCalledWith("projects", "POST", { id: "P-002", name: "Baloch Heights" });
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByRole("link", { name: /Baloch Heights/ })).toHaveAttribute(
+    "href",
+    "/projects/P-002",
+  );
+});
+it("preserves the name and keeps the modal open after a failed save", async () => {
+  vi.mocked(api)
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce({ id: "P-002" })
+    .mockRejectedValueOnce(new Error("Unable to save"));
+  render(
+    <MemoryRouter>
+      <ProjectsPage role="admin" />
+    </MemoryRouter>,
+  );
+  await screen.findByText("A blank canvas for your next landmark.");
+  fireEvent.click(screen.getByRole("button", { name: "New project" }));
+  fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New Tower" } });
+  await waitFor(() => expect(screen.getByLabelText("Project ID")).toHaveValue("P-002"));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to save");
+  expect(screen.getByLabelText("Project name")).toHaveValue("New Tower");
+});
+it("allows construction users to view projects without creating them", async () => {
+  vi.mocked(api).mockResolvedValueOnce([]);
+  render(
+    <MemoryRouter>
+      <ProjectsPage role="construction" />
+    </MemoryRouter>,
+  );
+  await screen.findByText("A blank canvas for your next landmark.");
+  expect(screen.queryByRole("button", { name: "New project" })).not.toBeInTheDocument();
+});
 
-  it("shows searchable project cards that link to their detail page", async () => {
-    render(<MemoryRouter><ProjectsPage /></MemoryRouter>);
-    const card = await screen.findByRole("link", { name: /Baloch Residency/i });
-    expect(card).toHaveAttribute("href", "/projects/11111111-1111-4111-8111-111111111111");
-    fireEvent.click(screen.getByText("Search & filter projects"));
-    fireEvent.change(screen.getByRole("textbox", { name: "Search projects" }),
-      { target: { value: "unknown" } });
-    await waitFor(() => expect(screen.getByText("No projects match your search.")).toBeInTheDocument());
-    expect(screen.queryByRole("link", { name: /Baloch Residency/i })).not.toBeInTheDocument();
+it("updates the draft at each step and opens its detail route after creation", async () => {
+  const draft = { id: "P-003", name: "Harbour Plaza", draft: true };
+  vi.mocked(api).mockImplementation(async (url, method, data) => {
+    if (url === "projects/reserve-id") return { id: draft.id };
+    if (url === "projects/partner-options") return [];
+    if (method === "POST") return draft;
+    if (method === "PATCH")
+      return { ...draft, draft: (data as { step: string }).step !== "finish" };
+    return [];
   });
-  it("shows distinct project stages and keeps paused projects out of the active count", async () => {
-    const base = (await vi.mocked(listProjects)())[0];
-    vi.mocked(listProjects).mockResolvedValue([
-      {...base, id: "planning", name: "Planning project", status: "planning"},
-      {...base, id: "building", name: "Building project", status: "under construction"},
-      {...base, id: "done", name: "Finished project", status: "completed"},
-      {...base, id: "paused", name: "Paused project", status: "on hold"},
-    ]);
-    render(<MemoryRouter><ProjectsPage /></MemoryRouter>);
-    const building = await screen.findByRole("link", { name: /Building project/ });
-    expect(building).toHaveTextContent("Under construction");
-    expect(building).toHaveTextContent("Stage 3 of 4");
-    const paused = screen.getByRole("link", { name: /Paused project/ });
-    expect(paused).toHaveTextContent("Work is paused");
-    expect(paused.querySelector('[aria-current="step"]')).toBeNull();
-    const active = screen.getByText("In progress").parentElement!;
-    expect(active.querySelector('strong')).toHaveTextContent('2');
-    expect(screen.getByRole('link', {name:/Finished project/})).toHaveTextContent('Stage 4 of 4');
+  render(
+    <MemoryRouter initialEntries={["/projects"]}>
+      <Routes>
+        <Route path="/projects" element={<ProjectsPage role="admin" />} />
+        <Route path="/projects/P-003" element={<h1>Harbour Plaza details</h1>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText("A blank canvas for your next landmark.");
+  fireEvent.click(screen.getByRole("button", { name: "New project" }));
+  await waitFor(() => expect(screen.getByLabelText("Project ID")).toHaveValue(draft.id));
+  fireEvent.change(screen.getByLabelText("Project name"), { target: { value: draft.name } });
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  fireEvent.change(await screen.findByLabelText("City"), { target: { value: "Karachi" } });
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  await screen.findByRole("heading", { name: "Partners & budget" });
+  expect(api).toHaveBeenCalledWith("projects/P-003", "PATCH", {
+    step: "basics",
+    basics: expect.objectContaining({ city: "Karachi", status: "Planning" }),
   });
-
+  fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
+  expect(await screen.findByRole("heading", { name: "Harbour Plaza details" })).toBeInTheDocument();
+  expect(api).toHaveBeenCalledWith("projects/P-003", "PATCH", {
+    step: "finish",
+    budget: { estimatedBudget: null, partners: [] },
+  });
 });

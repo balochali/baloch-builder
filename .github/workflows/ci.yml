@@ -36,7 +36,6 @@ jobs:
       - run: node scripts/init-database.mjs
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run test:legacy
-      - run: npm run test -w @baloch/shared
-      - run: npm run test:server
+      - run: npm run migrate -w @baloch/server
+      - run: npm test
       - run: npm run build

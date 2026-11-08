@@ -1,3 +1,4 @@
+import { navigation } from "../navigation";
 import type { Role } from "@baloch/shared";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { useRef, useState } from "react";
@@ -15,26 +16,16 @@ export function AppShell({ onLogout, role }: AppShellProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
+  const detailPath = pathname.match(/^\/projects\/[^/]+/)?.[0];
+  const [projectTitle, setProjectTitle] = useState<string>();
+
   const { theme, setTheme } = useThemeStore();
-  const section = pathname.startsWith("/projects/")
-    ? "Project details"
-    : ((
-      {
-        "/": "Dashboard",
-        "/vouchers":"Vouchers", "/journal":"General journal", "/trial-balance":"Trial Balance", "/accounts":"Chart of accounts", "/periods":"Fiscal periods", "/users":"Users and roles", "/assignments":"Project assignments", "/audit":"Audit log",
-        "/contacts": "Contacts",
-        "/land": "Land",
-        "/sheet": "Sheet Entry",
-        "/documents": "Documents",
-        "/projects": "Projects",
-        "/partners": "Partners",
-        "/personal-expense": "Personal Expense",
-        "/credit-udhaar": "Credit / Udhaar",
-        "/personal-deposit": "Personal Deposit / Amanat",
-        "/bank": "Bank",
-        "/settings": "Settings",
-      } as Record<string, string>
-    )[pathname] ?? "Workspace");
+  const section =
+    navigation
+      .flatMap((group) => [...group.items])
+      .find(
+        (item) => pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to + "/")),
+      )?.label ?? "Workspace";
   return (
     <div className="app-shell">
       <a
@@ -93,7 +84,7 @@ export function AppShell({ onLogout, role }: AppShellProps) {
                   <ChevronRight size={14} />
                 </>
               )}
-              <strong>{section}</strong>
+              <strong>{detailPath ? (projectTitle ?? "Project details") : section}</strong>
             </div>
           </div>
           <div className="topbar-tools">
@@ -118,8 +109,13 @@ export function AppShell({ onLogout, role }: AppShellProps) {
             </span>
           </div>
         </header>
-        <main key={pathname} id="workspace-content" tabIndex={-1} className="app-main">
-          <Outlet />
+        <main
+          key={detailPath ?? pathname}
+          id="workspace-content"
+          tabIndex={-1}
+          className="app-main"
+        >
+          <Outlet context={setProjectTitle} />
         </main>
       </div>
     </div>

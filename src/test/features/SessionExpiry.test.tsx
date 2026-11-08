@@ -1,23 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api, SESSION_EXPIRED_MESSAGE } from "@/data/api";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { AppRouter } from "@/app/router";
 
-// Keep the real router, login, shell and API. Replace only the unrelated grid page.
-vi.mock("@/features/accounting/ProjectsPage", () => ({
-  ProjectsPage: () => (
-    <button
-      onClick={() => {
-        void api("accounts").catch(() => {});
-      }}
-    >
-      Load accounts
-    </button>
-  ),
-}));
 beforeEach(() => {
-  window.location.hash = "#/projects";
+  window.location.hash = "#/land";
   vi.stubGlobal(
     "matchMedia",
     vi.fn(() => ({ matches: false })),
@@ -40,7 +28,10 @@ it("returns from a working page to unchanged login on 401 and clears the message
   const loginStructure = baseline.container.firstElementChild!.outerHTML;
   baseline.unmount();
   const rendered = render(<AppRouter />);
-  fireEvent.click(await screen.findByRole("button", { name: "Load accounts" }));
+  expect(await screen.findByRole("heading", { name: "Lands" })).toBeInTheDocument();
+  await act(async () => {
+    await api("accounts").catch(() => {});
+  });
   expect(await screen.findByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
   expect(screen.getByRole("alert")).toHaveTextContent(SESSION_EXPIRED_MESSAGE);
   expect(screen.getByRole("alert")).toHaveStyle({ position: "fixed", top: "0px" });
@@ -49,7 +40,8 @@ it("returns from a working page to unchanged login on 401 and clears the message
   fireEvent.change(screen.getByLabelText("Username"), { target: { value: user.email } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "long-password" } });
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(await screen.findByRole("button", { name: "Load accounts" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
   await waitFor(() => expect(screen.queryByText(SESSION_EXPIRED_MESSAGE)).not.toBeInTheDocument());
 });
 it("does not show an expiry warning on the initial anonymous visit", async () => {

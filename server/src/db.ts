@@ -1,10 +1,8 @@
 import pg from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   connectionTimeoutMillis: 5000,
 });
-export const db = drizzle(pool);
 export async function assertRuntimeRole() {
   const { rows } =
     await pool.query(`SELECT r.rolname, r.rolsuper, r.rolcreatedb, r.rolcreaterole, r.rolbypassrls,

@@ -3,46 +3,10 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useRef, type CSSProperties } from "react";
 import "./sidebar.css";
 import buildingElevation from "@/assets/building-elevation.svg";
-import {
-  Landmark,
-  LayoutDashboard,
-  MapPin,
-  Users,
-  Wallet,
-  ShieldCheck,
-  ReceiptText,
-  BookUser,
-  Settings,
-  Building2,
-  HardDrive,
-  FolderOpen,
-  ArrowUpRight,
-  LogOut,
-} from "lucide-react";
+import { Building2, HardDrive, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { navigation } from "../navigation";
 
-const groups = [
-  {
-    label: "WORKSPACE",
-    items: [
-      { to: "/", label: "Dashboard", icon: LayoutDashboard, color: "#3b82f6" },
-      { to: "/projects", label: "Projects", icon: Building2, color: "#d2ad65" },
-      { to: "/land", label: "Land", icon: MapPin, color: "#f59e0b" },
-      { to: "/documents", label: "Documents", icon: FolderOpen, color: "#6366f1" },
-    ],
-  },
-  {
-    label: "PEOPLE & MONEY",
-    items: [
-      { to: "/contacts", label: "Contacts", icon: BookUser, color: "#06b6d4" },
-      { to: "/partners", label: "Partners", icon: Users, color: "#f97316" },
-      { to: "/personal-expense", label: "Personal Expense", icon: ReceiptText, color: "#ec4899" },
-      { to: "/bank", label: "Bank", icon: Landmark, color: "#10b981" },
-      { to: "/credit-udhaar", label: "Credit / Udhaar", icon: Wallet, color: "#8b5cf6" },
-      { to: "/personal-deposit", label: "Personal Deposit", icon: ShieldCheck, color: "#2dd4bf" },
-    ],
-  },
-];
 interface SidebarProps {
   onLogout: () => void;
   onNavigate?: () => void;
@@ -51,55 +15,12 @@ interface SidebarProps {
 
 export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
   const { pathname } = useLocation();
-  const visibleGroups = role
-    ? [
-        {
-          label: "WORKSPACE",
-          items: [
-            { to: "/projects", label: "Projects", icon: Building2, color: "#d2ad65" },
-            { to: "/land", label: "Lands", icon: MapPin, color: "#f59e0b" },
-            ...(can(role, "ledger")
-              ? [
-                  {
-                    to: "/personal-expense",
-                    label: "Personal Expenses",
-                    icon: ReceiptText,
-                    color: "#ec4899",
-                  },
-                  { to: "/credit-udhaar", label: "Udhaar", icon: Wallet, color: "#8b5cf6" },
-                  {
-                    to: "/personal-deposit",
-                    label: "Personal Deposit",
-                    icon: ShieldCheck,
-                    color: "#2dd4bf",
-                  },
-                ]
-              : []),
-          ],
-        },
-        ...(can(role, "ledger")
-          ? [
-              {
-                label: "BANK",
-                items: [
-                  {
-                    to: "/bank/personal",
-                    label: "Personal Account",
-                    icon: Landmark,
-                    color: "#10b981",
-                  },
-                  {
-                    to: "/bank/builder",
-                    label: "Builder Account",
-                    icon: Building2,
-                    color: "#3b82f6",
-                  },
-                ],
-              },
-            ]
-          : []),
-      ]
-    : groups;
+  const visibleGroups = navigation
+    .map(({ label, items }) => ({
+      label,
+      items: [...items].filter((item) => !role || can(role, item.permission)),
+    }))
+    .filter((group) => group.items.length);
   const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!window.matchMedia("(max-width: 760px)").matches) return;
@@ -131,12 +52,12 @@ export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
         {visibleGroups.map((group) => (
           <div className="nav-group" key={group.label}>
             <p className="sidebar-caption">{group.label}</p>
-            {group.items.map(({ to, label, icon: Icon, color }) => (
+            {group.items.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={to === "/"}
-                style={{ "--nav-color": color } as CSSProperties}
+                style={{ "--nav-color": "#d2ad65" } as CSSProperties}
                 className={({ isActive }) => cn("workspace-nav-link", isActive && "is-active")}
               >
                 <span className="sidebar-link-icon">
@@ -162,19 +83,6 @@ export function Sidebar({ onLogout, onNavigate, role }: SidebarProps) {
             <span>Records stored on this device</span>
           </div>
         </div>
-        {(!role || can(role, "settings")) && (
-          <NavLink
-            to="/settings"
-            style={{ "--nav-color": "#94a3b8" } as CSSProperties}
-            className={({ isActive }) => cn("workspace-nav-link", isActive && "is-active")}
-          >
-            <span className="sidebar-link-icon">
-              <Settings size={19} aria-hidden="true" />
-            </span>
-            <span className="sidebar-link-label">Settings</span>
-            <ArrowUpRight className="sidebar-settings-arrow" size={15} aria-hidden="true" />
-          </NavLink>
-        )}
         <button
           type="button"
           className="workspace-nav-link sidebar-logout"

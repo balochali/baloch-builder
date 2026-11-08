@@ -1,47 +1,29 @@
-import { useEffect, useState, useRef, lazy, Suspense } from "react";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { can, type Permission } from "@baloch/shared";
+import { ChartAccounts } from "@/features/projects/ChartAccounts";
+import { PartnersMaster } from "@/features/projects/PartnersMaster";
+import { ProjectDetail } from "@/features/projects/ProjectDetail";
+import { ProjectsPage } from "@/features/projects/ProjectsPage";
+import { useEffect, useState, useRef } from "react";
+import { HashRouter, Routes, Route, Navigate, NavLink } from "react-router-dom";
+import { can } from "@baloch/shared";
 import { api, SESSION_EXPIRED_EVENT, SESSION_EXPIRED_MESSAGE } from "@/data/api";
+import { useSessionLock, waitForSessionLogout } from "@/features/auth/useSessionLock";
 import type { SessionUser } from "@/data/session";
 import { AuthPage } from "@/features/auth/AuthPage";
+import { DashboardWelcome } from "@/features/dashboard/DashboardWelcome";
 import { AppShell } from "./layout/AppShell";
-import {
-  WorkspaceSection,
-  workspaceSections,
-  type WorkspaceSectionName,
-} from "@/features/accounting/WorkspaceSection";
-const AccountingPage = lazy(() =>
-  import("@/features/accounting/AccountingPage").then((m) => ({ default: m.AccountingPage })),
-);
-const ProjectsPage = lazy(() =>
-  import("@/features/accounting/ProjectsPage").then((m) => ({ default: m.ProjectsPage })),
-);
-const ProjectWorkspace = lazy(() =>
-  import("@/features/accounting/ProjectWorkspace").then((m) => ({ default: m.ProjectWorkspace })),
-);
-const CostHeadsPage = lazy(() =>
-  import("@/features/accounting/CostHeadsPage").then((m) => ({ default: m.CostHeadsPage })),
-);
-const LegacyRouter = lazy(() => import("./LegacyRouter").then((m) => ({ default: m.AppRouter })));
-const screens: [string, Permission][] = [
-  ["projects", "projects"],
-  ["cost-heads", "costHeads"],
-  ["vouchers", "ledger"],
-  ["journal", "ledger"],
-  ["trial-balance", "ledger"],
-  ["accounts", "accounts"],
-  ["periods", "periods"],
-  ["users", "users"],
-  ["assignments", "users"],
-  ["audit", "audit"],
-  ["settings", "settings"],
-];
+import { navigation } from "./navigation";
+const screens = navigation.flatMap((group) => [...group.items]);
 function ServerRouter() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sessionError, setSessionError] = useState("");
   const authenticated = useRef(false);
+  useSessionLock(Boolean(user), () => {
+    authenticated.current = false;
+    setUser(null);
+    setSessionError("Your workspace was locked. Please sign in again.");
+  });
   useEffect(() => {
     let active = true;
     const expire = () => {
@@ -52,7 +34,7 @@ function ServerRouter() {
       setError("");
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, expire);
-    api<SessionUser>("me")
+    (localStorage.getItem("baloch:locked") ? Promise.reject() : api<SessionUser>("me"))
       .then((u) => {
         if (active) {
           authenticated.current = true;
@@ -97,13 +79,16 @@ function ServerRouter() {
           mode="login"
           onSuccess={() => {}}
           authenticate={async (username, password, totp) => {
+            await waitForSessionLogout();
             const u = await api<SessionUser>("login", "POST", {
-              email: username,
+              username,
               password,
               ...(totp ? { totp } : {}),
             });
+            localStorage.removeItem("baloch:locked");
             authenticated.current = true;
             setSessionError("");
+            window.location.hash = "#/";
             setUser(u);
           }}
         />
@@ -111,6 +96,7 @@ function ServerRouter() {
     );
   return (
     <HashRouter>
+      {error && <p role="alert">{error}</p>}
       <Routes>
         <Route
           element={
@@ -129,61 +115,75 @@ function ServerRouter() {
             />
           }
         >
-          <Route path="/" element={<Navigate to="/projects" replace />} />
-          {Object.keys(workspaceSections)
-            .filter((section) => can(user.role, section === "land" ? "projects" : "ledger"))
-            .map((section) => (
-              <Route
-                key={section}
-                path={"/" + section}
-                element={
-                  <WorkspaceSection key={section} section={section as WorkspaceSectionName} />
-                }
-              />
-            ))}
-          <Route path="/bank" element={<Navigate to="/bank/personal" replace />} />
-          <Route
-            path="/projects/:id"
-            element={
-              <Suspense fallback={<p>Loading project…</p>}>
-                <ProjectWorkspace user={user} />
-              </Suspense>
-            }
-          />
+          <Route path="/" element={<DashboardWelcome />} />
+          {can(user.role, "projects") && (
+            <>
+              <Route path="/projects" element={<ProjectsPage role={user.role} />} />
+              <Route path="/projects/:id/:tab?" element={<ProjectDetail role={user.role} />} />
+            </>
+          )}
+          {can(user.role, "ledger") && (
+            <>
+              <Route path="/partners" element={<PartnersMaster role={user.role} />} />
+              <Route path="/partners/:partnerId" element={<PartnersMaster role={user.role} />} />
+            </>
+          )}
+          {can(user.role, "accounts") && <Route path="/accounts" element={<ChartAccounts />} />}
           {screens
-            .filter(([, permission]) => can(user.role, permission))
-            .map(([screen]) => (
-              <Route
-                key={screen}
-                path={`/${screen}`}
-                element={
-                  <>
-                    {error && <p role="alert">{error}</p>}
-                    <Suspense fallback={<p>Loading records…</p>}>
-                      {screen === "projects" ? (
-                        <ProjectsPage user={user} />
-                      ) : screen === "cost-heads" ? (
-                        <CostHeadsPage />
-                      ) : (
-                        <AccountingPage key={screen} screen={screen} user={user} />
-                      )}
-                    </Suspense>
-                  </>
-                }
-              />
-            ))}
-          <Route path="*" element={<Navigate to="/projects" replace />} />
+            .filter(
+              (item) =>
+                !["/", "/projects", "/partners", "/accounts"].includes(item.to) &&
+                can(user.role, item.permission),
+            )
+            .flatMap((item) => {
+              const tabs = [...item.tabs];
+              const render = (label: string) => (
+                <>
+                  {tabs.length > 0 && (
+                    <nav
+                      aria-label={item.label + " sections"}
+                      className="mb-5 flex flex-wrap gap-2 border-b border-border pb-3"
+                    >
+                      {tabs.map((tab, index) => (
+                        <NavLink
+                          key={tab.slug}
+                          end
+                          to={index === 0 ? item.to : item.to + "/" + tab.slug}
+                          className={({ isActive }) =>
+                            "rounded-lg px-3 py-2 text-sm font-semibold " +
+                            (isActive
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:bg-muted")
+                          }
+                        >
+                          {tab.label}
+                        </NavLink>
+                      ))}
+                    </nav>
+                  )}
+                  <DashboardWelcome title={label} />
+                </>
+              );
+              return [
+                <Route key={item.to} path={item.to} element={render(item.label)} />,
+                ...tabs.map((tab, index) => (
+                  <Route
+                    key={item.to + tab.slug}
+                    path={item.to + "/" + tab.slug}
+                    element={index === 0 ? <Navigate to={item.to} replace /> : render(tab.label)}
+                  />
+                )),
+              ];
+            })}
+          <Route path="/personal-expense" element={<Navigate to="/personal" replace />} />
+          <Route path="/personal-deposit" element={<Navigate to="/personal/deposits" replace />} />
+          <Route path="/credit-udhaar" element={<Navigate to="/personal/udhaar" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </HashRouter>
   );
 }
 export function AppRouter() {
-  return import.meta.env.MODE === "legacy" ? (
-    <Suspense fallback={<p>Opening Baloch Builder…</p>}>
-      <LegacyRouter />
-    </Suspense>
-  ) : (
-    <ServerRouter />
-  );
+  return <ServerRouter />;
 }

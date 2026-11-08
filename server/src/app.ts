@@ -1,7 +1,5 @@
-import { registerCostHeadRoutes } from "./cost-heads";
-import { registerAssignmentRoutes } from "./assignments";
+import { registerFunding } from "./funding";
 import { registerProjectRoutes } from "./projects";
-import { registerWorkbookRoutes } from "./workbook";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -9,23 +7,11 @@ import Fastify, { type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import argon2 from "argon2";
-import { createHash, randomBytes, randomUUID, createCipheriv, createDecipheriv } from "node:crypto";
-import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
-import path from "node:path";
+import { createHash, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
 import { TOTP, Secret } from "otpauth";
-import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
-import {
-  can,
-  roleSchema,
-  voucherSchema,
-  dateSchema,
-  settingsSchema,
-  type Permission,
-  type Role,
-} from "@baloch/shared";
-import { pool, db, transaction, audit } from "./db";
-import { accounts } from "./schema";
+import { can, type Permission, type Role } from "@baloch/shared";
+import { pool, transaction, audit } from "./db";
 import { cleanupExpiredSessions } from "./sessions";
 import { parseTrustProxy, loginEmail } from "./auth-security";
 type Actor = { id: string; email: string; role: Role };
@@ -39,7 +25,6 @@ declare module "fastify" {
   }
 }
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
-const idParam = (r: FastifyRequest) => z.object({ id: z.string().uuid() }).parse(r.params).id;
 const actor = (r: FastifyRequest) => r.actor!;
 const fail = (message: string, statusCode = 400) =>
   Object.assign(new Error(message), { statusCode });
@@ -103,7 +88,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
     const token = r.cookies.session;
     if (token) {
       const { rows } = await pool.query(
-        "SELECT u.id,u.email,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.active",
+        "SELECT u.id,u.email,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND s.last_seen_at>now()-interval '30 seconds' AND u.active",
         [hash(token)],
       );
       r.actor = rows[0] ?? null;
@@ -155,17 +140,30 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
     async (r, reply) => {
       const data = z
         .object({
-          email: z.string().trim().max(254).email(),
+          username: z
+            .string()
+            .trim()
+            .min(3)
+            .max(64)
+            .regex(/^[a-zA-Z0-9_.-]+$/)
+            .optional(),
+          email: z.string().trim().max(254).email().optional(),
           password: z.string().max(256),
           totp: z
             .string()
             .regex(/^\d{6}$/)
             .optional(),
         })
+        .refine((d) => Boolean(d.username || d.email), "Username is required")
         .parse(r.body);
       await cleanupExpiredSessions();
       const user = (
-        await pool.query("SELECT * FROM users WHERE email=$1", [data.email.toLowerCase()])
+        await pool.query(
+          data.username
+            ? "SELECT * FROM users WHERE username=$1"
+            : "SELECT * FROM users WHERE email=$1 AND username IS NULL",
+          [(data.username ?? data.email!).toLowerCase()],
+        )
       ).rows[0];
       const passwordValid = await argon2.verify(
         user?.password_hash ?? dummyPasswordHash,
@@ -173,7 +171,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
       );
       if (!user || !user.active || !passwordValid) {
         await audit(null, "login_failed", "auth", null, {
-          email: data.email.toLowerCase().slice(0, 254),
+          username: (data.username ?? data.email!).toLowerCase().slice(0, 254),
         });
         throw fail("Invalid credentials", 401);
       }
@@ -215,6 +213,37 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
     reply.clearCookie("session", { path: "/" });
     return { ok: true };
   });
+  app.post(
+    "/api/change-password",
+    { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    async (r, reply) => {
+      const data = z
+        .object({ currentPassword: z.string().max(256), newPassword: z.string().min(12).max(256) })
+        .strict()
+        .parse(r.body);
+      await transaction(actor(r).id, async (c) => {
+        const user = (await c.query("SELECT * FROM users WHERE id=$1 FOR UPDATE", [actor(r).id]))
+          .rows[0];
+        if (!(await argon2.verify(user.password_hash, data.currentPassword)))
+          throw fail("Current password is incorrect", 400);
+        const passwordHash = await argon2.hash(data.newPassword, { type: argon2.argon2id });
+        await c.query("UPDATE users SET password_hash=$1,updated_at=now() WHERE id=$2", [
+          passwordHash,
+          user.id,
+        ]);
+        await c.query("DELETE FROM sessions WHERE user_id=$1", [user.id]);
+      });
+      reply.clearCookie("session", { path: "/" });
+      return { ok: true };
+    },
+  );
+  app.post("/api/heartbeat", async (r) => {
+    await pool.query(
+      "UPDATE sessions SET last_seen_at=now() WHERE token_hash=$1 AND last_seen_at>now()-interval '30 seconds'",
+      [hash(r.cookies.session ?? "")],
+    );
+    return { ok: true };
+  });
   app.get("/api/me", async (r) => actor(r));
   app.post("/api/totp/enroll", { config: { permission: "ledger" } }, async (r) => {
     const { password } = z.object({ password: z.string() }).parse(r.body);
@@ -250,400 +279,8 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
     await audit(actor(r).id, "totp_enabled", "auth");
     return { ok: true };
   });
-  app.get(
-    "/api/users",
-    { config: { permission: "users" } },
-    async () =>
-      (await pool.query("SELECT id,email,role,active,created_at FROM users ORDER BY email")).rows,
-  );
-  app.post("/api/users", { config: { permission: "users" } }, async (r) => {
-    const d = z
-      .object({
-        email: z.string().trim().max(254).email(),
-        password: z.string().min(12).max(256),
-        role: roleSchema,
-      })
-      .strict()
-      .parse(r.body);
-    const h = await argon2.hash(d.password, { type: argon2.argon2id });
-    return transaction(
-      actor(r).id,
-      async (c) =>
-        (
-          await c.query(
-            "INSERT INTO users(email,password_hash,role,created_by) VALUES($1,$2,$3,$4) RETURNING id,email,role,active",
-            [d.email.toLowerCase(), h, d.role, actor(r).id],
-          )
-        ).rows[0],
-    );
-  });
-  app.patch("/api/users/:id", { config: { permission: "users" } }, async (r) => {
-    const id = idParam(r);
-    const d = z.object({ role: roleSchema, active: z.boolean() }).strict().parse(r.body);
-    return transaction(actor(r).id, async (c) => {
-      await c.query("SELECT pg_advisory_xact_lock(782106)");
-      if (
-        (!d.active || d.role !== "admin") &&
-        (await c.query("SELECT id FROM users WHERE role='admin' AND active AND id<>$1", [id]))
-          .rowCount === 0
-      )
-        throw fail("Keep at least one active admin");
-      const result = await c.query(
-        "UPDATE users SET role=$1,active=$2,updated_at=now() WHERE id=$3 RETURNING id,email,role,active",
-        [d.role, d.active, id],
-      );
-      if (!result.rowCount) throw fail("Not found", 404);
-      await c.query("DELETE FROM sessions WHERE user_id=$1", [id]);
-      return result.rows[0];
-    });
-  });
-  app.get("/api/area-settings", { config: { permission: "projects" } }, async () => {
-    const value = (await pool.query("SELECT value FROM settings")).rows[0]?.value;
-    return {
-      areaDisplayUnit: value?.areaDisplayUnit ?? "sqft",
-      marlaSqft: value?.marlaSqft ?? "272.25",
-    };
-  });
   registerProjectRoutes(app);
-  registerWorkbookRoutes(app);
-  registerCostHeadRoutes(app);
-  registerAssignmentRoutes(app);
-  app.get("/api/accounts", { config: { permission: "accounts" } }, async () =>
-    db.select().from(accounts).orderBy(asc(accounts.code)),
-  );
-  const accountInput = z
-    .object({
-      code: z.string().regex(/^\d{4,12}$/),
-      name: z.string().min(1).max(200),
-      type: z.enum(["asset", "liability", "equity", "revenue", "expense"]),
-      normalBalance: z.enum(["debit", "credit"]),
-      parentId: z.string().uuid().nullable().default(null),
-      isCashBank: z.boolean().default(false),
-    })
-    .strict();
-  app.post("/api/accounts", { config: { permission: "accounts" } }, async (r) => {
-    const d = accountInput.parse(r.body);
-    return transaction(
-      actor(r).id,
-      async (c) =>
-        (
-          await c.query(
-            "INSERT INTO accounts(code,name,type,normal_balance,parent_id,is_cash_bank,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
-            [d.code, d.name, d.type, d.normalBalance, d.parentId, d.isCashBank, actor(r).id],
-          )
-        ).rows[0],
-    );
-  });
-  app.patch("/api/accounts/:id", { config: { permission: "accounts" } }, async (r) => {
-    const d = z
-      .object({ name: z.string().min(1).max(200), archived: z.boolean() })
-      .strict()
-      .parse(r.body);
-    await transaction(actor(r).id, async (c) => {
-      const out = await c.query("UPDATE accounts SET name=$1,archived=$2 WHERE id=$3", [
-        d.name,
-        d.archived,
-        idParam(r),
-      ]);
-      if (!out.rowCount) throw fail("Not found", 404);
-    });
-    return (
-      await db
-        .select()
-        .from(accounts)
-        .where(eq(accounts.id, idParam(r)))
-    )[0];
-  });
-  app.get(
-    "/api/periods",
-    { config: { permission: "periods" } },
-    async () =>
-      (
-        await pool.query(
-          "SELECT id,to_char(month,'YYYY-MM-DD') AS month,locked FROM fiscal_periods ORDER BY month",
-        )
-      ).rows,
-  );
-  app.post("/api/periods", { config: { permission: "periods" } }, async (r) => {
-    const d = z
-      .object({ month: dateSchema, locked: z.boolean().default(false) })
-      .strict()
-      .parse(r.body);
-    return transaction(
-      actor(r).id,
-      async (c) =>
-        (
-          await c.query(
-            "INSERT INTO fiscal_periods(month,locked,created_by) VALUES($1,$2,$3) RETURNING *",
-            [d.month, d.locked, actor(r).id],
-          )
-        ).rows[0],
-    );
-  });
-  app.patch("/api/periods/:id", { config: { permission: "periods" } }, async (r) => {
-    const d = z.object({ locked: z.boolean() }).strict().parse(r.body);
-    return transaction(
-      actor(r).id,
-      async (c) =>
-        (
-          await c.query("UPDATE fiscal_periods SET locked=$1 WHERE id=$2 RETURNING *", [
-            d.locked,
-            idParam(r),
-          ])
-        ).rows[0] ?? Promise.reject(fail("Not found", 404)),
-    );
-  });
-  app.get(
-    "/api/settings",
-    { config: { permission: "settings" } },
-    async () => (await pool.query("SELECT value FROM settings")).rows[0]?.value,
-  );
-  app.put("/api/settings", { config: { permission: "settings" } }, async (r) => {
-    const value = settingsSchema.parse(r.body);
-    await transaction(actor(r).id, async (c) => {
-      await c.query("SELECT accounting_lock()");
-      const previous = (await c.query("SELECT value FROM settings FOR UPDATE")).rows[0]?.value;
-      if (
-        previous.fiscalYearStartMonth !== value.fiscalYearStartMonth &&
-        (await c.query("SELECT 1 FROM vouchers WHERE status='posted' LIMIT 1")).rowCount
-      )
-        throw fail("Fiscal-year start cannot change after posting");
-      await c.query("UPDATE settings SET value=$1,updated_at=now()", [value]);
-    });
-    return value;
-  });
-  app.get(
-    "/api/vouchers",
-    { config: { permission: "ledger" } },
-    async () =>
-      (
-        await pool.query(
-          "SELECT id,type,to_char(date,'YYYY-MM-DD') AS date,narration,status,number,reverses_id,correction_of_id,created_by FROM vouchers ORDER BY date DESC,created_at DESC",
-        )
-      ).rows,
-  );
-  app.get("/api/vouchers/:id", { config: { permission: "ledger" } }, async (r) => {
-    const id = idParam(r);
-    const v = (
-      await pool.query("SELECT *,to_char(date,'YYYY-MM-DD') AS date FROM vouchers WHERE id=$1", [
-        id,
-      ])
-    ).rows[0];
-    if (!v) throw fail("Not found", 404);
-    return {
-      ...v,
-      lines: (
-        await pool.query(
-          'SELECT id,account_id AS "accountId",project_id AS "projectId",cost_head_id AS "costHeadId",debit::text,credit::text,narration,partner_id AS "partnerId",supplier_id AS "supplierId",buyer_id AS "buyerId",unit_id AS "unitId" FROM voucher_lines WHERE voucher_id=$1 AND NOT archived ORDER BY created_at,id',
-          [id],
-        )
-      ).rows,
-    };
-  });
-  const saveVoucher = async (r: FastifyRequest, update: boolean) => {
-    const d = voucherSchema.parse(r.body);
-    return transaction(actor(r).id, async (c) => {
-      await c.query("SELECT accounting_lock()");
-      let id: string;
-      if (update) {
-        id = idParam(r);
-        const changed = await c.query(
-          "UPDATE vouchers SET type=$1,date=$2,narration=$3 WHERE id=$4 RETURNING id",
-          [d.type, d.date, d.narration, id],
-        );
-        if (!changed.rowCount) throw fail("Not found", 404);
-        await c.query(
-          "UPDATE voucher_lines SET archived=true WHERE voucher_id=$1 AND NOT archived",
-          [id],
-        );
-      } else {
-        id = (
-          await c.query(
-            "INSERT INTO vouchers(type,date,narration,created_by,correction_of_id) VALUES($1,$2,$3,$4,$5) RETURNING id",
-            [d.type, d.date, d.narration, actor(r).id, d.correctionOfId ?? null],
-          )
-        ).rows[0].id;
-      }
-      for (const l of d.lines)
-        await c.query(
-          "INSERT INTO voucher_lines(voucher_id,account_id,project_id,debit,credit,narration,partner_id,supplier_id,buyer_id,unit_id,created_by,cost_head_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
-          [
-            id,
-            l.accountId,
-            l.projectId,
-            l.debit,
-            l.credit,
-            l.narration,
-            l.partnerId,
-            l.supplierId,
-            l.buyerId,
-            l.unitId,
-            actor(r).id,
-            l.costHeadId ?? null,
-          ],
-        );
-      return { id };
-    });
-  };
-  app.post("/api/vouchers", { config: { permission: "ledger" } }, async (r) =>
-    saveVoucher(r, false),
-  );
-  app.put("/api/vouchers/:id", { config: { permission: "ledger" } }, async (r) =>
-    saveVoucher(r, true),
-  );
-  app.post("/api/vouchers/:id/post", { config: { permission: "ledger" } }, async (r) =>
-    transaction(actor(r).id, async (c) => {
-      await c.query("SELECT accounting_lock()");
-      const result = await c.query("UPDATE vouchers SET status='posted' WHERE id=$1 RETURNING *", [
-        idParam(r),
-      ]);
-      if (!result.rowCount) throw fail("Not found", 404);
-      return result.rows[0];
-    }),
-  );
-  app.post("/api/vouchers/:id/reverse", { config: { permission: "ledger" } }, async (r) => {
-    const d = z
-      .object({ date: dateSchema, narration: z.string().min(1).max(1000) })
-      .strict()
-      .parse(r.body);
-    return transaction(actor(r).id, async (c) => {
-      await c.query("SELECT accounting_lock()");
-      const original = (
-        await c.query("SELECT * FROM vouchers WHERE id=$1 AND status='posted' FOR UPDATE", [
-          idParam(r),
-        ])
-      ).rows[0];
-      if (!original) throw fail("Posted voucher not found", 404);
-      const v = (
-        await c.query(
-          "INSERT INTO vouchers(type,date,narration,reverses_id,created_by) VALUES('JV',$1,$2,$3,$4) RETURNING id",
-          [d.date, d.narration, original.id, actor(r).id],
-        )
-      ).rows[0];
-      await c.query(
-        "INSERT INTO voucher_lines(voucher_id,account_id,project_id,debit,credit,narration,partner_id,supplier_id,buyer_id,unit_id,created_by,cost_head_id) SELECT $1,account_id,project_id,credit,debit,narration,partner_id,supplier_id,buyer_id,unit_id,$2,cost_head_id FROM voucher_lines WHERE voucher_id=$3 AND NOT archived",
-        [v.id, actor(r).id, original.id],
-      );
-      return v;
-    });
-  });
-  app.get("/api/journal", { config: { permission: "ledger" } }, async (r) => {
-    const q = z
-      .object({
-        projectId: z.string().uuid().optional(),
-        from: dateSchema.optional(),
-        to: dateSchema.optional(),
-      })
-      .parse(r.query);
-    return (
-      await pool.query(
-        "SELECT l.id,v.number,to_char(v.date,'YYYY-MM-DD') AS date,a.code,a.name,p.name AS project,l.debit::text,l.credit::text,l.narration FROM voucher_lines l JOIN vouchers v ON v.id=l.voucher_id JOIN accounts a ON a.id=l.account_id JOIN projects p ON p.id=l.project_id WHERE v.status='posted' AND NOT l.archived AND ($1::uuid IS NULL OR l.project_id=$1) AND ($2::date IS NULL OR v.date>=$2) AND ($3::date IS NULL OR v.date<=$3) ORDER BY v.date,v.number,a.code",
-        [q.projectId, q.from, q.to],
-      )
-    ).rows;
-  });
-  app.get("/api/trial-balance", { config: { permission: "ledger" } }, async (r) => {
-    const q = z
-      .object({
-        projectId: z.string().uuid().optional(),
-        from: dateSchema.optional(),
-        to: dateSchema.optional(),
-      })
-      .parse(r.query);
-    return (
-      await pool.query(
-        "WITH balances AS (SELECT l.account_id,sum(l.debit) AS debit,sum(l.credit) AS credit FROM voucher_lines l JOIN vouchers v ON v.id=l.voucher_id WHERE v.status='posted' AND NOT l.archived AND ($1::uuid IS NULL OR l.project_id=$1) AND ($2::date IS NULL OR v.date>=$2) AND ($3::date IS NULL OR v.date<=$3) GROUP BY l.account_id) SELECT a.id,a.code,a.name,a.type,coalesce(b.debit,0)::text AS movement_debit,coalesce(b.credit,0)::text AS movement_credit,greatest(coalesce(b.debit,0)-coalesce(b.credit,0),0)::text AS debit,greatest(coalesce(b.credit,0)-coalesce(b.debit,0),0)::text AS credit FROM accounts a LEFT JOIN balances b ON a.id=b.account_id ORDER BY a.code",
-        [q.projectId, q.from, q.to],
-      )
-    ).rows;
-  });
-  app.get(
-    "/api/audit",
-    { config: { permission: "audit" } },
-    async () => (await pool.query("SELECT * FROM audit_log ORDER BY created_at DESC")).rows,
-  );
-  app.get("/api/views/:screen", async (r) => {
-    const { screen } = z.object({ screen: z.string().max(80) }).parse(r.params);
-    return (
-      (
-        await pool.query("SELECT value FROM saved_views WHERE user_id=$1 AND screen=$2", [
-          actor(r).id,
-          screen,
-        ])
-      ).rows[0]?.value ?? null
-    );
-  });
-  app.put("/api/views/:screen", async (r) => {
-    const { screen } = z.object({ screen: z.string().max(80) }).parse(r.params);
-    const value = z
-      .object({ columns: z.array(z.unknown()), filters: z.record(z.unknown()) })
-      .parse(r.body);
-    await transaction(actor(r).id, (c) =>
-      c.query(
-        "INSERT INTO saved_views(user_id,screen,value,created_by) VALUES($1,$2,$3,$1) ON CONFLICT(user_id,screen) DO UPDATE SET value=excluded.value,updated_at=now()",
-        [actor(r).id, screen, value],
-      ),
-    );
-    return { ok: true };
-  });
-  const attachmentRoot = path.resolve(process.env.ATTACHMENT_DIR ?? "./var/attachments");
-  app.get(
-    "/api/vouchers/:id/attachments",
-    { config: { permission: "ledger" } },
-    async (r) =>
-      (
-        await pool.query(
-          "SELECT id,filename,content_type,size FROM attachments WHERE voucher_id=$1",
-          [idParam(r)],
-        )
-      ).rows,
-  );
-  app.post("/api/vouchers/:id/attachments", { config: { permission: "ledger" } }, async (r) => {
-    const d = z
-      .object({
-        filename: z.string().min(1).max(200),
-        base64: z.string().max(14 * 1024 * 1024),
-        contentType: z.enum(["application/pdf", "image/png", "image/jpeg", "text/plain"]),
-      })
-      .strict()
-      .parse(r.body);
-    const bytes = Buffer.from(d.base64, "base64");
-    if (!bytes.length || bytes.length > 10 * 1024 * 1024)
-      throw fail("File must be 1 byte to 10 MiB");
-    const key = randomUUID();
-    await mkdir(attachmentRoot, { recursive: true });
-    await writeFile(path.join(attachmentRoot, key), bytes, { flag: "wx" });
-    try {
-      return await transaction(actor(r).id, async (c) => {
-        await c.query("SELECT accounting_lock()");
-        const v = (await c.query("SELECT * FROM vouchers WHERE id=$1 FOR UPDATE", [idParam(r)]))
-          .rows[0];
-        if (!v || v.status !== "draft") throw fail("Attachments require a draft");
-        await c.query("SELECT open_period($1)", [v.date]);
-        return (
-          await c.query(
-            "INSERT INTO attachments(voucher_id,filename,storage_key,content_type,size,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",
-            [v.id, d.filename, key, d.contentType, bytes.length, actor(r).id],
-          )
-        ).rows[0];
-      });
-    } catch (e) {
-      await unlink(path.join(attachmentRoot, key));
-      throw e;
-    }
-  });
-  app.get("/api/attachments/:id", { config: { permission: "ledger" } }, async (r, reply) => {
-    const a = (await pool.query("SELECT * FROM attachments WHERE id=$1", [idParam(r)])).rows[0];
-    if (!a) throw fail("Not found", 404);
-    reply
-      .header(
-        "Content-Disposition",
-        `attachment; filename*=UTF-8''${encodeURIComponent(a.filename)}`,
-      )
-      .header("X-Content-Type-Options", "nosniff")
-      .type("application/octet-stream");
-    return readFile(path.join(attachmentRoot, a.storage_key));
-  });
+  registerFunding(app);
   const webRoot = fileURLToPath(new URL("../../dist/", import.meta.url));
   if (existsSync(webRoot)) await app.register(fastifyStatic, { root: webRoot, wildcard: false });
   return app;

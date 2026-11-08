@@ -30,7 +30,7 @@ export function parseTrustProxy(
 
 export function loginEmail(request: FastifyRequest): string {
   const body = request.body;
-  if (!body || typeof body !== "object" || !("email" in body) || typeof body.email !== "string")
-    return "";
-  return body.email.trim().toLowerCase().slice(0, 254);
+  if (!body || typeof body !== "object") return "";
+  const value = "username" in body ? body.username : "email" in body ? body.email : null;
+  return typeof value === "string" ? value.trim().toLowerCase().slice(0, 254) : "";
 }

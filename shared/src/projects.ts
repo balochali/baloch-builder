@@ -1,86 +1,62 @@
 import { z } from "zod";
-import { dateSchema } from "./validation";
-export const projectTypes = ["apartments", "commercial", "mixed_use", "plots", "other"] as const;
-export const projectStatuses = [
-  "planning",
-  "land_acquisition",
-  "approvals",
-  "construction",
-  "sales",
-  "handover",
-  "closed",
+export const projectTypes = [
+  "Apartments",
+  "Commercial / Plaza",
+  "Houses / Villas",
+  "Plots / Scheme",
+  "Mixed use",
 ] as const;
-export type ProjectStatus = (typeof projectStatuses)[number];
-export const exactArea = z
-  .string()
-  .regex(/^\d{1,24}(\.\d{1,24})?$/, "Use a non-negative exact decimal (up to 24 decimal places)");
-export function compareDecimals(a: string, b: string) {
-  const [ai, af = ""] = a.split("."),
-    [bi, bf = ""] = b.split(".");
-  const scale = Math.max(af.length, bf.length);
-  const x = BigInt(ai + af.padEnd(scale, "0")),
-    y = BigInt(bi + bf.padEnd(scale, "0"));
-  return x < y ? -1 : x > y ? 1 : 0;
-}
-export function statusTransitionError(from: ProjectStatus, to: ProjectStatus, reason = "") {
-  if (to === "closed") return "Closed is reserved for Task 10";
-  if (from === "closed") return "Reopening closed projects is reserved for Task 10";
-  if (projectStatuses.indexOf(to) < projectStatuses.indexOf(from) && !reason.trim())
-    return "A written reason is required when moving backward";
-  return null;
-}
-export const projectFields = z
-  .object({
-    code: z
-      .string()
-      .trim()
-      .regex(/^[A-Za-z0-9-]{2,20}$/, "Code must be 2–20 letters, digits or hyphens"),
-    name: z.string().trim().min(1).max(120),
-    type: z.enum(projectTypes),
-    city: z.string().trim().min(1).max(120),
-    area_name: z.string().trim().max(200).nullable().optional(),
-    address: z.string().trim().max(1000).nullable().optional(),
-    start_date: dateSchema.nullable().optional(),
-    planned_end_date: dateSchema.nullable().optional(),
-    land_area_sqft: exactArea.nullable().optional(),
-    covered_area_sqft: exactArea.nullable().optional(),
-    saleable_area_sqft: exactArea.nullable().optional(),
-    project_manager_id: z.string().uuid().nullable().optional(),
-    cost_allocation_method: z.enum(["saleable_area", "sale_value"]).default("saleable_area"),
-    revenue_recognition: z.enum(["on_handover"]).default("on_handover"),
-    notes: z.string().max(4000).nullable().optional(),
-  })
-  .strict();
-export function profileIssues(p: {
-  start_date?: string | null;
-  planned_end_date?: string | null;
-  covered_area_sqft?: string | null;
-  saleable_area_sqft?: string | null;
-}) {
-  const issues: string[] = [];
-  if (p.start_date && p.planned_end_date && p.planned_end_date < p.start_date)
-    issues.push("Planned end date must not be before start date");
-  if (
-    p.covered_area_sqft != null &&
-    p.saleable_area_sqft != null &&
-    /^\d+(\.\d+)?$/.test(p.covered_area_sqft) &&
-    /^\d+(\.\d+)?$/.test(p.saleable_area_sqft) &&
-    compareDecimals(p.saleable_area_sqft, p.covered_area_sqft) > 0
-  )
-    issues.push(
-      "Saleable area must not exceed covered area; for plots leave covered area unset if it is not applicable",
-    );
-  return issues;
-}
-export const projectCreateSchema = projectFields.superRefine((p, ctx) => {
-  for (const message of profileIssues(p)) ctx.addIssue({ code: "custom", message });
+export const projectStatuses = ["Planning", "Under construction", "Completed", "On hold"] as const;
+export const areaUnits = ["Marla", "Kanal", "Sq ft", "Acre"] as const;
+const amount = z.number().finite().nonnegative().max(1e15);
+export const areaSchema = z.object({ value: amount, unit: z.enum(areaUnits) });
+export const partnerSchema = z.object({
+  partnerId: z.string().uuid(),
+  name: z.string().trim().min(1).max(120),
+  sharePercent: z.number().min(0).max(100),
 });
-export const projectPatchSchema = projectFields.partial().strict();
-export const buildingSchema = z
+export const basicsSchema = z
   .object({
-    name: z.string().trim().min(1).max(120),
-    floors: z.number().int().min(0).max(10000),
-    sort_order: z.number().int().min(0).default(0),
+    type: z.enum(projectTypes).nullable(),
+    status: z.enum(projectStatuses),
+    address: z.string().trim().max(300),
+    city: z.string().trim().max(120),
+    landArea: areaSchema.nullable(),
+    startDate: z.string().date().nullable(),
+    expectedEndDate: z.string().date().nullable(),
   })
-  .strict();
-export type ProjectInput = z.infer<typeof projectFields>;
+  .refine(
+    (d) => !d.startDate || !d.expectedEndDate || d.expectedEndDate >= d.startDate,
+    "Expected completion cannot be before the start date.",
+  );
+export const budgetSchema = z.object({
+  estimatedBudget: amount.nullable(),
+  partners: z.array(partnerSchema).max(50),
+});
+export const projectName = z.string().trim().min(1, "Enter a project name").max(120);
+export const purchaseSchema = z
+  .object({
+    seller: projectName,
+    date: z.string().date(),
+    price: amount,
+    paid: amount,
+    area: areaSchema.nullable(),
+  })
+  .refine((d) => d.paid <= d.price, "Amount paid cannot exceed the total price.");
+export type Basics = z.infer<typeof basicsSchema>;
+export type Budget = z.infer<typeof budgetSchema>;
+export type Partner = z.infer<typeof partnerSchema>;
+export type Purchase = z.infer<typeof purchaseSchema> & { id: string };
+export type ProjectFile = { id: string; name: string; purchaseId: string | null };
+export type Project = Basics &
+  Budget & { id: string; name: string; draft: boolean; createdAt: string; updatedAt: string };
+export const emptyBasics: Basics = {
+  type: null,
+  status: "Planning",
+  address: "",
+  city: "",
+  landArea: null,
+  startDate: null,
+  expectedEndDate: null,
+};
+export const emptyBudget: Budget = { estimatedBudget: null, partners: [] };

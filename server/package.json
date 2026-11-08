@@ -16,7 +16,6 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^10.1.7",
     "argon2": "^0.44.0",
-    "drizzle-orm": "^0.44.6",
     "fastify": "^5.6.0",
     "otpauth": "^9.4.1",
     "pg": "^8.16.3",
