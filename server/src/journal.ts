@@ -63,8 +63,8 @@ export async function voidVoucher(client: pg.PoolClient, id: string, reason: str
       [id],
     )
   ).rows[0];
-  if (!voucher || voucher.status === "void" || voucher.reversal_of)
-    throw accountingError("This voucher cannot be voided.", 409);
+  if (voucher?.status === "void") throw accountingError("This voucher is already void.", 409);
+  if (!voucher || voucher.reversal_of) throw accountingError("This voucher cannot be voided.", 409);
   const { rows } = await client.query(
     'SELECT account_code AS "accountCode",debit,credit,party_id AS "partyId",partner_id AS "partnerId",project_id AS "projectId",memo FROM journal_lines WHERE voucher_id=$1',
     [id],
@@ -72,7 +72,7 @@ export async function voidVoucher(client: pg.PoolClient, id: string, reason: str
   const lines = reverseLines(
     rows.map((row) => ({ ...row, debit: Number(row.debit), credit: Number(row.credit) })),
   );
-  await client.query("UPDATE journal_vouchers SET status='void',voided_at=now() WHERE id=$1", [id]);
+  await client.query("UPDATE journal_vouchers SET status='void' WHERE id=$1", [id]);
   return writeVoucher(
     client,
     {

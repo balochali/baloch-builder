@@ -8,6 +8,19 @@ import { ownerPool } from "../server/src/migrate";
 const url = new URL(process.env.DATABASE_URL ?? "postgres://invalid");
 if (!["127.0.0.1", "localhost", "[::1]"].includes(url.hostname))
   throw Error("Use a local test database.");
+const ownerUrl = new URL(process.env.OWNER_DATABASE_URL ?? "postgres://invalid");
+if (ownerUrl.host !== url.host || ownerUrl.pathname !== url.pathname)
+  throw Error("Point both roles at the same local database.");
+const partnerOnly = process.argv.includes("--partner-only");
+if (!partnerOnly) {
+  await assert.rejects(pool.query("UPDATE journal_lines SET debit=0 WHERE false"), {
+    code: "42501",
+  });
+  await assert.rejects(pool.query("DELETE FROM journal_lines WHERE false"), { code: "42501" });
+  await assert.rejects(pool.query("UPDATE journal_vouchers SET narration='changed' WHERE false"), {
+    code: "42501",
+  });
+}
 const client = await ownerPool.connect();
 try {
   await client.query("BEGIN");
@@ -117,6 +130,69 @@ try {
       });
       assert.equal(saved.statusCode, 200, saved.body);
       assert.equal(saved.json().contributingPartnerId, master.id);
+      if (!partnerOnly) {
+        await client.query("CREATE TEMP SEQUENCE journal_voucher_number START WITH 900000000");
+        await client.query("SAVEPOINT unbalanced");
+        await client.query(
+          "INSERT INTO journal_vouchers(id,date,narration,type,source) VALUES('JV-UNBALANCED',CURRENT_DATE,'Test','regular','{}')",
+        );
+        await client.query(
+          "INSERT INTO journal_lines(voucher_id,account_code,debit,credit) VALUES('JV-UNBALANCED','1010',100,0),('JV-UNBALANCED','3000',0,99)",
+        );
+        await assert.rejects(
+          client.query("SET CONSTRAINTS ALL IMMEDIATE"),
+          /balanced debit and credit/,
+        );
+        await client.query("ROLLBACK TO SAVEPOINT unbalanced");
+        const funding = `/api/projects/${code}/funding`;
+        const data = {
+          date: "2026-11-08",
+          amount: 100,
+          account: "company_bank",
+          refNo: "",
+          notes: "",
+          sourceType: "partner",
+          purpose: "General",
+          partnerId: master.id,
+        };
+        const post = async (payload: object) => {
+          const response = await app.inject({ method: "POST", url: funding, headers, payload });
+          assert.equal(response.statusCode, 200, response.body);
+          await client.query("SET CONSTRAINTS ALL IMMEDIATE");
+          await client.query("SET CONSTRAINTS ALL DEFERRED");
+          return response.json();
+        };
+        const first = await post({ direction: "in", data });
+        const changed = await post({
+          direction: "in",
+          data: { ...data, amount: 200 },
+          replaceId: first.id,
+        });
+        const voidEntry = () =>
+          app.inject({
+            method: "POST",
+            url: funding + `/${changed.id}/void`,
+            headers,
+            payload: { reason: "Verification" },
+          });
+        const result = await voidEntry();
+        assert.equal(result.statusCode, 200, result.body);
+        await client.query("SET CONSTRAINTS ALL IMMEDIATE");
+        const again = await voidEntry();
+        assert.equal(again.statusCode, 409);
+        assert.match(again.body, /cannot be voided|already void/i);
+        const { rows: reversals } = await client.query(
+          "SELECT reversal_of FROM journal_vouchers WHERE reversal_of=ANY($1)",
+          [[first.voucherId, changed.voucherId]],
+        );
+        assert.deepEqual(
+          new Set(reversals.map((row) => row.reversal_of)),
+          new Set([first.voucherId, changed.voucherId]),
+        );
+        console.log(
+          "PostgreSQL ledger checks passed: runtime privileges, deferred balance, post, edit, void and repeated void.",
+        );
+      }
     } finally {
       await app.close();
     }
