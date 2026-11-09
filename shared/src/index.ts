@@ -28,3 +28,4 @@ export * from "./projectSite";
 export * from "./funding";
 
 export * from "./journal";
+export * from "./land";
