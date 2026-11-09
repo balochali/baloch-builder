@@ -1,3 +1,4 @@
+import { postLand } from "../server/src/land";
 import { createHash } from "node:crypto";
 import type pg from "pg";
 import { postFundingEntry } from "../server/src/funding";
@@ -282,12 +283,100 @@ async function seedProjectDemo(
         data: { ...common, kind: "loan_markup", loanFundingId: sid("loan"), amount: 500_000 },
       },
     ],
+    [
+      "land-topup",
+      {
+        direction: "in",
+        data: {
+          ...common,
+          sourceType: "partner",
+          purpose: "Land",
+          partnerId: br,
+          amount: 10000000,
+        },
+      },
+    ],
   ] satisfies [string, Parameters<typeof postFundingEntry>[2]][];
   for (const [key, entry] of entries) {
     const id = sid(key);
     if (!(await client.query("SELECT 1 FROM project_money_entries WHERE id=$1", [id])).rowCount)
       await postFundingEntry(client, project.id, entry, id);
   }
+  const purchase =
+    (
+      await client.query(
+        "SELECT id FROM land_purchases WHERE project_id=$1 AND parcel_id=$2 AND status='posted'",
+        [project.id, sid("seller-parcel")],
+      )
+    ).rows[0] ??
+    (await postLand(client, project.id, "purchase", {
+      parcelId: sid("seller-parcel"),
+      sellerPartyId: seller,
+      agreedPrice: 60000000,
+      agreementDate: common.date,
+      notes: "Demo land agreement",
+    }));
+  for (const [reference, sources] of [
+    ["Demo land instalment 1", [{ sourceType: "bank", amount: 20000000 }]],
+    [
+      "Demo land instalment 2",
+      [
+        { sourceType: "bank", amount: 6000000 },
+        { sourceType: "partner_direct", partnerId: ap, amount: 4000000 },
+      ],
+    ],
+    ["Demo land instalment 3", [{ sourceType: "owner_direct", amount: 5000000 }]],
+  ]) {
+    if (
+      !(
+        await client.query("SELECT 1 FROM land_payments WHERE purchase_id=$1 AND reference=$2", [
+          purchase.id,
+          reference,
+        ])
+      ).rowCount
+    )
+      await postLand(client, project.id, "payment", {
+        purchaseId: purchase.id,
+        paidOn: common.date,
+        reference,
+        notes: "Demo instalment",
+        sources,
+      });
+  }
+  for (const [category, source] of [
+    ["registration", { sourceType: "bank", amount: 3000000 }],
+    ["broker", { sourceType: "cash", amount: 500000 }],
+  ]) {
+    if (
+      !(
+        await client.query(
+          "SELECT 1 FROM land_costs WHERE project_id=$1 AND purchase_id=$2 AND category=$3",
+          [project.id, purchase.id, category],
+        )
+      ).rowCount
+    )
+      await postLand(client, project.id, "cost", {
+        purchaseId: purchase.id,
+        category,
+        paidOn: common.date,
+        notes: "Demo related cost",
+        source,
+      });
+  }
+  if (
+    !(
+      await client.query("SELECT 1 FROM land_contributions WHERE project_id=$1 AND parcel_id=$2", [
+        project.id,
+        sid("partner-parcel"),
+      ])
+    ).rowCount
+  )
+    await postLand(client, project.id, "contribution", {
+      parcelId: sid("partner-parcel"),
+      agreedValue: 10000000,
+      contributedOn: common.date,
+      notes: "Demo contributed land",
+    });
 }
 try {
   if (!process.env.DATABASE_URL)

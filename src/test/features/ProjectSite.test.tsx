@@ -52,6 +52,7 @@ it("sums purchased and contributed parcels and changes the display unit", () => 
       project={project}
       site={{ parcels, building: emptyBuilding(project.name), partners: [], sellers: [] }}
       manage={false}
+      ledger={false}
       onSite={vi.fn()}
     />,
   );

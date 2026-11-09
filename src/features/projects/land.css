@@ -83,3 +83,14 @@
     flex-wrap: wrap;
   }
 }
+@media (max-width: 650px) {
+  .land-entry-dialog .land-source-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    padding-block: 10px;
+  }
+  .land-entry-dialog .land-source-row button {
+    align-self: end;
+    min-height: 38px;
+  }
+}

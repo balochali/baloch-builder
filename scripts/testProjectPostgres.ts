@@ -1,3 +1,4 @@
+import { testLandPostgres } from "./testLandPostgres";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -13,6 +14,16 @@ if (ownerUrl.host !== url.host || ownerUrl.pathname !== url.pathname)
   throw Error("Point both roles at the same local database.");
 const partnerOnly = process.argv.includes("--partner-only");
 if (!partnerOnly) {
+  for (const table of [
+    "land_purchases",
+    "land_payments",
+    "land_payment_sources",
+    "land_costs",
+    "land_contributions",
+  ]) {
+    await assert.rejects(pool.query(`UPDATE ${table} SET id=id WHERE false`), { code: "42501" });
+    await assert.rejects(pool.query(`DELETE FROM ${table} WHERE false`), { code: "42501" });
+  }
   await assert.rejects(pool.query("UPDATE journal_lines SET debit=0 WHERE false"), {
     code: "42501",
   });
@@ -202,6 +213,7 @@ try {
           new Set(reversals.map((row) => row.reversal_of)),
           new Set([first.voucherId, changed.voucherId]),
         );
+        await testLandPostgres(client, app, headers, code, master.id);
         console.log(
           "PostgreSQL ledger checks passed: runtime privileges, deferred balance, post, edit, void and repeated void.",
         );
