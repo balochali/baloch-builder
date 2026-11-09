@@ -66,6 +66,7 @@ export async function postFundingEntry(
   payload: z.infer<typeof input>,
   recordId = randomUUID(),
 ) {
+  await client.query("SELECT id FROM projects WHERE id=$1 FOR UPDATE", [projectId]);
   const previous = payload.replaceId
     ? (
         await client.query(
@@ -276,9 +277,37 @@ export function registerFunding(app: FastifyInstance) {
       pool.query("SELECT id,name FROM parties WHERE type='lender' ORDER BY name"),
       pool.query("SELECT id,name,role,status FROM partners ORDER BY name"),
     ]);
+    const direct = (
+      await pool.query(
+        `SELECT v.id AS "voucherId",v.date::text,v.status,l.partner_id AS "partnerId",p.role,sum(l.credit) AS amount
+      FROM journal_vouchers v JOIN journal_lines l ON l.voucher_id=v.id JOIN partners p ON p.id=l.partner_id
+      WHERE l.project_id=$1 AND l.account_code='3000' AND l.credit>0 AND v.reversal_of IS NULL
+      AND v.source->>'module' IN ('land_payment','land_cost','land_contribution') GROUP BY v.id,l.partner_id,p.role`,
+        [row.id],
+      )
+    ).rows;
     return {
       lines: journal(lines.rows),
-      entries: entries.rows,
+      entries: [
+        ...entries.rows,
+        ...direct.map((d) => ({
+          id: d.voucherId + ":" + d.partnerId,
+          direction: "in",
+          voucherId: d.voucherId,
+          status: d.status,
+          data: {
+            date: d.date,
+            amount: Number(d.amount),
+            partnerId: d.partnerId,
+            sourceType: d.role === "Owner" ? "owner" : "partner",
+            purpose: "Land",
+            receivedInto: "direct_payment",
+            account: "company_bank",
+            refNo: "",
+            notes: "Land paid directly",
+          },
+        })),
+      ],
       links: links.rows.map((l) => l.partnerId),
       lenders: lenders.rows,
       partners: partners.rows,
@@ -320,6 +349,9 @@ export function registerFunding(app: FastifyInstance) {
     const { entryId } = z.object({ entryId: id }).parse(request.params);
     const { reason } = z.object({ reason: z.string().trim().min(1).max(250) }).parse(request.body);
     return transaction(actor(request), async (client) => {
+      await client.query("SELECT id FROM projects WHERE code=$1 FOR UPDATE", [
+        projectCode(request),
+      ]);
       const entry = (
         await client.query(
           "SELECT e.* FROM project_money_entries e JOIN projects p ON p.id=e.project_id WHERE p.code=$1 AND e.id=$2 FOR UPDATE OF e",

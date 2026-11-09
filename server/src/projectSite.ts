@@ -83,6 +83,22 @@ export function registerProjectSite(app: FastifyInstance) {
       const row = await project(client, code(request), true);
       const parcels = row.details.landParcels ?? [];
       const existing = parcels.find((p) => p.id === parcel.id);
+      if (
+        existing &&
+        (existing.acquisitionType !== parcel.acquisitionType ||
+          existing.contributingPartnerId !== parcel.contributingPartnerId ||
+          existing.sellerPartyId !== parcel.sellerPartyId)
+      ) {
+        const posted = await client.query(
+          "SELECT 1 FROM land_purchases WHERE project_id=$1 AND parcel_id=$2 AND status='posted' UNION ALL SELECT 1 FROM land_contributions WHERE project_id=$1 AND parcel_id=$2 AND status='posted' LIMIT 1",
+          [row.id, parcel.id],
+        );
+        if (posted.rowCount)
+          throw fail(
+            "Void the parcel's posted land record before changing its acquisition or contact.",
+            409,
+          );
+      }
       if (parcel.acquisitionType === "purchase") {
         if (
           !(
