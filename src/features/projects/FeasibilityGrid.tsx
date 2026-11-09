@@ -184,7 +184,7 @@ export function FeasibilityGrid({
     <>
       <div className="feasibility-grid-scroll" tabIndex={0} aria-label="Spreadsheet">
         <table
-          className={groups ? "feasibility-grid feasibility-grid-grouped" : "feasibility-grid"}
+          className={`feasibility-grid ${groups ? "feasibility-grid-grouped" : ""} ${headers[0] === "Item" ? "feasibility-items" : ""} ${headers.includes("Lounge") ? "building-unit-grid" : ""}`}
         >
           <thead>
             {groups && (
@@ -232,7 +232,7 @@ export function FeasibilityGrid({
                       <input
                         data-cell={`${row}:${col}`}
                         aria-label={`${headers[col]}, row ${row + 1}`}
-                        title={cell.title}
+                        title={cell.title ?? cell.value}
                         aria-invalid={cell.warning || invalid === `${row}:${col}` || undefined}
                         value={editing ? edit.text : cell.value}
                         readOnly={locked || cell.readOnly || !editing}

@@ -345,3 +345,9 @@
   white-space: normal;
   overflow-wrap: normal;
 }
+
+@media (max-height: 999px) {
+  .app-sidebar.app-sidebar .sidebar-building-scene {
+    display: none;
+  }
+}

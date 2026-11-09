@@ -214,16 +214,12 @@ export function ProjectFunding({
       active.some((l) => l.partnerId === p.id) ||
       planPartner(p.id, p.name).length,
   );
-  const pendingByPartner = linked.flatMap((partner) => {
+  const pendingByPartner = linked.map((partner) => {
     const planned = planPartner(partner.id, partner.name);
-    return planned.length
-      ? [
-          commitmentFigures(
-            sum(planned.map(({ row }) => row.capital)),
-            partnerTotals(active, partner.id).contributed,
-          ),
-        ]
-      : [];
+    return commitmentFigures(
+      planned.length ? sum(planned.map(({ row }) => row.capital)) : null,
+      partnerTotals(active, partner.id).contributed,
+    );
   });
   const direction = section === "Money in" ? "in" : "out";
   const entries = sheet.entries.filter((entry) => entry.direction === direction);
@@ -388,15 +384,13 @@ export function ProjectFunding({
             <FundingTable
               headers={[
                 "Partner",
-                "Role",
                 "Profit share",
                 "Committed",
                 "Contributed",
                 "Progress",
                 "Pending",
                 "Extra contributed",
-                "Capital returned",
-                "Profit received",
+                "Returned",
                 "Expected profit worst / best",
                 "ROI so far",
               ]}
@@ -427,7 +421,6 @@ export function ProjectFunding({
                         {partner.name}
                       </button>
                     </td>
-                    <td>{partner.role}</td>
                     <td className="funding-numeric">
                       {formatPercent(expected.length ? shares : null)}
                     </td>
@@ -458,11 +451,11 @@ export function ProjectFunding({
                     <td className="funding-numeric">
                       {extra === null ? "—" : <Money value={extra} />}
                     </td>
-                    <td className="funding-numeric">
-                      <Money value={actual.returned} />
-                    </td>
-                    <td className="funding-numeric">
-                      <Money value={actual.profit} />
+                    <td
+                      className="funding-numeric"
+                      title={`Capital returned: ${actual.returned.toLocaleString()} � Profit received: ${actual.profit.toLocaleString()}`}
+                    >
+                      <Money value={actual.returned + actual.profit} />
                     </td>
                     <td className="funding-numeric">
                       {forecast && expected.length ? (

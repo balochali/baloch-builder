@@ -332,3 +332,22 @@
 .app-main .project-site .feasibility-grid {
   min-width: 920px;
 }
+
+.app-main .feasibility-grid.feasibility-items :is(th, td):first-child {
+  width: 280px;
+  min-width: 280px;
+}
+.app-main .building-unit-grid :is(th, td) {
+  padding: 8px 12px;
+}
+.app-main .building-unit-grid td.number {
+  min-width: 100px;
+  width: 100px;
+  text-align: right;
+}
+.app-main .building-unit-grid td.number input {
+  width: 100%;
+  min-width: 76px;
+  text-align: right;
+  padding: 6px;
+}

@@ -60,7 +60,7 @@ export const payoutLabels = {
 
 export function commitmentFigures(committed: number | null, contributed: number) {
   return committed === null
-    ? { pending: null, extra: null }
+    ? { pending: 0, extra: contributed }
     : {
         pending: Math.max(0, committed - contributed),
         extra: Math.max(0, contributed - committed),
