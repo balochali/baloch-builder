@@ -1,0 +1,87 @@
+{
+  "results": [
+    {
+      "width": 1440,
+      "theme": "light",
+      "scroll": 1440,
+      "nav": [
+        {
+          "height": 691,
+          "scroll": 691
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "theme": "dark",
+      "scroll": 1440,
+      "nav": [
+        {
+          "height": 691,
+          "scroll": 691
+        }
+      ]
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "scroll": 1024,
+      "nav": [
+        {
+          "height": 0,
+          "scroll": 0
+        }
+      ]
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "scroll": 1024,
+      "nav": [
+        {
+          "height": 0,
+          "scroll": 0
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "scroll": 390,
+      "nav": [
+        {
+          "height": 0,
+          "scroll": 0
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "scroll": 390,
+      "nav": [
+        {
+          "height": 0,
+          "scroll": 0
+        }
+      ]
+    },
+    {
+      "partners": {
+        "tables": [
+          {
+            "width": 1087,
+            "scroll": 1087
+          }
+        ],
+        "nav": [
+          {
+            "height": 691,
+            "scroll": 691
+          }
+        ]
+      }
+    }
+  ],
+  "errors": []
+}

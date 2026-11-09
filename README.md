@@ -35,3 +35,9 @@ npm run build
 The PostgreSQL tests require a migrated local database, its owner/runtime connections and an active administrator. The test data is rolled back. `npm run seed:demo` loads the Baloch Heights demo on a local database and replaces its feasibility plan. It reuses master partners and skips demo postings already present.
 
 Sessions lock when the app is hidden or suspended. The server rejects sessions after 30 seconds without a heartbeat.
+
+## Land purchases
+
+The Land tab records seller agreements, split instalments, direct partner/Owner/lender payments, related costs and contributed land. Every action posts balanced journal entries; editing reverses and replaces the old voucher. Balances are computed from the journal. Purchase: Dr 1400 / Cr 2010. Payment: Dr 2010 / Cr bank, cash, capital or loan. Costs and contributed land debit 1400. See `docs/DECISIONS.md` for validation, permissions and void rules.
+
+`npm run seed:demo` adds the Baloch Heights example idempotently, including enough bank funding for its instalments. `npm run test:postgres` verifies land rules inside rolled-back transactions. Screenshots and measured layout checks are in `docs/land-evidence`.
