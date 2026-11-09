@@ -1,3 +1,4 @@
+import { LandFinancePanel, useLandSheet } from "./LandFinance";
 import { PartnerEditor } from "./PartnersMaster";
 import { useState, type FormEvent } from "react";
 import { Plus, MapPin, FileText } from "lucide-react";
@@ -110,10 +111,12 @@ export function ProjectLand({
   site,
   manage,
   onSite,
+  ledger = true,
 }: {
   project: Project;
   site: SiteData;
   manage: boolean;
+  ledger?: boolean;
   onSite: (update: (site: SiteData) => SiteData) => void;
 }) {
   const [unit, setUnit] = useState<AreaUnit>("Marla");
@@ -125,6 +128,7 @@ export function ProjectLand({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const partners = site.partners;
+  const finance = useLandSheet(project.id, ledger);
   function open(parcel: LandParcel | null) {
     setEditing(parcel);
     setAcquisition(parcel?.acquisitionType ?? "purchase");
@@ -173,6 +177,7 @@ export function ProjectLand({
           ? current.parcels.map((p) => (p.id === parcel.id ? parcel : p))
           : [...current.parcels, parcel],
       }));
+      await finance.refresh();
       setEditing(undefined);
     } catch (cause) {
       setError(String(cause));
@@ -208,7 +213,15 @@ export function ProjectLand({
           </button>
         )}
       </div>
-      <p className="site-banner">Land prices, payments and funding will be added here later.</p>
+      {ledger && finance.error && <p role="alert">{finance.error}</p>}
+      {ledger && finance.sheet && (
+        <LandFinancePanel
+          id={project.id}
+          sheet={finance.sheet}
+          manage={manage}
+          refresh={finance.refresh}
+        />
+      )}
       <dl className="feasibility-metrics">
         <div>
           <dt>Number of parcels</dt>
@@ -324,6 +337,15 @@ export function ProjectLand({
                   </li>
                 ))}
               </ul>
+            )}
+            {ledger && finance.sheet && (
+              <LandFinancePanel
+                id={project.id}
+                sheet={finance.sheet}
+                parcel={parcel}
+                manage={manage}
+                refresh={finance.refresh}
+              />
             )}
           </article>
         ))}

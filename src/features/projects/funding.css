@@ -163,3 +163,20 @@
 .funding-voucher-heading {
   white-space: normal !important;
 }
+
+.app-main .funding-partners-table {
+  table-layout: fixed;
+  min-width: 840px;
+}
+.app-main .funding-partners-table :is(th, td) {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.app-main .funding-partners-table th {
+  line-height: 1.4;
+}
+.app-main .funding-partners-table .funding-progress {
+  width: 55px;
+  max-width: 100%;
+}

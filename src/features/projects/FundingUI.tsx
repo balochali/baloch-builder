@@ -10,10 +10,18 @@ export function Money({ value }: { value: number }) {
     </span>
   );
 }
-export function FundingTable({ headers, children }: { headers: string[]; children: ReactNode }) {
+export function FundingTable({
+  headers,
+  children,
+  className = "",
+}: {
+  headers: string[];
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div className="funding-table-scroll">
-      <table className="funding-table">
+      <table className={`funding-table ${className}`}>
         <thead>
           <tr>
             {headers.map((h) => (

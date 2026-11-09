@@ -333,7 +333,7 @@
   min-width: 920px;
 }
 
-.app-main .feasibility-grid.feasibility-items :is(th, td):first-child {
+.app-main .feasibility .feasibility-grid.feasibility-items :is(th, td):first-child {
   width: 280px;
   min-width: 280px;
 }
@@ -350,4 +350,9 @@
   min-width: 76px;
   text-align: right;
   padding: 6px;
+}
+
+.app-main .project-site .feasibility-grid.building-unit-grid {
+  width: 1400px;
+  min-width: 1400px;
 }

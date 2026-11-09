@@ -351,3 +351,24 @@
     display: none;
   }
 }
+
+@media (max-height: 999px) and (min-width: 1101px) {
+  .app-sidebar.app-sidebar.app-sidebar nav {
+    padding-block: 10px;
+  }
+  .app-sidebar.app-sidebar.app-sidebar .nav-group + .nav-group {
+    margin-top: 8px;
+  }
+  .app-sidebar.app-sidebar.app-sidebar .sidebar-caption {
+    margin-bottom: 5px;
+  }
+  .app-sidebar.app-sidebar.app-sidebar .workspace-nav-link {
+    min-height: 36px;
+    margin-block: 1px;
+    padding-block: 3px;
+  }
+  .app-sidebar.app-sidebar.app-sidebar .sidebar-link-icon {
+    width: 26px;
+    height: 26px;
+  }
+}

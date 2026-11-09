@@ -1,0 +1,85 @@
+.land-finances {
+  margin-top: 24px;
+  min-width: 0;
+  --land-color-0: #168778;
+  --land-color-1: #d3a338;
+  --land-color-2: #637ac2;
+  --land-color-3: #c47551;
+  --land-color-4: #8c69aa;
+}
+.land-finances h4 {
+  font-size: 16px;
+  font-weight: 650;
+  margin-block: 18px 10px;
+}
+.land-breakdown {
+  margin-block: 20px;
+}
+.land-stacked {
+  display: flex;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 8px;
+  margin-block: 12px;
+  background: var(--muted);
+}
+.land-stacked span {
+  min-width: 1px;
+}
+.land-agreement {
+  border: 1px solid var(--border);
+  padding: 14px;
+  border-radius: 10px;
+}
+.land-ledger {
+  color: var(--primary);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+.land-entry-dialog {
+  max-width: 780px !important;
+}
+.land-source-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.3fr) minmax(110px, 1fr) minmax(120px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.land-source-row label {
+  min-width: 0;
+}
+.land-source-row :is(input, select) {
+  width: 100%;
+}
+.land-payment-total {
+  display: grid;
+  gap: 8px;
+  background: var(--muted);
+  padding: 16px;
+  border-radius: 10px;
+  margin-top: 16px;
+}
+.land-payment-total small {
+  overflow-wrap: anywhere;
+}
+.land-sources-summary {
+  white-space: normal !important;
+  min-width: 190px;
+}
+.land-finances .funding-table {
+  width: 100%;
+}
+@media (max-width: 650px) {
+  .land-source-row {
+    grid-template-columns: 1fr;
+  }
+  .land-finances .funding-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .land-finances .project-section-heading {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+}

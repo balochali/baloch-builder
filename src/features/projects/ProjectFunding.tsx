@@ -182,7 +182,11 @@ export function ProjectFunding({
       <>
         {error && <p role="alert">{error}</p>}
         <JournalTable
-          lines={sheet.lines}
+          lines={
+            search.get("voucher")
+              ? sheet.lines.filter((line) => line.voucherId === search.get("voucher"))
+              : sheet.lines
+          }
           emptyAction={
             manage ? (
               <Link className="projects-primary" to={`/projects/${id}/partners?section=money-in`}>
@@ -382,6 +386,7 @@ export function ProjectFunding({
             <p>No partners linked yet. Add a partner or assign one in Feasibility.</p>
           ) : (
             <FundingTable
+              className="funding-partners-table"
               headers={[
                 "Partner",
                 "Profit share",

@@ -160,7 +160,13 @@ export function ProjectDetail({ role }: { role: Role }) {
             <p role={siteError ? "alert" : "status"}>{siteError || "Loading project site..."}</p>
           )}
           {site && tab === "land" && (
-            <ProjectLand project={project} site={site} manage={manage} onSite={updateSite} />
+            <ProjectLand
+              project={project}
+              site={site}
+              manage={manage}
+              ledger={can(role, "ledger")}
+              onSite={updateSite}
+            />
           )}
           {site && (tab === "building" || buildingOpened) && (
             <div hidden={tab !== "building"}>

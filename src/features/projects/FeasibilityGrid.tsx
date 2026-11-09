@@ -186,6 +186,14 @@ export function FeasibilityGrid({
         <table
           className={`feasibility-grid ${groups ? "feasibility-grid-grouped" : ""} ${headers[0] === "Item" ? "feasibility-items" : ""} ${headers.includes("Lounge") ? "building-unit-grid" : ""}`}
         >
+          {headers.includes("Lounge") && (
+            <colgroup>
+              {headers.map((h, i) => (
+                <col key={h} style={{ width: i >= 2 && i <= 8 ? 100 : i === 1 ? 180 : 150 }} />
+              ))}
+              {onDelete && !locked && <col style={{ width: 40 }} />}
+            </colgroup>
+          )}
           <thead>
             {groups && (
               <tr className="feasibility-column-groups">
