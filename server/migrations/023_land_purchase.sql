@@ -69,7 +69,7 @@ GRANT EXECUTE ON FUNCTION void_land_record(text,uuid) TO baloch_app;
 CREATE FUNCTION check_land_payment_sources() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE payment uuid; source_total numeric; journal_total numeric; n bigint;
 BEGIN
- payment=CASE WHEN TG_TABLE_NAME='land_payments' THEN NEW.id ELSE NEW.payment_id END;
+ IF TG_TABLE_NAME='land_payments' THEN payment=NEW.id; ELSE payment=NEW.payment_id; END IF;
  SELECT count(*),coalesce(sum(amount),0) INTO n,source_total FROM land_payment_sources WHERE payment_id=payment;
  SELECT coalesce(sum(l.debit),0) INTO journal_total FROM land_payments p JOIN journal_lines l ON l.voucher_id=p.voucher_id WHERE p.id=payment AND l.account_code='2010';
  IF n=0 OR source_total<>journal_total THEN RAISE EXCEPTION 'Payment sources must equal the payment voucher total' USING ERRCODE='23514'; END IF;

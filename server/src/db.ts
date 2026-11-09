@@ -48,8 +48,9 @@ export async function audit(
   entity: string,
   id: string | null = null,
   value: unknown = null,
+  client: Pick<pg.PoolClient, "query"> = pool,
 ) {
-  await pool.query(
+  await client.query(
     "INSERT INTO audit_log(actor_id,action,entity,entity_id,new_value) VALUES($1,$2,$3,$4,$5)",
     [actor, action, entity, id, value],
   );
