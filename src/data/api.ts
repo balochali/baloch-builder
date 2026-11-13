@@ -16,6 +16,9 @@ export async function api<T = unknown>(url: string, method = "GET", data?: unkno
   } catch {
     throw new Error("Unable to reach the server. Please try again.");
   }
+  if ([502, 503, 504].includes(response.status)) {
+    throw new Error("The local server is unavailable. Check that PostgreSQL and the app server are running, then reopen the app.");
+  }
   if (response.status === 401 && url.split("?")[0] !== "login") {
     window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     throw new Error(SESSION_EXPIRED_MESSAGE);

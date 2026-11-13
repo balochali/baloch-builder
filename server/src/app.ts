@@ -118,7 +118,15 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
       .code(e.statusCode ?? 500)
       .send({ error: e.statusCode ? e.message : "Internal server error" });
   });
-  app.get("/api/health", { config: { public: true } }, async () => ({ ok: true }));
+  app.get("/api/health", { config: { public: true } }, async (request, reply) => {
+    try {
+      await pool.query("SELECT 1");
+      return { ok: true };
+    } catch (error) {
+      request.log.warn({ err: error }, "Database readiness check failed");
+      return reply.code(503).send({ ok: false });
+    }
+  });
   app.post(
     "/api/login",
     {

@@ -14,7 +14,7 @@ npm run dev:server
 npm run dev
 ```
 
-To create the first login, run `server/src/seed.ts` with `ADMIN_USERNAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` (12+ characters). `npm run tauri:dev` launches the desktop shell and still requires the API and PostgreSQL.
+To create the first login, run `server/src/seed.ts` with `ADMIN_USERNAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` (12+ characters). Start PostgreSQL before running `npm run tauri:dev`, or set `BALOCH_PGDATA` and `BALOCH_PGBIN` in `.env.local` to an existing local cluster and the PostgreSQL binaries directory. With these settings the desktop launcher starts PostgreSQL automatically on the port in `DATABASE_URL` (host must be `127.0.0.1`). It then starts the API if needed and waits for its database health check before opening the window. It never initializes or replaces database files. Keep the database directory outside temporary and test folders, and retain regular database backups.
 
 ## Storage and accounting
 
