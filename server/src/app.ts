@@ -1,4 +1,5 @@
 import { registerLand } from "./landRoutes";
+import { registerSales } from "./salesRoutes";
 import { registerFunding } from "./funding";
 import { registerProjectRoutes } from "./projects";
 import fastifyStatic from "@fastify/static";
@@ -291,6 +292,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
   registerProjectRoutes(app);
   registerFunding(app);
   registerLand(app);
+  registerSales(app);
   const webRoot = fileURLToPath(new URL("../../dist/", import.meta.url));
   if (existsSync(webRoot)) await app.register(fastifyStatic, { root: webRoot, wildcard: false });
   return app;
