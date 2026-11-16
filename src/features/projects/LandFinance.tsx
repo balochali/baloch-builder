@@ -56,7 +56,7 @@ export function LandMetrics({ figures }: { figures: LandFigures }) {
   return (
     <Metrics
       values={[
-        ["Agreed price", <Money value={figures.agreedPrice} />],
+        ["Land value", <Money value={figures.agreedPrice} />],
         ["Paid so far", <Money value={figures.totalPaid} />],
         ["Remaining", <Money value={figures.remaining} />],
         ["Related costs", <Money value={figures.relatedCosts} />],
@@ -747,7 +747,7 @@ export function LandFinancePanel({
         </>
       )}
       <div className="project-section-heading">
-        <h4>{parcel ? "Related costs" : "Project-wide related costs"}</h4>
+        <h4>{parcel ? "Related costs" : "Costs not linked to a purchase"}</h4>
         {manage && (!parcel || purchase) && (
           <button className="projects-secondary" onClick={() => setForm({ kind: "costs" })}>
             Add cost
@@ -770,7 +770,11 @@ export function LandFinancePanel({
           ))}
         </FundingTable>
       ) : (
-        <p>No related costs recorded yet.</p>
+        <p>
+          {parcel
+            ? "No related costs recorded yet."
+            : "No unlinked costs. Costs added to a purchase appear under that parcel."}
+        </p>
       )}
       {form && (
         <LandEntryModal

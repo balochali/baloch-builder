@@ -25,7 +25,13 @@ export function FundingTable({
         <thead>
           <tr>
             {headers.map((h) => (
-              <th key={h} scope="col">
+              <th
+                key={h}
+                scope="col"
+                className={
+                  ["Amount", "Share", "Debit", "Credit"].includes(h) ? "funding-numeric" : undefined
+                }
+              >
                 {h}
               </th>
             ))}

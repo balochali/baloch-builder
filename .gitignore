@@ -27,3 +27,6 @@ dist-ssr
 var/
 .env
 apps/*/dist/
+
+# Local visual verification evidence
+docs/land-evidence/*.png

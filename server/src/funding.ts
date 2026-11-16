@@ -223,14 +223,15 @@ export function registerFunding(app: FastifyInstance) {
     const row = (await pool.query(`SELECT ${masterColumns} FROM partners WHERE id=$1`, [partnerId]))
       .rows[0];
     if (!row) throw fail("Partner not found.", 404);
-    const [lines, docs] = await Promise.all([
-      pool.query(journalSelect + ` WHERE l.partner_id=$1 AND ${active} ORDER BY v.date,v.id,l.id`, [
+    const [lines, docs] = [
+      await pool.query(
+        journalSelect + ` WHERE l.partner_id=$1 AND ${active} ORDER BY v.date,v.id,l.id`,
+        [partnerId],
+      ),
+      await pool.query("SELECT id,name FROM partner_documents WHERE partner_id=$1 ORDER BY name", [
         partnerId,
       ]),
-      pool.query("SELECT id,name FROM partner_documents WHERE partner_id=$1 ORDER BY name", [
-        partnerId,
-      ]),
-    ]);
+    ];
     return { partner: master(row), lines: journal(lines.rows), documents: docs.rows };
   });
   app.post("/api/partners/:partnerId/documents", write, async (request) => {
@@ -262,21 +263,22 @@ export function registerFunding(app: FastifyInstance) {
       ])
     ).rows[0];
     if (!row) throw fail("Project not found.", 404);
-    const [lines, entries, links, lenders, partners] = await Promise.all([
-      pool.query(journalSelect + " WHERE l.project_id=$1 ORDER BY v.date,v.created_at,v.id,l.id", [
-        row.id,
-      ]),
-      pool.query(
+    const [lines, entries, links, lenders, partners] = [
+      await pool.query(
+        journalSelect + " WHERE l.project_id=$1 ORDER BY v.date,v.created_at,v.id,l.id",
+        [row.id],
+      ),
+      await pool.query(
         `SELECT ${entriesColumns} FROM project_money_entries WHERE project_id=$1 ORDER BY created_at DESC`,
         [row.id],
       ),
-      pool.query(
+      await pool.query(
         'SELECT partner_id AS "partnerId" FROM project_partner_links WHERE project_id=$1',
         [row.id],
       ),
-      pool.query("SELECT id,name FROM parties WHERE type='lender' ORDER BY name"),
-      pool.query("SELECT id,name,role,status FROM partners ORDER BY name"),
-    ]);
+      await pool.query("SELECT id,name FROM parties WHERE type='lender' ORDER BY name"),
+      await pool.query("SELECT id,name,role,status FROM partners ORDER BY name"),
+    ];
     const direct = (
       await pool.query(
         `SELECT v.id AS "voucherId",v.date::text,v.status,l.partner_id AS "partnerId",p.role,sum(l.credit) AS amount

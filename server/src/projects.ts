@@ -210,16 +210,16 @@ export function registerProjectRoutes(app: FastifyInstance) {
   });
   app.get("/api/projects/:id/records", read, async (request) => {
     const id = code(request);
-    const [purchases, files] = await Promise.all([
-      pool.query(
+    const [purchases, files] = [
+      await pool.query(
         "SELECT p.details || jsonb_build_object('id',p.id) AS purchase FROM project_purchases p JOIN projects j ON j.id=p.project_id WHERE j.code=$1 ORDER BY p.details->>'date' DESC,p.id",
         [id],
       ),
-      pool.query(
+      await pool.query(
         'SELECT f.id,f.name,f.purchase_id AS "purchaseId" FROM project_files f JOIN projects j ON j.id=f.project_id WHERE j.code=$1 ORDER BY f.name,f.id',
         [id],
       ),
-    ]);
+    ];
     return { purchases: purchases.rows.map((row) => row.purchase), files: files.rows };
   });
   app.post("/api/projects/:id/files", write, async (request) => {
