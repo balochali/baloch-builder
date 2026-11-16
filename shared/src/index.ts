@@ -29,3 +29,4 @@ export * from "./funding";
 
 export * from "./journal";
 export * from "./land";
+export * from "./sales";
