@@ -3,30 +3,330 @@ import type { PostingLine } from "./journal";
 export const BOOKED_BELOW_PERCENT = 25;
 const money = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const text = z.string().trim().max(1000);
-export const salesDate = z.string().date().refine(value => value <= new Date(Date.now()+86400000).toISOString().slice(0,10), "Date cannot be more than one day in the future");
-export const installmentSchema = z.object({ id:z.string().uuid().optional(), seq:z.number().int().positive(), label:text.min(1), due_date:z.string().date(), amount:money.positive() });
-export const saleUnitSchema = z.object({unit_no:text.min(1),category:z.enum(["Flat","Shop","Office","Other"]),floor_label:text.default(""),size_sqft:z.number().finite().nonnegative().default(0),bedrooms:z.number().int().nonnegative().default(0),bathrooms:z.number().int().nonnegative().default(0),facing:text.default(""),list_price:money.default(0),notes:text.default(""),is_active:z.boolean().default(true),version:z.number().int().positive().optional()});
-export const saleAgreementSchema = z.object({unit_id:z.string().uuid(),customer_party_id:z.string().uuid(),agreement_date:salesDate,total_price:money.positive(),discount:money.default(0),plan_type:z.enum(["full","installments","custom"]),notes:text.default(""),second_buyer_name:text.default(""),reference:text.default(""),schedule:z.array(installmentSchema).min(1).max(500),version:z.number().int().positive().optional()}).refine(a=>a.schedule.reduce((s,r)=>s+BigInt(r.amount),0n)===BigInt(a.total_price),"Payment plan total must equal the price");
-export const salePaymentSchema=z.object({agreement_id:z.string().uuid(),received_on:salesDate,amount:money.positive(),method:z.enum(["cash","bank_transfer","cheque","online","other"]),reference:text.default(""),deposited_to:z.enum(["bank","cash"]),notes:text.default(""),installment_id:z.string().uuid().nullable().optional(),expectedVoucherId:z.string().optional()});
-export const saleCancelSchema=z.object({cancelled_on:salesDate,reason:text.min(1),refund_amount:money,forfeited_amount:money,refund_paid_from:z.enum(["bank","cash"]),version:z.number().int().positive()});
-export type Installment=z.infer<typeof installmentSchema>;
-export type SaleUnit=z.infer<typeof saleUnitSchema>&{id:string;project_id:string;source_unit_type_id?:string;source_snapshot?:unknown;version:number};
-export type SalePayment=z.infer<typeof salePaymentSchema>&{id:string;receipt_no:string;status:"posted"|"void";voucher_id:string;after_handover:boolean;created_at:string};
-export type SaleAgreement=z.infer<typeof saleAgreementSchema>&{id:string;status:"active"|"cancelled";customer_name:string;handover_date:string|null;handover_voucher_id:string|null;version:number;received:number};
-export type SalesSheet={units:SaleUnit[];agreements:SaleAgreement[];payments:SalePayment[];customers:{id:string;name:string;phone:string}[];building: {units:{id:string;count:number;category:string;sizeSqft:number;floorsText:string;bedrooms:number;bathrooms:number}[]};totals:ReturnType<typeof salesTotals>};
-export function generateInstallments(input:{price:number;downPayment?:number;count:number;firstDueDate:string;intervalMonths?:number;intervalDays?:number;possession?:number}):Installment[]{
- const {price,downPayment=0,count,firstDueDate,intervalMonths=1,intervalDays,possession=0}=input;
- if(![price,downPayment,count,possession].every(Number.isSafeInteger)||count<1||count>500||price-downPayment-possession<count)throw new Error("Leave at least one rupee for each instalment");
- const rows:Installment[]=[]; const base=Math.floor((price-downPayment-possession)/count);
- const dateAt=(i:number)=>{const d=new Date(firstDueDate+"T12:00:00Z");if(intervalDays)d.setUTCDate(d.getUTCDate()+i*intervalDays);else{const day=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+i*intervalMonths);const end=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();d.setUTCDate(Math.min(day,end));}return d.toISOString().slice(0,10);};
- if(downPayment)rows.push({seq:1,label:"Down payment",due_date:firstDueDate,amount:downPayment});
- for(let i=0;i<count;i++)rows.push({seq:rows.length+1,label:`Instalment ${i+1}`,due_date:dateAt(i+(downPayment?1:0)),amount:i===count-1?price-downPayment-possession-base*(count-1):base});
- if(possession)rows.push({seq:rows.length+1,label:"On possession",due_date:dateAt(count+(downPayment?1:0)),amount:possession});return rows;
+export const salesDate = z
+  .string()
+  .date()
+  .refine(
+    (value) => value <= new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+    "Date cannot be more than one day in the future",
+  );
+export const installmentSchema = z.object({
+  id: z.string().uuid().optional(),
+  seq: z.number().int().positive(),
+  label: text.min(1),
+  due_date: z.string().date(),
+  amount: money.positive(),
+});
+export const saleUnitSchema = z.object({
+  unit_no: text.min(1),
+  category: z.enum(["Flat", "Shop", "Office", "Other"]),
+  floor_label: text.default(""),
+  size_sqft: z.number().finite().nonnegative().default(0),
+  bedrooms: z.number().int().nonnegative().default(0),
+  bathrooms: z.number().int().nonnegative().default(0),
+  facing: text.default(""),
+  list_price: money.default(0),
+  notes: text.default(""),
+  is_active: z.boolean().default(true),
+  version: z.number().int().positive().optional(),
+});
+export const saleAgreementSchema = z
+  .object({
+    unit_id: z.string().uuid(),
+    customer_party_id: z.string().uuid(),
+    agreement_date: salesDate,
+    total_price: money.positive(),
+    discount: money.default(0),
+    plan_type: z.enum(["full", "installments", "custom"]),
+    notes: text.default(""),
+    second_buyer_name: text.default(""),
+    reference: text.default(""),
+    schedule: z.array(installmentSchema).min(1).max(500),
+    version: z.number().int().positive().optional(),
+  })
+  .refine(
+    (a) => a.schedule.reduce((s, r) => s + BigInt(r.amount), 0n) === BigInt(a.total_price),
+    "Payment plan total must equal the price",
+  );
+export const salePaymentSchema = z.object({
+  agreement_id: z.string().uuid(),
+  received_on: salesDate,
+  amount: money.positive(),
+  method: z.enum(["cash", "bank_transfer", "cheque", "online", "other"]),
+  reference: text.default(""),
+  deposited_to: z.enum(["bank", "cash"]),
+  notes: text.default(""),
+  installment_id: z.string().uuid().nullable().optional(),
+  expectedVoucherId: z.string().optional(),
+});
+export const saleCancelSchema = z.object({
+  cancelled_on: salesDate,
+  reason: text.min(1),
+  refund_amount: money,
+  forfeited_amount: money,
+  refund_paid_from: z.enum(["bank", "cash"]),
+  version: z.number().int().positive(),
+});
+export type Installment = z.infer<typeof installmentSchema>;
+export type SaleUnit = z.infer<typeof saleUnitSchema> & {
+  id: string;
+  project_id: string;
+  source_unit_type_id?: string;
+  source_snapshot?: unknown;
+  version: number;
+};
+export type SalePayment = z.infer<typeof salePaymentSchema> & {
+  id: string;
+  receipt_no: string;
+  status: "posted" | "void";
+  voucher_id: string;
+  after_handover: boolean;
+  created_at: string;
+};
+export type SaleAgreement = z.infer<typeof saleAgreementSchema> & {
+  id: string;
+  status: "active" | "cancelled";
+  customer_name: string;
+  handover_date: string | null;
+  handover_voucher_id: string | null;
+  version: number;
+  received: number;
+};
+export type SalesSheet = {
+  units: SaleUnit[];
+  agreements: SaleAgreement[];
+  payments: SalePayment[];
+  customers: { id: string; name: string; phone: string }[];
+  building: {
+    units: {
+      id: string;
+      count: number;
+      category: string;
+      sizeSqft: number;
+      floorsText: string;
+      bedrooms: number;
+      bathrooms: number;
+    }[];
+  };
+  totals: ReturnType<typeof salesTotals>;
+};
+export function generateInstallments(input: {
+  price: number;
+  downPayment?: number;
+  count: number;
+  firstDueDate: string;
+  intervalMonths?: number;
+  intervalDays?: number;
+  possession?: number;
+}): Installment[] {
+  const {
+    price,
+    downPayment = 0,
+    count,
+    firstDueDate,
+    intervalMonths = 1,
+    intervalDays,
+    possession = 0,
+  } = input;
+  if (
+    ![price, downPayment, count, possession].every(Number.isSafeInteger) ||
+    count < 1 ||
+    count > 500 ||
+    price - downPayment - possession < count
+  )
+    throw new Error("Leave at least one rupee for each instalment");
+  const rows: Installment[] = [];
+  const base = Math.floor((price - downPayment - possession) / count);
+  const dateAt = (i: number) => {
+    const d = new Date(firstDueDate + "T12:00:00Z");
+    if (intervalDays) d.setUTCDate(d.getUTCDate() + i * intervalDays);
+    else {
+      const day = d.getUTCDate();
+      d.setUTCDate(1);
+      d.setUTCMonth(d.getUTCMonth() + i * intervalMonths);
+      const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+      d.setUTCDate(Math.min(day, end));
+    }
+    return d.toISOString().slice(0, 10);
+  };
+  if (downPayment)
+    rows.push({ seq: 1, label: "Down payment", due_date: firstDueDate, amount: downPayment });
+  for (let i = 0; i < count; i++)
+    rows.push({
+      seq: rows.length + 1,
+      label: `Instalment ${i + 1}`,
+      due_date: dateAt(i + (downPayment ? 1 : 0)),
+      amount: i === count - 1 ? price - downPayment - possession - base * (count - 1) : base,
+    });
+  if (possession)
+    rows.push({
+      seq: rows.length + 1,
+      label: "On possession",
+      due_date: dateAt(count + (downPayment ? 1 : 0)),
+      amount: possession,
+    });
+  return rows;
 }
-export function allocateInstallments(schedule:Installment[],received:number,today=new Date().toISOString().slice(0,10)){
- let left=received;return [...schedule].sort((a,b)=>a.due_date.localeCompare(b.due_date)||a.seq-b.seq).map(row=>{const paid=Math.min(row.amount,left);left-=paid;const remaining=row.amount-paid;return {...row,paid,remaining,status:remaining===0?"paid":row.due_date<today?"overdue":paid>0?"partial":"pending"};});
+export function allocateInstallments(
+  schedule: Installment[],
+  received: number,
+  today = new Date().toISOString().slice(0, 10),
+) {
+  let left = received;
+  return [...schedule]
+    .sort((a, b) => a.due_date.localeCompare(b.due_date) || a.seq - b.seq)
+    .map((row) => {
+      const paid = Math.min(row.amount, left);
+      left -= paid;
+      const remaining = row.amount - paid;
+      return {
+        ...row,
+        paid,
+        remaining,
+        status:
+          remaining === 0
+            ? "paid"
+            : row.due_date < today
+              ? "overdue"
+              : paid > 0
+                ? "partial"
+                : "pending",
+      };
+    });
 }
-export function agreementStatus(a:Pick<SaleAgreement,"total_price"|"received"|"schedule"|"handover_date">,today?:string){const schedule=allocateInstallments(a.schedule,a.received,today);const remaining=a.total_price-a.received;const overdue=schedule.filter(r=>r.status==="overdue").reduce((s,r)=>s+r.remaining,0);return {received:a.received,remaining,percentPaid:100*a.received/a.total_price,overdue,schedule,paymentStatus:remaining===0?"Fully paid":overdue>0?"Overdue":a.received>0?"Partially paid":"Not paid yet",unitStatus:a.handover_date?"Handed over":remaining===0?"Fully paid":a.received*100<a.total_price*BOOKED_BELOW_PERCENT?"Booked":"Sold"};}
-export function salesTotals(units:SaleUnit[],agreements:SaleAgreement[]){const live=agreements.filter(a=>a.status==="active");const states=live.map(a=>agreementStatus(a));return {total:units.filter(u=>u.is_active).length,available:units.filter(u=>u.is_active&&!live.some(a=>a.unit_id===u.id)).length,booked:states.filter(s=>s.unitStatus==="Booked").length,sold:states.filter(s=>s.unitStatus==="Sold").length,fullyPaid:states.filter(s=>s.remaining===0).length,handedOver:states.filter(s=>s.unitStatus==="Handed over").length,saleValue:live.reduce((s,a)=>s+a.total_price,0),received:states.reduce((s,a)=>s+a.received,0),remaining:states.reduce((s,a)=>s+a.remaining,0),overdue:states.reduce((s,a)=>s+a.overdue,0),overdueCount:states.reduce((s,a)=>s+a.schedule.filter(r=>r.status==="overdue").length,0)};}
-export function salesPosting(kind:"payment"|"handover"|"cancel",a:{total_price:number;received:number;customer_party_id:string;project_id:string;handover_date?:string|null},amount=0,bank="bank",forfeited=0):PostingLine[]{const tag={projectId:a.project_id,partyId:a.customer_party_id};const line=(accountCode:string,debit:number,credit:number)=>({...tag,accountCode,debit,credit});const cash=bank==="bank"?"1010":"1000";return(kind==="payment"?[line(cash,amount,0),line(a.handover_date?"1100":"2200",0,amount)]:kind==="handover"?[line("2200",a.received,0),line("1100",a.total_price-a.received,0),line("4000",0,a.total_price)]:[line("2200",a.received,0),line(cash,0,amount),line("4100",0,forfeited)]).filter(l=>l.debit||l.credit);}
-export function amountInWords(value:number):string{if(!Number.isSafeInteger(value)||value<0)throw new Error("Use whole rupees");const small=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];const tens=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];const words=(n:number):string=>{if(n<20)return small[n];if(n<100)return tens[Math.floor(n/10)]+(n%10?" "+words(n%10):"");for(const [size,name]of [[10000000,"crore"],[100000,"lakh"],[1000,"thousand"],[100,"hundred"]] as const)if(n>=size)return words(Math.floor(n/size))+" "+name+(n%size?" "+words(n%size):"");return "";};return words(value)+" Pakistani rupees only";}
+export function agreementStatus(
+  a: Pick<SaleAgreement, "total_price" | "received" | "schedule" | "handover_date">,
+  today?: string,
+) {
+  const schedule = allocateInstallments(a.schedule, a.received, today);
+  const remaining = a.total_price - a.received;
+  const overdue = schedule
+    .filter((r) => r.status === "overdue")
+    .reduce((s, r) => s + r.remaining, 0);
+  return {
+    received: a.received,
+    remaining,
+    percentPaid: (100 * a.received) / a.total_price,
+    overdue,
+    schedule,
+    paymentStatus:
+      remaining === 0
+        ? "Fully paid"
+        : overdue > 0
+          ? "Overdue"
+          : a.received > 0
+            ? "Partially paid"
+            : "Not paid yet",
+    unitStatus: a.handover_date
+      ? "Handed over"
+      : remaining === 0
+        ? "Fully paid"
+        : a.received * 100 < a.total_price * BOOKED_BELOW_PERCENT
+          ? "Booked"
+          : "Sold",
+  };
+}
+export function salesTotals(units: SaleUnit[], agreements: SaleAgreement[]) {
+  const live = agreements.filter((a) => a.status === "active");
+  const states = live.map((a) => agreementStatus(a));
+  return {
+    total: units.filter((u) => u.is_active).length,
+    available: units.filter((u) => u.is_active && !live.some((a) => a.unit_id === u.id)).length,
+    booked: states.filter((s) => s.unitStatus === "Booked").length,
+    sold: states.filter((s) => s.unitStatus === "Sold").length,
+    fullyPaid: states.filter((s) => s.remaining === 0).length,
+    handedOver: states.filter((s) => s.unitStatus === "Handed over").length,
+    saleValue: live.reduce((s, a) => s + a.total_price, 0),
+    received: states.reduce((s, a) => s + a.received, 0),
+    remaining: states.reduce((s, a) => s + a.remaining, 0),
+    overdue: states.reduce((s, a) => s + a.overdue, 0),
+    overdueCount: states.reduce(
+      (s, a) => s + a.schedule.filter((r) => r.status === "overdue").length,
+      0,
+    ),
+  };
+}
+export function salesPosting(
+  kind: "payment" | "handover" | "cancel",
+  a: {
+    total_price: number;
+    received: number;
+    customer_party_id: string;
+    project_id: string;
+    handover_date?: string | null;
+  },
+  amount = 0,
+  bank = "bank",
+  forfeited = 0,
+): PostingLine[] {
+  const tag = { projectId: a.project_id, partyId: a.customer_party_id };
+  const line = (accountCode: string, debit: number, credit: number) => ({
+    ...tag,
+    accountCode,
+    debit,
+    credit,
+  });
+  const cash = bank === "bank" ? "1010" : "1000";
+  return (
+    kind === "payment"
+      ? [line(cash, amount, 0), line(a.handover_date ? "1100" : "2200", 0, amount)]
+      : kind === "handover"
+        ? [
+            line("2200", a.received, 0),
+            line("1100", a.total_price - a.received, 0),
+            line("4000", 0, a.total_price),
+          ]
+        : [line("2200", a.received, 0), line(cash, 0, amount), line("4100", 0, forfeited)]
+  ).filter((l) => l.debit || l.credit);
+}
+export function amountInWords(value: number): string {
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error("Use whole rupees");
+  const small = [
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+  ];
+  const tens = [
+    "",
+    "",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
+  ];
+  const words = (n: number): string => {
+    if (n < 20) return small[n];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + words(n % 10) : "");
+    for (const [size, name] of [
+      [10000000, "crore"],
+      [100000, "lakh"],
+      [1000, "thousand"],
+      [100, "hundred"],
+    ] as const)
+      if (n >= size)
+        return words(Math.floor(n / size)) + " " + name + (n % size ? " " + words(n % size) : "");
+    return "";
+  };
+  return words(value) + " Pakistani rupees only";
+}
