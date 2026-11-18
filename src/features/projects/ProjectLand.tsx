@@ -1,4 +1,5 @@
-import { LandFinancePanel, useLandSheet } from "./LandFinance";
+import { useSearchParams } from "react-router-dom";
+import { LandFinancePanel, LandEntryModal, useLandSheet } from "./LandFinance";
 import { PartnerEditor } from "./PartnersMaster";
 import { useState, type FormEvent } from "react";
 import { Plus, MapPin, FileText } from "lucide-react";
@@ -129,6 +130,8 @@ export function ProjectLand({
   const [error, setError] = useState("");
   const partners = site.partners;
   const finance = useLandSheet(project.id, ledger);
+  const [actionParams, setActionParams] = useSearchParams();
+  const [payParcel, setPayParcel] = useState<string>();
   function open(parcel: LandParcel | null) {
     setEditing(parcel);
     setAcquisition(parcel?.acquisitionType ?? "purchase");
@@ -205,6 +208,44 @@ export function ProjectLand({
   }
   return (
     <section className="project-site">
+      {manage && actionParams.get("action") === "pay-seller" && finance.sheet && (
+        <Dialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setActionParams({});
+          }}
+        >
+          <DialogContent>
+            <DialogTitle>Pay seller</DialogTitle>
+            <DialogDescription>Choose the purchase you want to pay.</DialogDescription>
+            {finance.sheet.purchases
+              .filter((p) => p.status === "posted")
+              .map((p) => (
+                <button key={p.id} onClick={() => setPayParcel(p.parcelId)}>
+                  {site.parcels.find((x) => x.id === p.parcelId)?.name ?? "Purchase"}
+                </button>
+              ))}
+            {!finance.sheet.purchases.length && <p>Add a land purchase first.</p>}
+          </DialogContent>
+        </Dialog>
+      )}
+      {payParcel && finance.sheet && (
+        <LandEntryModal
+          id={project.id}
+          sheet={finance.sheet}
+          parcel={site.parcels.find((p) => p.id === payParcel)}
+          purchase={finance.sheet.purchases.find(
+            (p) => p.parcelId === payParcel && p.status === "posted",
+          )}
+          form={{ kind: "payments" }}
+          close={() => {
+            setPayParcel(undefined);
+            setActionParams({});
+          }}
+          saved={finance.refresh}
+        />
+      )}
+
       <div className="project-section-heading">
         <h2>Land parcels</h2>
         {manage && site.parcels.length > 0 && (

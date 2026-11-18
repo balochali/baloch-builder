@@ -1,3 +1,4 @@
+import { GlobalLedger } from "@/features/projects/LedgerGrid";
 import { ChartAccounts } from "@/features/projects/ChartAccounts";
 import { PartnersMaster } from "@/features/projects/PartnersMaster";
 import { ProjectDetail } from "@/features/projects/ProjectDetail";
@@ -129,10 +130,11 @@ function ServerRouter() {
             </>
           )}
           {can(user.role, "accounts") && <Route path="/accounts" element={<ChartAccounts />} />}
+          {can(user.role, "ledger") && <Route path="/ledger/*" element={<GlobalLedger />} />}
           {screens
             .filter(
               (item) =>
-                !["/", "/projects", "/partners", "/accounts"].includes(item.to) &&
+                !["/", "/projects", "/partners", "/accounts", "/ledger"].includes(item.to) &&
                 can(user.role, item.permission),
             )
             .flatMap((item) => {

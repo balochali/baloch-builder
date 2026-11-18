@@ -298,8 +298,7 @@ export function MoneyEntryForm({
                       ),
                     )}
                     <label>
-                      <input type="radio" disabled /> Customer booking — Comes with the Flats/Shops
-                      sales module
+                      Customer payments are recorded in the Sales tab
                     </label>
                   </fieldset>
                   {source === "partner" && (

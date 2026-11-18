@@ -1,3 +1,4 @@
+import { GlobalActions } from "./GlobalActions";
 import { navigation } from "../navigation";
 import type { Role } from "@baloch/shared";
 import { Outlet, useLocation, Link } from "react-router-dom";
@@ -88,6 +89,7 @@ export function AppShell({ onLogout, role }: AppShellProps) {
             </div>
           </div>
           <div className="topbar-tools">
+            <GlobalActions role={role ?? "admin"} />
             <span className="workspace-date">
               <CalendarDays size={15} />
               {new Date().toLocaleDateString("en-GB", {

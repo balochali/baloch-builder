@@ -53,6 +53,8 @@ export type MoneyEntry = {
   attachmentId?: string | null;
 };
 export type JournalRow = {
+  projectCode?: string;
+  projectName?: string;
   id: string;
   voucherId: string;
   date: string;

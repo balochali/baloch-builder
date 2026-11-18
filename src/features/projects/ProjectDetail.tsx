@@ -1,3 +1,5 @@
+import { ProjectOverview, BuildingSalesSummary } from "./ProjectOverview";
+import { Sales } from "./Sales";
 import { ProjectFunding } from "./ProjectFunding";
 import { useCallback, useEffect, useState } from "react";
 import { Link, NavLink, Navigate, useOutletContext, useParams } from "react-router-dom";
@@ -9,7 +11,7 @@ import { Feasibility } from "./Feasibility";
 import { ProjectWizard } from "./ProjectWizard";
 import { ProjectLand } from "./ProjectLand";
 import { ProjectBuilding } from "./ProjectBuilding";
-import { areaNumber, totalLandArea, type SiteData } from "./projectSite";
+import { type SiteData } from "./projectSite";
 import "./projects.css";
 import "./project-site.css";
 
@@ -18,6 +20,7 @@ const sections = [
   { title: "Feasibility", icon: HardHat },
   { title: "Land", icon: Landmark },
   { title: "Building", icon: Building2 },
+  { title: "Sales", icon: Wallet },
   { title: "Transactions", icon: Wallet },
   { title: "Partners", icon: Users },
   { title: "Parties", icon: Users },
@@ -119,25 +122,24 @@ export function ProjectDetail({ role }: { role: Role }) {
               </NavLink>
             ))}
           </nav>
+          {tab === "sales" &&
+            (can(role, "ledger") ? (
+              <Sales id={project.id} manage={manage} />
+            ) : (
+              <p>You do not have access to sales finances.</p>
+            ))}
           {tab === "overview" && (
-            <dl className="feasibility-metrics">
-              <div>
-                <dt>Land area</dt>
-                <dd>
-                  {site?.parcels?.length
-                    ? `${areaNumber(totalLandArea(site.parcels, "Marla"))} Marla`
-                    : siteError
-                      ? "Unavailable"
-                      : site
-                        ? project.landArea
-                          ? `${areaNumber(project.landArea.value)} ${project.landArea.unit}`
-                          : "—"
-                        : "Loading..."}
-                </dd>
-              </div>
-            </dl>
+            <ProjectOverview project={project} site={site} ledger={can(role, "ledger")} />
           )}
-          {!["feasibility", "land", "building", "partners", "transactions"].includes(tab) && (
+          {![
+            "feasibility",
+            "land",
+            "building",
+            "partners",
+            "transactions",
+            "sales",
+            "overview",
+          ].includes(tab) && (
             <ComingSoon
               title={section.title}
               icon={section.icon}
@@ -170,6 +172,9 @@ export function ProjectDetail({ role }: { role: Role }) {
           )}
           {site && (tab === "building" || buildingOpened) && (
             <div hidden={tab !== "building"}>
+              {can(role, "ledger") && (
+                <BuildingSalesSummary id={project.id} building={site.building} />
+              )}
               <ProjectBuilding
                 project={project}
                 site={site}

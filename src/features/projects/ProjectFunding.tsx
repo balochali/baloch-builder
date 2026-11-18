@@ -107,9 +107,13 @@ export function ProjectFunding({
   const [reload, setReload] = useState(0);
   const [search] = useSearchParams();
   const [section, setSection] = useState<(typeof sections)[number]>(
-    search.get("section") === "money-in" ? "Money in" : "Partners",
+    search.get("section") === "money-in" || search.get("action") === "money-in"
+      ? "Money in"
+      : "Partners",
   );
-  const [entryForm, setEntryForm] = useState<{ direction: "in" | "out"; entry?: MoneyEntry }>();
+  const [entryForm, setEntryForm] = useState<
+    { direction: "in" | "out"; entry?: MoneyEntry } | undefined
+  >(search.get("action") === "money-in" ? { direction: "in" } : undefined);
   const [statement, setStatement] = useState<FundingData["partners"][number]>();
   const [link, setLink] = useState(false);
   const [partnerId, setPartnerId] = useState("");
@@ -327,6 +331,12 @@ export function ProjectFunding({
       )}
       <Metrics
         values={[
+          [
+            "Customer advances",
+            <Link to={`/projects/${id}/transactions?account=2200`}>
+              <Money value={-balance(active, "2200")} />
+            </Link>,
+          ],
           ["Total committed", <Money value={committed} />],
           ["Total contributed", <Money value={totals.contributed} />],
           [
