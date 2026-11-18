@@ -1,3 +1,4 @@
+import { DataGrid } from "@/components/grid/DataGrid";
 import { useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
 
@@ -58,6 +59,7 @@ export function FeasibilityGrid({
   const [edit, setEdit] = useState<{ row: number; col: number; text: string }>();
   const [error, setError] = useState("");
   const [invalid, setInvalid] = useState<string>();
+  const [review, setReview] = useState(false);
   function valid(cell: Cell, value: string) {
     return (
       value.length <= 500 &&
@@ -182,6 +184,36 @@ export function FeasibilityGrid({
   }
   return (
     <>
+      <button type="button" className="projects-secondary" onClick={() => setReview(!review)}>
+        {review ? "Close grid tools" : "Review, filter and export"}
+      </button>
+      {review && (
+        <DataGrid
+          name={headers.join(" - ")}
+          rows={rows}
+          columns={headers.map((label, col) => ({
+            key: String(col),
+            label,
+            value: (row: (typeof rows)[number]) =>
+              row.cells[col].numeric
+                ? Number((row.cells[col].editValue ?? row.cells[col].value).replace(/,/g, "")) || 0
+                : row.cells[col].value,
+            numeric: rows[0]?.cells[col]?.numeric,
+            total: rows[0]?.cells[col]?.numeric,
+            editable: (row: (typeof rows)[number]) => !locked && !row.cells[col].readOnly,
+            validate: (value: string) => !rows[0]?.cells[col] || valid(rows[0].cells[col], value),
+          }))}
+          onChange={(changes) =>
+            onChange(
+              changes.map((c) => ({
+                row: rows.findIndex((r) => r.id === c.id),
+                col: Number(c.key),
+                value: c.value,
+              })),
+            )
+          }
+        />
+      )}
       <div className="feasibility-grid-scroll" tabIndex={0} aria-label="Spreadsheet">
         <table
           className={`feasibility-grid ${groups ? "feasibility-grid-grouped" : ""} ${headers[0] === "Item" ? "feasibility-items" : ""} ${headers.includes("Lounge") ? "building-unit-grid" : ""}`}

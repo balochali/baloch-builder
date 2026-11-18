@@ -152,6 +152,9 @@ export async function postFundingEntry(
 }
 
 export function registerFunding(app: FastifyInstance) {
+  app.get("/api/ledger", read, async () =>
+    journal((await pool.query(journalSelect + " ORDER BY v.date,v.created_at,v.id,l.id")).rows),
+  );
   app.get("/api/accounts", accountsRead, async () =>
     (
       await pool.query(`SELECT a.code,a.name,a.class,a.is_system AS "isSystem",a.is_active AS "isActive",

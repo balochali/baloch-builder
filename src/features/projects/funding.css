@@ -180,3 +180,7 @@
   width: 55px;
   max-width: 100%;
 }
+
+.app-main .funding-table th.funding-numeric { text-align:right; }
+.app-main .funding-table td { height:34px; }
+.funding-table td:first-child { position:sticky; left:0; background:var(--background); }

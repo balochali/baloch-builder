@@ -1,95 +1,100 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import type { AccountRow } from "@baloch/shared";
 import { api } from "@/data/api";
-import { Input } from "@/components/ui/input";
-import { FundingTable, Money } from "./FundingUI";
-import { normalSide } from "./fundingView";
+import { DataGrid } from "@/components/grid/DataGrid";
 import "./projects.css";
-
 export function ChartAccounts() {
-  const [accounts, setAccounts] = useState<AccountRow[]>();
-  const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
+  const [accounts, setAccounts] = useState<AccountRow[]>(),
+    [error, setError] = useState(""),
+    [closed, setClosed] = useState<string[]>([]);
+  const navigate = useNavigate();
   useEffect(() => {
-    let active = true;
     api<AccountRow[]>("accounts")
-      .then((rows) => {
-        if (active) setAccounts(rows);
-      })
-      .catch((cause) => {
-        if (active) setError(String(cause));
-      });
-    return () => {
-      active = false;
-    };
+      .then(setAccounts)
+      .catch((e) => setError(String(e)));
   }, []);
-  const filtered =
-    accounts?.filter((row) =>
-      `${row.code} ${row.name} ${row.class}`.toLowerCase().includes(search.trim().toLowerCase()),
-    ) ?? [];
-  const classes = [...new Set(filtered.map((row) => row.class))];
+  const groups = ["Asset", "Liability", "Equity", "Revenue", "Cost of Sales", "Expense"];
+  const labels: Record<string, string> = {
+    Asset: "Assets",
+    Liability: "Liabilities",
+    Equity: "Equity",
+    Revenue: "Revenue",
+    Expense: "Expenses",
+    "Cost of Sales": "Cost of Sales",
+  };
+  const rows = groups.flatMap((group) => [
+    { id: group, code: "", name: labels[group], class: group, balance: 0, group: true },
+    ...(closed.includes(group)
+      ? []
+      : (accounts ?? [])
+          .filter((a) => a.class === group)
+          .map((a) => ({ ...a, id: a.code, group: false }))),
+  ]);
   return (
     <section className="builder-projects">
       <header className="projects-heading">
         <div>
           <span className="projects-eyebrow">ACCOUNTING SETUP</span>
           <h1>Chart of Accounts</h1>
-          <p>Balances calculated from the journal.</p>
+          <p>Balances calculated from the journal. Open an account to see its entries.</p>
         </div>
       </header>
-      <label className="project-filters">
-        Search accounts
-        <Input
-          type="search"
-          placeholder="Code, name or class"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </label>
       {error ? (
         <p role="alert">{error}</p>
       ) : !accounts ? (
-        <p role="status">Loading accounts...</p>
-      ) : !filtered.length ? (
-        <p>No accounts match your search.</p>
+        <p>Loading accounts...</p>
       ) : (
-        <FundingTable headers={["Code", "Name", "Class", "Debit balance", "Credit balance"]}>
-          {classes.map((group) => (
-            <Fragment key={group}>
-              <tr className="funding-band">
-                <th colSpan={5} scope="row">
-                  {group}
-                </th>
-              </tr>
-              {filtered
-                .filter((row) => row.class === group)
-                .map((row) => (
-                  <tr key={row.code}>
-                    <td>{row.code}</td>
-                    <td>
-                      {row.name}
-                      {!row.isActive ? " (Inactive)" : ""}
-                    </td>
-                    <td>{row.class}</td>
-                    <td className="funding-numeric">
-                      {row.balance > 0 || (!row.balance && normalSide(row) === "Debit") ? (
-                        <Money value={row.balance} />
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="funding-numeric">
-                      {row.balance < 0 || (!row.balance && normalSide(row) === "Credit") ? (
-                        <Money value={Math.abs(row.balance)} />
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-            </Fragment>
-          ))}
-        </FundingTable>
+        <DataGrid
+          name="Chart of Accounts"
+          rows={rows}
+          columns={[
+            {
+              key: "code",
+              label: "Code",
+              value: (r) => r.code,
+              render: (r) =>
+                r.group ? (
+                  <button
+                    onClick={() =>
+                      setClosed((v) =>
+                        v.includes(r.class) ? v.filter((g) => g !== r.class) : [...v, r.class],
+                      )
+                    }
+                    aria-expanded={!closed.includes(r.class)}
+                  >
+                    {closed.includes(r.class) ? "+" : "−"} {r.name}
+                  </button>
+                ) : (
+                  <Link to={`/ledger?account=${r.code}`}>{r.code}</Link>
+                ),
+            },
+            {
+              key: "name",
+              label: "Name",
+              value: (r) => (r.group ? "" : r.name),
+              render: (r) =>
+                r.group ? "" : <Link to={`/ledger?account=${r.code}`}>{r.name}</Link>,
+            },
+            { key: "type", label: "Type", value: (r) => (r.group ? "" : r.class) },
+            {
+              key: "balance",
+              label: "Balance",
+              value: (r) => r.balance,
+              numeric: true,
+              total: true,
+              render: (r) =>
+                r.group ? (
+                  ""
+                ) : (
+                  <Link to={`/ledger?account=${r.code}`}>
+                    {r.balance ? r.balance.toLocaleString("en-PK") : "—"}
+                  </Link>
+                ),
+            },
+          ]}
+          onTotal={() => navigate("/ledger")}
+        />
       )}
     </section>
   );

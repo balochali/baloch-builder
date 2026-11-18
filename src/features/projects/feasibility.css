@@ -356,3 +356,10 @@
   width: 1400px;
   min-width: 1400px;
 }
+
+.feasibility-grid-scroll { max-height:600px; overflow:auto; }
+.feasibility-grid tbody td { height:34px; }
+.feasibility-grid tbody tr:nth-child(even) td { background:var(--muted); }
+.feasibility-grid td:first-child,.feasibility-grid th:first-child { position:sticky;left:0;z-index:2;background:var(--background); }
+.feasibility-grid thead th { position:sticky;top:0;z-index:3; }
+.feasibility-grid tfoot td {position:sticky;bottom:0;z-index:3;background:var(--background);}
