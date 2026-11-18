@@ -1,3 +1,4 @@
+import { seedSales } from "./seedSales";
 import { postLand } from "../server/src/land";
 import { createHash } from "node:crypto";
 import type pg from "pg";
@@ -447,6 +448,7 @@ try {
       ])
     ).rows[0];
     verify(feasibilitySchema.parse(stored.plan));
+    if (demo) await seedSales(client, project.id, plan);
     return project.code as string;
   });
   console.log(
