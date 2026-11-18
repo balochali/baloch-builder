@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import {
@@ -48,13 +49,13 @@ it("sums purchased and contributed parcels and changes the display unit", () => 
   expect(totalLandArea(parcels, "Sq yard")).toBe(1210);
   expect(totalLandArea(parcels, "Acre")).toBe(0.25);
   render(
-    <ProjectLand
+    <MemoryRouter><ProjectLand
       project={project}
       site={{ parcels, building: emptyBuilding(project.name), partners: [], sellers: [] }}
       manage={false}
       ledger={false}
       onSite={vi.fn()}
-    />,
+    /></MemoryRouter>,
   );
   expect(screen.getByText("40 Marla")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Display unit"), { target: { value: "Kanal" } });

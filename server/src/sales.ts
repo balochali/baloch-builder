@@ -60,6 +60,9 @@ export async function readSales(c: Pick<pg.PoolClient, "query">, projectId: stri
     schedule: schedule
       .filter((s) => s.agreement_id === a.id)
       .map((s) => ({ ...s, amount: Number(s.amount) })),
+    allocations: payments
+      .filter((p) => p.agreement_id === a.id && p.status === "posted" && p.installment_id)
+      .map((p) => ({ installmentId: p.installment_id, amount: Number(p.journal_amount) })),
     received: payments
       .filter((p) => p.agreement_id === a.id && p.status === "posted")
       .reduce((s, p) => s + Number(p.journal_amount), 0),
@@ -71,7 +74,23 @@ export async function readSales(c: Pick<pg.PoolClient, "query">, projectId: stri
   ).rows;
   const details = (await c.query("SELECT details FROM projects WHERE id=$1", [projectId])).rows[0]
     ?.details;
+  const expectedSales = { min: 0, max: 0 };
+  for (const row of details?.feasibility?.salesRows ?? []) {
+    expectedSales.min +=
+      ((row.minRatePerSqft ?? row.maxRatePerSqft ?? 0) *
+        row.areaSqft *
+        row.count *
+        (row.soldPercent ?? 100)) /
+      100;
+    expectedSales.max +=
+      ((row.maxRatePerSqft ?? row.minRatePerSqft ?? 0) *
+        row.areaSqft *
+        row.count *
+        (row.soldPercent ?? 100)) /
+      100;
+  }
   return {
+    expectedSales,
     units,
     agreements: rows,
     payments: payments.map((p) => ({ ...p, amount: Number(p.amount) })) as SalePayment[],
@@ -380,7 +399,16 @@ export async function cancelSale(c: pg.PoolClient, projectId: string, id: string
   if (a.handover_date)
     throw fail("This unit has been handed over. Undo handover before cancelling the sale.", 409);
   if (a.version !== d.version) throw fail("This sale changed. Refresh and try again.", 409);
-  if (d.cancelled_on < a.agreement_date) throw fail("Cancellation cannot be before the sale date.");
+  if (
+    d.cancelled_on < a.agreement_date ||
+    (
+      await c.query(
+        "SELECT 1 FROM sale_payments WHERE agreement_id=$1 AND status='posted' AND received_on>$2",
+        [id, d.cancelled_on],
+      )
+    ).rowCount
+  )
+    throw fail("Cancellation cannot be before the sale or a recorded payment.");
   if (BigInt(d.refund_amount) + BigInt(d.forfeited_amount) !== BigInt(a.received))
     throw fail("Refund plus retained amount must equal the money received.");
   const available = await landAvailable(c, projectId);

@@ -43,7 +43,7 @@ GRANT USAGE ON SEQUENCE sale_receipt_number TO baloch_app;
 CREATE FUNCTION check_sale_schedule() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE aid uuid; price bigint; scheduled numeric;
 BEGIN
- aid=CASE WHEN TG_TABLE_NAME='sale_agreements' THEN NEW.id ELSE coalesce(NEW.agreement_id,OLD.agreement_id) END;
+ IF TG_TABLE_NAME='sale_agreements' THEN aid=NEW.id; ELSIF TG_OP='DELETE' THEN aid=OLD.agreement_id; ELSE aid=NEW.agreement_id; END IF;
  SELECT total_price INTO price FROM sale_agreements WHERE id=aid;
  SELECT coalesce(sum(amount),0) INTO scheduled FROM sale_installments WHERE agreement_id=aid;
  IF scheduled<>price THEN RAISE EXCEPTION 'Payment plan total must equal the sale price' USING ERRCODE='23514'; END IF;
@@ -96,15 +96,20 @@ REVOKE ALL ON FUNCTION transition_sale(uuid,integer,text,text,date) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION transition_sale(uuid,integer,text,text,date) TO baloch_app;
 
 CREATE FUNCTION edit_sale_plan(aid uuid, expected integer, data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE a public.sale_agreements; item jsonb; received numeric; oldrow public.sale_installments; allocated numeric; remaining numeric;
+DECLARE a public.sale_agreements; item jsonb; received numeric; oldrow public.sale_installments; allocated numeric; remaining numeric; fixed numeric;
 BEGIN
  SELECT * INTO a FROM public.sale_agreements WHERE id=aid AND version=expected AND status='active' FOR UPDATE;
  IF NOT FOUND OR a.handover_date IS NOT NULL THEN RAISE EXCEPTION 'Only an active sale before handover can be edited'; END IF;
  SELECT coalesce(sum(l.debit),0) INTO received FROM public.sale_payments p JOIN public.journal_vouchers v ON v.id=p.voucher_id JOIN public.journal_lines l ON l.voucher_id=v.id WHERE p.agreement_id=aid AND p.status='posted' AND v.status='posted' AND v.reversal_of IS NULL AND l.account_code IN ('1000','1010');
  IF (data->>'total_price')::bigint<received THEN RAISE EXCEPTION 'Price cannot be less than money already received'; END IF;
  remaining=received;
+ FOR oldrow IN SELECT * FROM public.sale_installments WHERE agreement_id=aid LOOP
+  SELECT least(oldrow.amount,coalesce(sum(l.debit),0)) INTO fixed FROM public.sale_payments p JOIN public.journal_vouchers v ON v.id=p.voucher_id JOIN public.journal_lines l ON l.voucher_id=v.id WHERE p.agreement_id=aid AND p.installment_id=oldrow.id AND p.status='posted' AND v.status='posted' AND v.reversal_of IS NULL AND l.account_code IN ('1000','1010');
+  remaining=remaining-fixed;
+ END LOOP;
  FOR oldrow IN SELECT * FROM public.sale_installments WHERE agreement_id=aid ORDER BY due_date,seq LOOP
-  allocated=least(remaining,oldrow.amount); remaining=remaining-allocated;
+  SELECT least(oldrow.amount,coalesce(sum(l.debit),0)) INTO fixed FROM public.sale_payments p JOIN public.journal_vouchers v ON v.id=p.voucher_id JOIN public.journal_lines l ON l.voucher_id=v.id WHERE p.agreement_id=aid AND p.installment_id=oldrow.id AND p.status='posted' AND v.status='posted' AND v.reversal_of IS NULL AND l.account_code IN ('1000','1010');
+  allocated=fixed+least(remaining,oldrow.amount-fixed); remaining=remaining-(allocated-fixed);
   IF allocated>0 THEN
    SELECT value INTO item FROM jsonb_array_elements(data->'schedule') WHERE (value->>'id')::uuid=oldrow.id;
    IF item IS NULL OR (item->>'amount')::bigint<allocated OR item->>'due_date'<>oldrow.due_date::text OR item->>'label'<>oldrow.label THEN RAISE EXCEPTION 'Only the unpaid part of the payment plan can change'; END IF;
@@ -123,3 +128,12 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION edit_sale_plan(uuid,integer,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION edit_sale_plan(uuid,integer,jsonb) TO baloch_app;
+
+-- Bump the optimistic version whenever money changes, even before handover.
+CREATE FUNCTION sale_payment_version() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+BEGIN
+ UPDATE public.sale_agreements SET version=version+1 WHERE id=NEW.agreement_id;
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION sale_payment_version() FROM PUBLIC;
+CREATE TRIGGER sale_payment_revision AFTER INSERT ON sale_payments FOR EACH ROW EXECUTE FUNCTION sale_payment_version();

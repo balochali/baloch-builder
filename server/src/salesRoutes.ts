@@ -45,7 +45,16 @@ export function registerSales(app: FastifyInstance) {
     ["payments", saveSalePayment],
   ] as const) {
     app.post(base + "/" + part, write, async (r) =>
-      transaction(r.actor!.id, async (c) => save(c, await pid(params.parse(r.params).id), r.body)),
+      transaction(r.actor!.id, async (c) => {
+        const projectId = await pid(params.parse(r.params).id);
+        const saved = await save(c, projectId, r.body);
+        const first = z
+          .object({ firstPayment: z.record(z.unknown()).optional() })
+          .parse(r.body).firstPayment;
+        if (part === "agreements" && first)
+          await saveSalePayment(c, projectId, { ...first, agreement_id: saved.id });
+        return saved;
+      }),
     );
     app.put(base + "/" + part + "/:recordId", write, async (r) => {
       const p = params.parse(r.params);

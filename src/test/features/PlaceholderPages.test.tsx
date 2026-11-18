@@ -24,7 +24,6 @@ it("shows a titled work-in-progress page for every sidebar item", async () => {
   for (const name of [
     "Lands (overview of all land)",
     "Add Entry",
-    "Ledger",
     "Bank Accounts",
     "Personal",
     "Parties",

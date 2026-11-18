@@ -1,3 +1,4 @@
+import {MemoryRouter} from "react-router-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import type { JournalRow } from "@baloch/shared";
@@ -15,11 +16,11 @@ it("groups a voucher by default and shows its narration only once", () => {
     { ...base, id: "one", accountCode: "1010", accountName: "Bank", debit: 10000, credit: 0 },
     { ...base, id: "two", accountCode: "3000", accountName: "Capital", debit: 0, credit: 10000 },
   ];
-  render(<JournalTable lines={lines} />);
+  render(<MemoryRouter><JournalTable lines={lines} /></MemoryRouter>);
   const group = screen.getByRole("checkbox", { name: "Group by voucher" });
   expect(group).toBeChecked();
   expect(screen.getAllByText(/Partner contribution/)).toHaveLength(1);
-  expect(screen.getAllByText(String.fromCodePoint(0x2014))).toHaveLength(4);
+  expect(screen.getAllByText(/Balanced/)).toHaveLength(1);
   fireEvent.click(group);
   expect(screen.getAllByText(/Partner contribution/)).toHaveLength(1);
 });

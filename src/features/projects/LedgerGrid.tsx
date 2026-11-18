@@ -10,12 +10,10 @@ export function LedgerGrid({
   lines: JournalRow[];
   emptyAction?: ReactNode;
 }) {
-  const [params]=useSearchParams();
+  const [params] = useSearchParams();
   const [group, setGroup] = useState(true),
     [voided, setVoided] = useState(false),
-    [account, setAccount] = useState(
-      () => params.get("account") ?? "",
-    );
+    [account, setAccount] = useState(() => params.get("account") ?? "");
   const voucher = params.get("voucher");
   const all = lines.filter(
     (l) =>

@@ -297,9 +297,7 @@ export function MoneyEntryForm({
                         </label>
                       ),
                     )}
-                    <label>
-                      Customer payments are recorded in the Sales tab
-                    </label>
+                    <label>Customer payments are recorded in the Sales tab</label>
                   </fieldset>
                   {source === "partner" && (
                     <label>

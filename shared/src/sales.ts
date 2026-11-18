@@ -91,6 +91,7 @@ export type SaleAgreement = z.infer<typeof saleAgreementSchema> & {
   handover_voucher_id: string | null;
   version: number;
   received: number;
+  allocations?: { installmentId: string; amount: number }[];
 };
 export type SalesSheet = {
   units: SaleUnit[];
@@ -109,6 +110,7 @@ export type SalesSheet = {
     }[];
   };
   totals: ReturnType<typeof salesTotals>;
+  expectedSales?: { min: number; max: number };
 };
 export function generateInstallments(input: {
   price: number;
@@ -132,6 +134,13 @@ export function generateInstallments(input: {
     ![price, downPayment, count, possession].every(Number.isSafeInteger) ||
     count < 1 ||
     count > 500 ||
+    price <= 0 ||
+    downPayment < 0 ||
+    possession < 0 ||
+    !Number.isSafeInteger(intervalDays ?? intervalMonths) ||
+    (intervalDays ?? intervalMonths) <= 0 ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(firstDueDate) ||
+    Number.isNaN(Date.parse(firstDueDate)) ||
     price - downPayment - possession < count
   )
     throw new Error("Leave at least one rupee for each instalment");
@@ -171,13 +180,25 @@ export function allocateInstallments(
   schedule: Installment[],
   received: number,
   today = new Date().toISOString().slice(0, 10),
+  allocations: { installmentId: string; amount: number }[] = [],
 ) {
-  let left = received;
+  const reserved = new Map(
+    schedule.map((row) => [
+      row.id,
+      Math.min(
+        row.amount,
+        allocations.filter((a) => a.installmentId === row.id).reduce((sum, a) => sum + a.amount, 0),
+      ),
+    ]),
+  );
+  let left = Math.max(0, received - [...reserved.values()].reduce((sum, n) => sum + n, 0));
   return [...schedule]
     .sort((a, b) => a.due_date.localeCompare(b.due_date) || a.seq - b.seq)
     .map((row) => {
-      const paid = Math.min(row.amount, left);
-      left -= paid;
+      const fixed = reserved.get(row.id) ?? 0;
+      const extra = Math.min(row.amount - fixed, left);
+      const paid = fixed + extra;
+      left -= extra;
       const remaining = row.amount - paid;
       return {
         ...row,
@@ -195,10 +216,10 @@ export function allocateInstallments(
     });
 }
 export function agreementStatus(
-  a: Pick<SaleAgreement, "total_price" | "received" | "schedule" | "handover_date">,
+  a: Pick<SaleAgreement, "total_price" | "received" | "schedule" | "handover_date" | "allocations">,
   today?: string,
 ) {
-  const schedule = allocateInstallments(a.schedule, a.received, today);
+  const schedule = allocateInstallments(a.schedule, a.received, today, a.allocations);
   const remaining = a.total_price - a.received;
   const overdue = schedule
     .filter((r) => r.status === "overdue")

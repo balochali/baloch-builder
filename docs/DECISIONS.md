@@ -21,3 +21,17 @@ The service rejects overpayment, insufficient project bank/cash, unlinked direct
 Routes: `GET /api/projects/:id/land`; POST/PUT/POST-void under `purchase`, `payments`, `costs`, and `contribution`. Reads require project and ledger access; writes require manageProjects. The read model supplies all histories, per-parcel/project figures, source percentages and available funds. Transactions links filter by voucher ID.
 
 The idempotent demo posts a 6 Cr purchase, 3.5 Cr instalments (Bank 2.6 Cr, AP 40 L, Owner 50 L), 35 L related costs, and a separate AP contribution of land worth 1 Cr. An extra 1 Cr bank funding entry prevents negative funds. Combined land asset = 7.35 Cr; payable = 2.5 Cr. Posted demo records are not rewritten on rerun.
+
+## Sales accounting and UX decisions
+
+Apply migration `024_sales.sql` using `node --env-file=.env.local --import tsx server/src/migrate.ts` before starting this version. Migrations 001-023 remain unchanged. Only administrators write sales; financial reads require ledger access.
+
+Before handover, payments debit Cash/Bank and credit Client Advances (2200). Handover posts one balanced entry: debit received advances and unpaid receivables, credit the full sale price to Revenue (4000). Later payments clear receivables (1100). Cancellation before handover clears advances into a refund and/or Other Income (4100). Corrections reverse and repost in one transaction. Customer advances never count as partner contributions.
+
+Status is computed from journal-backed receipts and planned due dates: Available, Booked below 25% received, Sold, Fully paid, and Handed over. Overdue means an unpaid scheduled amount whose due date has passed. Optional payment allocations take priority; other money applies oldest first. No balances are persisted. Project locks and version checks protect writes; deferred triggers enforce schedule totals. Runtime UPDATE/DELETE on sales tables is revoked; guarded functions manage changes.
+
+The Sales tab includes unit generation, customer creation, full/instalment/custom plans, receipts, cancellation and handover. Overview uses existing data and an eight-item setup checklist. Ctrl+K searches projects, units, customers, partners and entries subject to permissions. The global Add menu opens common actions. Grids provide filtered totals, ExcelJS exports, print, column tools, clipboard range editing and undo. Feasibility/Building retain their existing editors with a shared Review, filter and export view.
+
+Routes: `/api/projects/:id/sales` plus `/generate-units`, `/units`, `/units/:recordId`, `/units/:recordId/deactivate`, `/units/bulk-price`, `/agreements`, `/agreements/:recordId`, `/agreements/:recordId/cancel`, `/agreements/:recordId/handover`, `/agreements/:recordId/handover/void`, `/payments`, `/payments/:recordId`, `/payments/:recordId/void`, and `/payments/:recordId/receipt`. Shared contacts use `/api/parties`; search uses `/api/search?q=`; cross-project drill-down uses `/api/ledger`.
+
+`npm run seed:demo` generates units and four idempotent sales scenarios in Baloch Heights, using real postings and checking the advances/receivables/revenue reconciliation. Use an intended demo database. `npm run test:postgres` includes `scripts/testSalesPostgres.ts` and rolls back its verification records. Screenshot evidence stays outside Git in `var/sales-evidence/`.

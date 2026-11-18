@@ -1,3 +1,4 @@
+import { testSalesPostgres } from "./testSalesPostgres";
 import { testLandPostgres } from "./testLandPostgres";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -15,6 +16,11 @@ if (ownerUrl.host !== url.host || ownerUrl.pathname !== url.pathname)
 const partnerOnly = process.argv.includes("--partner-only");
 if (!partnerOnly) {
   for (const table of [
+    "sale_units",
+    "sale_agreements",
+    "sale_installments",
+    "sale_payments",
+    "sale_cancellations",
     "land_purchases",
     "land_payments",
     "land_payment_sources",
@@ -214,6 +220,7 @@ try {
           new Set([first.voucherId, changed.voucherId]),
         );
         await testLandPostgres(client, app, headers, code, master.id);
+        await testSalesPostgres(client, app, headers, code);
         console.log(
           "PostgreSQL ledger checks passed: runtime privileges, deferred balance, post, edit, void and repeated void.",
         );

@@ -1,5 +1,5 @@
 import { formatPKR, formatPercent, parsePKR } from "@/features/projects/feasibilityFormat";
-import { feasibilitySchema } from "@baloch/shared";
+import { feasibilitySchema, emptyBuilding, salesTotals } from "@baloch/shared";
 import { sampleFeasibility } from "@/features/projects/sampleFeasibility";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProjectDetail } from "@/features/projects/ProjectDetail";
@@ -138,6 +138,10 @@ it("opens each detail tab and saves, approves and unlocks the plan", async () =>
   let stored = defaultFeasibility();
   vi.mocked(api).mockImplementation(async (url, method, data) => {
     if (url === "projects/partner-options") return [];
+    if(url.endsWith("/site"))return {parcels:[],building:emptyBuilding("Harbour Plaza"),partners:[],sellers:[]};
+    if(url.endsWith("/land"))return {totals:{agreedPrice:0,totalPaid:0,remaining:0}};
+    if(url.endsWith("/sales"))return {units:[],agreements:[],payments:[],customers:[],totals:salesTotals([],[])};
+    if(url.endsWith("/funding"))return {plan:stored,lines:[],links:[],partners:[]};
     if (url === "projects/P-001")
       return { id: "P-001", name: "Harbour Plaza", status: "Planning", partners: [] };
     if (method === "PUT") {
@@ -158,7 +162,7 @@ it("opens each detail tab and saves, approves and unlocks the plan", async () =>
     </MemoryRouter>,
   );
   expect(
-    await screen.findByRole("heading", { name: "Overview is being built" }),
+    await screen.findByRole("heading", { name: "Setup checklist" }),
   ).toBeInTheDocument();
   const tabs = within(screen.getByRole("navigation", { name: "Project sections" }));
   for (const name of ["Parties", "Documents"]) {
