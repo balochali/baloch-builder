@@ -24,7 +24,17 @@ export async function startLocalPostgres() {
   if (database.hostname !== "127.0.0.1") {
     throw new Error("Managed PostgreSQL requires DATABASE_URL to use 127.0.0.1");
   }
-  await access(join(directory, "PG_VERSION"));
+  try {
+    await access(join(directory, "PG_VERSION"));
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    throw new Error(
+      `The PostgreSQL cluster configured by BALOCH_PGDATA is missing or incomplete: ${directory}. ` +
+      "Restore the existing database from backup or update BALOCH_PGDATA in .env.local to its actual location. " +
+      "If PostgreSQL is managed separately, remove BALOCH_PGDATA and check DATABASE_URL. " +
+      "No database files were created or replaced.",
+    );
+  }
   const executable = join(process.env.BALOCH_PGBIN || "", process.platform === "win32" ? "pg_ctl.exe" : "pg_ctl");
   try {
     await run(executable, ["status", "-D", directory]);
@@ -32,6 +42,6 @@ export async function startLocalPostgres() {
   } catch (error) {
     if (error.code !== 3) throw error;
   }
-  await run(executable, ["start", "-D", directory, "-l", join(directory, "server.log"),
-    "-o", `-h 127.0.0.1 -p ${database.port || "5432"}`, "-w", "-t", "30"]);
+  await run(executable, ["start", "-D", directory, "-l", join(directory, "..", "postgres18-server.log"),
+    "-o", `-h 127.0.0.1 -p ${database.port || "5432"}`, "-w", "-t", "90"]);
 }

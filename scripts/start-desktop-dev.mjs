@@ -29,7 +29,12 @@ for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exi
 
 let backend;
 if (!(await apiReady())) {
-  await startLocalPostgres();
+  try {
+    await startLocalPostgres();
+  } catch (error) {
+    console.error(`Desktop startup stopped: ${error.message}`);
+    process.exit(1);
+  }
   backend = start(["--import", "tsx", "server/src/index.ts"]);
   const deadline = Date.now() + 15000;
   while (!(await apiReady())) {
