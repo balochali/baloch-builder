@@ -129,14 +129,14 @@ export function DataGrid<T extends { id: string }>({
     );
   }
   async function apply(changes: GridChange[], undo = false) {
-    if (!onChange || saving.current || !changes.length) return;
+    if (!onChange || saving.current || !changes.length) return false;
     const previous: GridChange[] = [];
     for (const ch of changes) {
       const row = rows.find((r) => r.id === ch.id);
       const col = cols.find((c) => c.key === ch.key);
       if (!row || !col?.editable?.(row) || (col.validate && !col.validate(ch.value))) {
         setError("Check the values. No cells were changed.");
-        return;
+        return false;
       }
       previous.push({ ...ch, value: String(col.value(row)) });
     }
@@ -147,14 +147,16 @@ export function DataGrid<T extends { id: string }>({
       await onChange(changes);
       if (!undo) history.current.push(previous);
       setEdit(undefined);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to save. Try again.");
+      return false;
     } finally {
       saving.current = false;
       setBusy(false);
     }
   }
-  function key(e: KeyboardEvent, r: number, c: number) {
+  async function key(e: KeyboardEvent, r: number, c: number) {
     if (e.key === "Escape" && edit) {
       e.preventDefault();
       e.stopPropagation();
@@ -164,7 +166,7 @@ export function DataGrid<T extends { id: string }>({
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
       e.preventDefault();
       const old = history.current.pop();
-      if (old) void apply(old, true);
+      if (old && !(await apply(old, true))) history.current.push(old);
       return;
     }
     const arrows: Record<string, number[]> = {
@@ -180,7 +182,8 @@ export function DataGrid<T extends { id: string }>({
     }
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      if (edit) void apply([{ id: visible[r].id, key: cols[c].key, value: edit.text }]);
+      if (edit && !(await apply([{ id: visible[r].id, key: cols[c].key, value: edit.text }])))
+        return;
       const delta = e.shiftKey ? -1 : 1;
       if (e.key === "Enter") focus(r + delta, c);
       else {
@@ -194,7 +197,7 @@ export function DataGrid<T extends { id: string }>({
       const changes: GridChange[] = [];
       for (let y = Math.min(anchor[0], r); y <= Math.max(anchor[0], r); y++)
         for (let x = Math.min(anchor[1], c); x <= Math.max(anchor[1], c); x++)
-          if (cols[x].editable?.(visible[y]))
+          if (visible[y] && cols[x]?.editable?.(visible[y]))
             changes.push({ id: visible[y].id, key: cols[x].key, value: "" });
       void apply(changes);
       return;
@@ -268,7 +271,12 @@ export function DataGrid<T extends { id: string }>({
           onClick={() => {
             setPrinting(true);
             setTimeout(() => {
+              const target = box.current?.closest(".data-grid");
+              document.body.classList.add("printing-grid");
+              target?.classList.add("data-grid-print-target");
               window.print();
+              document.body.classList.remove("printing-grid");
+              target?.classList.remove("data-grid-print-target");
               setPrinting(false);
             }, 100);
           }}
@@ -319,7 +327,11 @@ export function DataGrid<T extends { id: string }>({
                   <input
                     aria-label={`Filter ${c.label}`}
                     value={filters[c.key] ?? ""}
-                    onChange={(e) => setFilters({ ...filters, [c.key]: e.target.value })}
+                    onChange={(e) => {
+                      setFilters({ ...filters, [c.key]: e.target.value });
+                      setScroll(0);
+                      if (box.current) box.current.scrollTop = 0;
+                    }}
                   />
                   <span
                     role="separator"
@@ -384,9 +396,16 @@ export function DataGrid<T extends { id: string }>({
                       <td
                         key={c.key}
                         data-cell={`${r}:${x}`}
-                        tabIndex={active[0] === r && active[1] === x ? 0 : -1}
+                        tabIndex={
+                          Math.min(active[0], visible.length - 1) === r &&
+                          Math.min(active[1], cols.length - 1) === x
+                            ? 0
+                            : -1
+                        }
                         className={`${c.numeric ? "numeric" : ""} ${Number(c.value(row)) < 0 ? "negative" : ""} ${chosen ? "grid-selected" : ""}`}
-                        onClick={(e) => focus(r, x, e.shiftKey)}
+                        onClick={(e) => {
+                          if (!(e.target instanceof HTMLInputElement)) focus(r, x, e.shiftKey);
+                        }}
                         onDoubleClick={() => {
                           if (c.editable?.(row))
                             setEdit({ row: r, col: x, text: String(c.value(row)) });

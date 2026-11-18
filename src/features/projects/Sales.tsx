@@ -1,4 +1,5 @@
-import {formatPKR} from "./feasibilityFormat";
+import { createPortal } from "react-dom";
+import { formatPKR } from "./feasibilityFormat";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -165,14 +166,14 @@ export function ScheduleEditor({
             label: "Payment",
             value: (r) => r.label,
             editable: () => true,
-            validate: (v) => !!v.trim(),
+            validate: (v) => v.length <= 1000,
           },
           {
             key: "due_date",
             label: "Due date (YYYY-MM-DD)",
             value: (r) => r.due_date,
             editable: () => true,
-            validate: (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)),
+            validate: (v) => !v || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v))),
           },
           {
             key: "amount",
@@ -182,7 +183,7 @@ export function ScheduleEditor({
             total: true,
             editable: () => true,
             validate: (v) =>
-              Number.isSafeInteger(Number(v.replace(/,/g, ""))) && Number(v.replace(/,/g, "")) > 0,
+              Number.isSafeInteger(Number(v.replace(/,/g, ""))) && Number(v.replace(/,/g, "")) >= 0,
           },
         ]}
         onChange={(changes) => {
@@ -264,7 +265,8 @@ export function SellUnit({
       ? "Select or add a customer."
       : step === 2 && price <= 0
         ? "Enter a price greater than zero."
-        : step >= 3 && (difference !== 0 || rows.some((r) => r.amount <= 0))
+        : step >= 3 &&
+            (difference !== 0 || rows.some((r) => r.amount <= 0 || !r.label.trim() || !r.due_date))
           ? `Total must equal price (difference: ${whole(difference)}).`
           : "";
   function generate() {
@@ -500,7 +502,7 @@ export function ReceivePayment({
   agreement: SaleAgreement;
   endpoint: string;
   close: () => void;
-  done: (id: string) => void;
+  done: (id: string, amount: number) => void;
   payment?: SalePayment;
 }) {
   const state = agreementStatus(agreement);
@@ -582,7 +584,7 @@ export function ReceivePayment({
             } catch {
               /* optional */
             }
-            done(r.id);
+            done(r.id, amount);
             close();
           } catch (e) {
             setError(friendlyError(e));
@@ -619,12 +621,7 @@ export function Receipt({
       .then(setData)
       .catch((e) => setError(friendlyError(e)));
   }, [endpoint, id]);
-  return (
-    <SalesDialog title="Payment receipt" close={close}>
-      {error && <p role="alert">{error}</p>}
-      {data ? (
-        <>
-          <article className="sales-receipt">
+  const receipt = data ? (<article className="sales-receipt">
             <h2>{data.company}</h2>
             <h3>
               {data.payment.receipt_no} {data.payment.status === "void" ? "— Voided" : ""}
@@ -641,7 +638,14 @@ export function Receipt({
             <p>Current remaining amount: PKR {whole(data.remaining)}</p>
             <hr />
             <p>Received by __________________</p>
-          </article>
+          </article>) : null;
+  return (
+    <SalesDialog title="Payment receipt" close={close}>
+      {error && <p role="alert">{error}</p>}
+      {data ? (
+        <>
+          {receipt}
+          {createPortal(<div className="sales-print-root">{receipt}</div>, document.body)}
           <button onClick={() => window.print()}>Print receipt</button>
         </>
       ) : (
@@ -935,7 +939,22 @@ export function Sales({ id, manage }: { id: string; manage: boolean }) {
           </Link>
         ))}
       </div>
-      {sheet.expectedSales && <p title={`Sold ${whole(sheet.totals.saleValue)} of expected ${whole(sheet.expectedSales.min)} - ${whole(sheet.expectedSales.max)}`}>Sold {formatPKR(sheet.totals.saleValue)} of expected {formatPKR(sheet.expectedSales.min)} - {formatPKR(sheet.expectedSales.max)} ({sheet.expectedSales.min?Math.round(sheet.totals.saleValue/sheet.expectedSales.min*100):0}% - {sheet.expectedSales.max?Math.round(sheet.totals.saleValue/sheet.expectedSales.max*100):0}%)</p>}
+      {sheet.expectedSales && (
+        <p
+          title={`Sold ${whole(sheet.totals.saleValue)} of expected ${whole(sheet.expectedSales.min)} - ${whole(sheet.expectedSales.max)}`}
+        >
+          Sold {formatPKR(sheet.totals.saleValue)} of expected {formatPKR(sheet.expectedSales.min)}{" "}
+          - {formatPKR(sheet.expectedSales.max)} (
+          {sheet.expectedSales.min
+            ? Math.round((sheet.totals.saleValue / sheet.expectedSales.min) * 100)
+            : 0}
+          % -{" "}
+          {sheet.expectedSales.max
+            ? Math.round((sheet.totals.saleValue / sheet.expectedSales.max) * 100)
+            : 0}
+          %)
+        </p>
+      )}
       {overdue.length > 0 && (
         <aside className="sales-overdue">
           <strong>
@@ -1360,10 +1379,10 @@ export function Sales({ id, manage }: { id: string; manage: boolean }) {
           endpoint={endpoint}
           payment={editingPayment}
           close={() => setModal("")}
-          done={(pid) => {
+          done={(pid, amount) => {
             refresh();
             setReceipt(pid);
-            setNotice(`Payment received from ${agreement.customer_name}.`);
+            setNotice(`Payment of ${formatPKR(amount)} received from ${agreement.customer_name}.`);
           }}
         />
       )}
