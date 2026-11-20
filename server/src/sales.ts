@@ -8,6 +8,7 @@ import {
   saleCancelSchema,
   salesPosting,
   salesTotals,
+  saleUnitNumbers,
   type SaleAgreement,
   type SaleUnit,
   type SalePayment,
@@ -154,37 +155,37 @@ export async function generateSaleUnits(c: pg.PoolClient, projectId: string, inp
   const building = p.details?.building as SiteBuilding | undefined;
   if (!building?.units.some((u) => u.count > 0))
     throw fail("Add unit types and quantities in Building before generating sellable units.");
-  let serial = data.start;
   let created = 0;
-  for (const type of building.units) {
-    for (let n = 1; n <= type.count; n++) {
-      const no = `${data.prefix}${type.floorsText || "G"}-${String(serial++).padStart(3, "0")}`;
-      if (
-        (
-          await c.query(
-            "SELECT 1 FROM sale_units WHERE project_id=$1 AND source_unit_type_id=$2 AND source_serial=$3",
-            [projectId, type.id, n],
-          )
-        ).rowCount
-      )
-        continue;
-      await c.query(
-        "INSERT INTO sale_units(project_id,unit_no,category,floor_label,source_unit_type_id,source_serial,source_snapshot,size_sqft,bedrooms,bathrooms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-        [
-          projectId,
-          no,
-          type.category,
-          type.floorsText,
-          type.id,
-          n,
-          JSON.stringify(type),
-          type.sizeSqft,
-          type.bedrooms,
-          type.bathrooms,
-        ],
-      );
-      created++;
-    }
+  for (const { type, sourceSerial: n, floor, number: no } of saleUnitNumbers(
+    building,
+    data.prefix,
+    data.start,
+  )) {
+    if (
+      (
+        await c.query(
+          "SELECT 1 FROM sale_units WHERE project_id=$1 AND source_unit_type_id=$2 AND source_serial=$3",
+          [projectId, type.id, n],
+        )
+      ).rowCount
+    )
+      continue;
+    await c.query(
+      "INSERT INTO sale_units(project_id,unit_no,category,floor_label,source_unit_type_id,source_serial,source_snapshot,size_sqft,bedrooms,bathrooms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+      [
+        projectId,
+        no,
+        type.category,
+        floor,
+        type.id,
+        n,
+        JSON.stringify(type),
+        type.sizeSqft,
+        type.bedrooms,
+        type.bathrooms,
+      ],
+    );
+    created++;
   }
   await record(c, "units.generated", projectId);
   return { created };

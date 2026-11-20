@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   generateInstallments,
+  saleUnitNumbers,
+  receiptNumber,
   allocateInstallments,
   agreementStatus,
   amountInWords,
@@ -87,4 +89,34 @@ describe("sales calculations", () => {
       }).success,
     ).toBe(false);
   });
+});
+
+it("numbers units per real floor across unit types without embedding floor labels", () => {
+  const type = {
+    id: "flat",
+    count: 4,
+    category: "Flat",
+    sizeSqft: 900,
+    bedrooms: 2,
+    bathrooms: 2,
+    floorsText: "1st-2nd",
+  };
+  const units = saleUnitNumbers(
+    {
+      floors: [{ label: "Ground" }, { label: "1st" }, { label: "2nd" }],
+      units: [type, { ...type, id: "office", count: 2 }],
+    },
+    "A-",
+  );
+  expect(units.map((u) => u.number)).toEqual([
+    "A-101",
+    "A-102",
+    "A-201",
+    "A-202",
+    "A-103",
+    "A-203",
+  ]);
+  expect(units.map((u) => u.floor)).toEqual(["1st", "1st", "2nd", "2nd", "1st", "2nd"]);
+  expect(receiptNumber("R-00000001")).toBe("R-0001");
+  expect(receiptNumber("R-00012345")).toBe("R-12345");
 });

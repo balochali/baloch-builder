@@ -1,9 +1,11 @@
 import { createPortal } from "react-dom";
-import { formatPKR } from "./feasibilityFormat";
+import { formatPKR, formatSummaryPKR } from "./feasibilityFormat";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   agreementStatus,
+  receiptNumber,
+  saleUnitNumbers,
   generateInstallments,
   amountInWords,
   type Installment,
@@ -68,7 +70,9 @@ export function SalesDialog({
   title,
   close,
   children,
+  money = false,
 }: {
+  money?: boolean;
   title: string;
   close: () => void;
   children: ReactNode;
@@ -82,8 +86,10 @@ export function SalesDialog({
     >
       <DialogContent className="sales-dialog">
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>
-          Amounts are in whole Pakistani rupees. Your saved history stays recorded.
+        <DialogDescription className={money ? undefined : "sr-only"}>
+          {money
+            ? "Amounts are in whole Pakistani rupees. Your saved history stays recorded."
+            : title}
         </DialogDescription>
         {children}
       </DialogContent>
@@ -328,6 +334,7 @@ export function SellUnit({
   }
   return (
     <SalesDialog
+      money
       title={`${existing ? "Edit payment plan" : "Sell this unit"} · ${unit.unit_no}`}
       close={close}
     >
@@ -530,7 +537,7 @@ export function ReceivePayment({
         ? `You cannot receive more than the PKR ${whole(remaining)} still owed.`
         : "";
   return (
-    <SalesDialog title={payment ? "Edit payment" : "Receive payment"} close={close}>
+    <SalesDialog money title={payment ? "Edit payment" : "Receive payment"} close={close}>
       <p>
         {agreement.customer_name} · Still to receive: {whole(remaining)}
       </p>
@@ -621,24 +628,25 @@ export function Receipt({
       .then(setData)
       .catch((e) => setError(friendlyError(e)));
   }, [endpoint, id]);
-  const receipt = data ? (<article className="sales-receipt">
-            <h2>{data.company}</h2>
-            <h3>
-              {data.payment.receipt_no} {data.payment.status === "void" ? "— Voided" : ""}
-            </h3>
-            <p>Date: {data.payment.received_on}</p>
-            <p>Received from: {data.agreement.customer_name}</p>
-            <p>Unit: {data.unit.unit_no}</p>
-            <h2>PKR {whole(data.payment.amount)}</h2>
-            <p>{amountInWords(data.payment.amount)}</p>
-            <p>
-              Method: {data.payment.method.replace("_", " ")} · Reference:{" "}
-              {data.payment.reference || "—"}
-            </p>
-            <p>Current remaining amount: PKR {whole(data.remaining)}</p>
-            <hr />
-            <p>Received by __________________</p>
-          </article>) : null;
+  const receipt = data ? (
+    <article className="sales-receipt">
+      <h2>{data.company}</h2>
+      <h3>
+        {receiptNumber(data.payment.receipt_no)} {data.payment.status === "void" ? "— Voided" : ""}
+      </h3>
+      <p>Date: {data.payment.received_on}</p>
+      <p>Received from: {data.agreement.customer_name}</p>
+      <p>Unit: {data.unit.unit_no}</p>
+      <h2>PKR {whole(data.payment.amount)}</h2>
+      <p>{amountInWords(data.payment.amount)}</p>
+      <p>
+        Method: {data.payment.method.replace("_", " ")} · Reference: {data.payment.reference || "—"}
+      </p>
+      <p>Current remaining amount: PKR {whole(data.remaining)}</p>
+      <hr />
+      <p>Received by __________________</p>
+    </article>
+  ) : null;
   return (
     <SalesDialog title="Payment receipt" close={close}>
       {error && <p role="alert">{error}</p>}
@@ -681,7 +689,7 @@ function UnitEditor({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
-    <SalesDialog title={unit ? "Edit unit" : "Add unit"} close={close}>
+    <SalesDialog money title={unit ? "Edit unit" : "Add unit"} close={close}>
       <div className="sales-fields">
         <Field label="Unit number" value={d.unit_no} onChange={(v) => setD({ ...d, unit_no: v })} />
         <label>
@@ -837,17 +845,6 @@ export function Sales({ id, manage }: { id: string; manage: boolean }) {
     },
     { key: "category", label: "Type", value: (u) => u.category },
     { key: "floor", label: "Floor", value: (u) => u.floor_label },
-    { key: "size", label: "Size (sq ft)", value: (u) => u.size_sqft, numeric: true, total: true },
-    {
-      key: "list_price",
-      label: "List price",
-      value: (u) => u.list_price,
-      numeric: true,
-      total: true,
-      editable: (u) => manage && !u.agreement,
-      validate: (v) =>
-        Number.isSafeInteger(Number(v.replace(/,/g, ""))) && Number(v.replace(/,/g, "")) >= 0,
-    },
     {
       key: "status",
       label: "Status",
@@ -862,6 +859,17 @@ export function Sales({ id, manage }: { id: string; manage: boolean }) {
     { key: "total", label: "Total price", value: (u) => u.total, numeric: true, total: true },
     { key: "received", label: "Received", value: (u) => u.received, numeric: true, total: true },
     { key: "remaining", label: "Remaining", value: (u) => u.remaining, numeric: true, total: true },
+    { key: "size", label: "Size (sq ft)", value: (u) => u.size_sqft, numeric: true, total: true },
+    {
+      key: "list_price",
+      label: "List price",
+      value: (u) => u.list_price,
+      numeric: true,
+      total: true,
+      editable: (u) => manage && !u.agreement,
+      validate: (v) =>
+        Number.isSafeInteger(Number(v.replace(/,/g, ""))) && Number(v.replace(/,/g, "")) >= 0,
+    },
     {
       key: "progress",
       label: "Paid %",
@@ -935,7 +943,11 @@ export function Sales({ id, manage }: { id: string; manage: boolean }) {
             }}
           >
             <span>{label}</span>
-            <strong title={whole(value)}>{whole(value)}</strong>
+            <strong title={whole(value)}>
+              {["Total units", "Available", "Sold", "Fully paid", "Handed over"].includes(label)
+                ? whole(value)
+                : formatSummaryPKR(value)}
+            </strong>
           </Link>
         ))}
       </div>
@@ -1277,7 +1289,7 @@ export function Sales({ id, manage }: { id: string; manage: boolean }) {
                       className={`sales-payment ${p.status === "void" ? "sales-void" : ""}`}
                     >
                       <span>
-                        {p.receipt_no} · {p.received_on} · PKR {whole(p.amount)}{" "}
+                        {receiptNumber(p.receipt_no)} · {p.received_on} · PKR {whole(p.amount)}{" "}
                         {p.status === "void" ? "Voided" : ""}
                       </span>
                       <Link to={`/projects/${id}/transactions?voucher=${p.voucher_id}`}>
@@ -1395,12 +1407,9 @@ export function Sales({ id, manage }: { id: string; manage: boolean }) {
           <MoneyInput label="Start number" value={start} onChange={setStart} />
           <p>
             Preview:{" "}
-            {sheet.building.units
-              .flatMap((t) => Array.from({ length: t.count }, () => t))
+            {saleUnitNumbers(sheet.building, prefix, start)
               .slice(0, 5)
-              .map(
-                (t, i) => `${prefix}${t.floorsText || "G"}-${String(start + i).padStart(3, "0")}`,
-              )
+              .map((u) => u.number)
               .join(", ") || "Add unit types in Building first."}
           </p>
           <p>Existing units stay unchanged. Only missing units are added.</p>

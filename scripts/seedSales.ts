@@ -9,7 +9,7 @@ import {
   handoverSale,
 } from "../server/src/sales";
 export async function seedSales(c: pg.PoolClient, projectId: string, plan: FeasibilityData) {
-  await generateSaleUnits(c, projectId, { prefix: "A-", start: 101 });
+  await generateSaleUnits(c, projectId, { prefix: "A-", start: 1 });
   let sheet = await readSales(c, projectId);
   const building = (
     await c.query("SELECT details->'building' AS building FROM projects WHERE id=$1", [projectId])

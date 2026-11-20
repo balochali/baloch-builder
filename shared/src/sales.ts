@@ -99,6 +99,7 @@ export type SalesSheet = {
   payments: SalePayment[];
   customers: { id: string; name: string; phone: string }[];
   building: {
+    floors?: { label: string }[];
     units: {
       id: string;
       count: number;
@@ -350,4 +351,47 @@ export function amountInWords(value: number): string {
     return "";
   };
   return words(value) + " Pakistani rupees only";
+}
+
+// Keep display formatting separate from immutable receipt identifiers.
+export function receiptNumber(value: string) {
+  return value.replace(/^R-0*(\d+)$/, (_, digits: string) => `R-${digits.padStart(4, "0")}`);
+}
+export function saleUnitNumbers(building: SalesSheet["building"], prefix: string, start = 1) {
+  const counters = new Map<number, number>();
+  return building.units.flatMap((type) => {
+    const text = type.floorsText.toLowerCase();
+    const numbers = (text.match(/\d+/g) ?? []).map(Number);
+    const range = /[-–]/.test(text) && numbers.length === 2 && numbers[1] >= numbers[0];
+    const floorNumber = (label: string) =>
+      /ground|^g$/i.test(label) ? 0 : Number(label.match(/\d+/)?.[0] ?? 0);
+    const candidates =
+      building.floors?.filter((f) => {
+        const n = floorNumber(f.label);
+        return (
+          text.includes(f.label.toLowerCase()) ||
+          (range ? n >= numbers[0] && n <= numbers[1] : numbers.includes(n))
+        );
+      }) ?? [];
+    const floors = candidates.length
+      ? candidates
+      : range
+        ? Array.from({ length: Math.min(500, numbers[1] - numbers[0] + 1) }, (_, i) => ({
+            label: String(numbers[0] + i),
+          }))
+        : [{ label: type.floorsText || "Ground" }];
+    return Array.from({ length: type.count }, (_, i) => {
+      const floor =
+        floors[Math.min(floors.length - 1, Math.floor((i * floors.length) / type.count))];
+      const digit = floorNumber(floor.label);
+      const serial = counters.get(digit) ?? start;
+      counters.set(digit, serial + 1);
+      return {
+        type,
+        sourceSerial: i + 1,
+        floor: floor.label,
+        number: `${prefix.replace(/-$/, "")}${prefix ? "-" : ""}${digit}${String(serial).padStart(2, "0")}`,
+      };
+    });
+  });
 }

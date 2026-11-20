@@ -12,3 +12,5 @@ body .data-grid .grid-scroll table th input:not([type=checkbox]){display:block!i
 body .data-grid .grid-scroll table button{min-height:26px!important;padding:2px 4px!important}
 body .data-grid .grid-scroll table input[type=checkbox]{min-height:18px!important;height:18px!important;width:18px!important;margin:0!important}
 @media(max-width:600px){body .data-grid .grid-scroll table button{min-height:40px!important}}
+
+body .data-grid .grid-scroll tfoot th:first-child{padding-inline:2px!important;text-overflow:clip!important;font-size:11px!important}

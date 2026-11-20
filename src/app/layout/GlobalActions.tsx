@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { can, type Role, type Project } from "@baloch/shared";
@@ -63,8 +64,15 @@ export function GlobalActions({ role }: { role: Role }) {
   }
   return (
     <>
-      <button onClick={() => setSearch(true)} aria-label="Search workspace (Ctrl+K)">
-        Search <kbd>Ctrl+K</kbd>
+      <button
+        className="workspace-search"
+        onClick={() => setSearch(true)}
+        aria-label="Search workspace (Ctrl+K)"
+      >
+        <Search size={18} aria-hidden="true" />
+        <span>
+          Search <kbd>Ctrl+K</kbd>
+        </span>
       </button>
       {can(role, "manageProjects") && (
         <button className="projects-primary" onClick={() => setAdd(true)}>

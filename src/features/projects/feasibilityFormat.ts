@@ -26,3 +26,12 @@ export function parsePKR(text: string) {
     (pkrUnits.find((unit) => unit.suffix.toLowerCase() === match[2]?.toLowerCase())?.size ?? 1)
   );
 }
+
+export function formatSummaryPKR(value: number) {
+  const size =
+    Math.abs(value) >= 10_000_000 ? 10_000_000 : Math.abs(value) >= 100_000 ? 100_000 : 1;
+  return (
+    new Intl.NumberFormat("en-PK", { maximumFractionDigits: 2 }).format(value / size) +
+    (size === 10_000_000 ? " C" : size === 100_000 ? " L" : "")
+  );
+}

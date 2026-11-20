@@ -1,3 +1,5 @@
+import { Check, Circle } from "lucide-react";
+import { formatSummaryPKR } from "./feasibilityFormat";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { feasibilitySchema, type Project, type LandSheet, type SalesSheet } from "@baloch/shared";
@@ -79,65 +81,84 @@ export function ProjectOverview({
     ],
   ];
   const done = checks.filter((c) => c[1]).length;
-  const cards: [string, string, string[]][] = [
-    ["Project facts", "overview", [project.name, project.status]],
-    [
-      "Land",
-      "land",
-      [
-        `${site?.parcels.length ?? 0} parcels · ${whole(site ? totalLandArea(site.parcels, "Sq ft") : 0)} sq ft`,
-        `Land value: ${whole(data.land.totals.agreedPrice)}`,
-        `Paid: ${whole(data.land.totals.totalPaid)} · Remaining: ${whole(data.land.totals.remaining)}`,
-      ],
-    ],
-    [
-      "Building",
-      "building",
-      [
-        site?.building.buildingType ?? "Not entered",
-        `${site?.building.floors.length ?? 0} floors · ${units} planned units`,
-      ],
-    ],
-    [
-      "Funding",
-      "partners",
-      [
-        `Committed: ${whole(committed)} · Contributed: ${whole(contributed)}`,
-        `Pending: ${whole(Math.max(0, committed - contributed))}`,
-        `Loans outstanding: ${whole(-balance(lines, "2300"))}`,
-        `Funds available: ${whole(balance(lines, "1000") + balance(lines, "1010"))}`,
-        `Customer advances: ${whole(-balance(lines, "2200"))}`,
-      ],
-    ],
-    [
-      "Sales",
-      "sales",
-      [
-        `Sold value: ${whole(data.sales.totals.saleValue)}`,
-        `Money received: ${whole(data.sales.totals.received)}`,
-        `Still to receive: ${whole(data.sales.totals.remaining)}`,
-        `Overdue: ${whole(data.sales.totals.overdue)}`,
-      ],
-    ],
-    [
-      "Feasibility",
-      "feasibility",
-      [
-        plan?.status === "approved" ? "Approved" : "Draft",
-        `Worst profit: ${whole(forecast?.profit.worst ?? 0)}`,
-        `Best profit: ${whole(forecast?.profit.best ?? 0)}`,
-      ],
-    ],
+  const money = (value: number) => <span title={whole(value)}>{formatSummaryPKR(value)}</span>;
+  const cards = [
+    { name: "Project facts", tab: "overview", value: project.name, caption: project.status },
+    {
+      name: "Land",
+      tab: "land",
+      value: money(data.land.totals.agreedPrice),
+      caption: (
+        <>
+          {site?.parcels.length ?? 0} parcels ·{" "}
+          {whole(site ? totalLandArea(site.parcels, "Sq ft") : 0)} sq ft
+          <br />
+          Paid {money(data.land.totals.totalPaid)} · Remaining {money(data.land.totals.remaining)}
+        </>
+      ),
+    },
+    {
+      name: "Building",
+      tab: "building",
+      value: `${units} planned units`,
+      caption: (
+        <>
+          {site?.building.buildingType ?? "Not entered"} · {site?.building.floors.length ?? 0}{" "}
+          floors
+        </>
+      ),
+    },
+    {
+      name: "Funding",
+      tab: "partners",
+      value: money(contributed),
+      caption: (
+        <>
+          Contributed · Committed {money(committed)}
+          <br />
+          Pending {money(Math.max(0, committed - contributed))}
+          <br />
+          Loans outstanding {money(-balance(lines, "2300"))}
+          <br />
+          Funds available {money(balance(lines, "1000") + balance(lines, "1010"))}
+          <br />
+          Customer advances {money(-balance(lines, "2200"))}
+        </>
+      ),
+    },
+    {
+      name: "Sales",
+      tab: "sales",
+      value: money(data.sales.totals.saleValue),
+      caption: (
+        <>
+          Sold value · Received {money(data.sales.totals.received)}
+          <br />
+          Remaining {money(data.sales.totals.remaining)} · Overdue{" "}
+          {money(data.sales.totals.overdue)}
+        </>
+      ),
+    },
+    {
+      name: "Feasibility",
+      tab: "feasibility",
+      value: plan?.status === "approved" ? "Approved" : "Draft",
+      caption: (
+        <>
+          Worst profit {money(forecast?.profit.worst ?? 0)} · Best profit{" "}
+          {money(forecast?.profit.best ?? 0)}
+        </>
+      ),
+    },
   ];
   return (
     <>
       <div className="sales-summary">
-        {cards.map(([name, tab, facts]) => (
-          <Link key={name} to={base + "/" + tab}>
-            <h3>{name}</h3>
-            {facts.map((f) => (
-              <p key={f}>{f}</p>
-            ))}
+        {cards.map((card) => (
+          <Link className="overview-card" key={card.name} to={base + "/" + card.tab}>
+            <span className="overview-card-label">{card.name}</span>
+            <strong className="overview-card-value">{card.value}</strong>
+            <p className="overview-card-caption">{card.caption}</p>
           </Link>
         ))}
       </div>
@@ -145,11 +166,16 @@ export function ProjectOverview({
         <h2>Setup checklist</h2>
         <p>Version 1 setup: {done} of 8 done</p>
         <progress max={8} value={done} aria-label="Version 1 setup progress" />
-        <ul>
+        <ul className="overview-checklist">
           {checks.map(([label, complete, tab]) => (
             <li key={label}>
               <Link to={base + "/" + tab}>
-                {complete ? "✓ Done" : "○ Not done"} · {label}
+                {complete ? (
+                  <Check size={18} aria-label="Done" />
+                ) : (
+                  <Circle size={18} aria-label="Not done" />
+                )}{" "}
+                {label}
               </Link>
             </li>
           ))}
