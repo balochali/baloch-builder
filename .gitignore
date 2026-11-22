@@ -30,3 +30,6 @@ apps/*/dist/
 
 # Local visual verification evidence
 docs/land-evidence/*.png
+
+src-tauri/resources/
+

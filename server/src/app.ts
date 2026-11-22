@@ -1,3 +1,4 @@
+import { registerSetup } from "./setup";
 import { registerLand } from "./landRoutes";
 import { registerSales } from "./salesRoutes";
 import { registerFunding } from "./funding";
@@ -81,6 +82,11 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
   app.addHook("onReady", cleanupExpiredSessions);
   app.decorateRequest("actor", null);
   app.addHook("preHandler", async (r) => {
+    if (process.env.BALOCH_INSTALLED_DATA) {
+      const host = `127.0.0.1:${process.env.PORT}`;
+      if (r.headers.host !== host || (r.headers.origin && r.headers.origin !== `http://${host}`))
+        throw fail("Use the local desktop workspace", 403);
+    }
     if (
       !["GET", "HEAD", "OPTIONS"].includes(r.method) &&
       r.headers["x-requested-with"] !== "BalochBuilder"
@@ -122,7 +128,13 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
   app.get("/api/health", { config: { public: true } }, async (request, reply) => {
     try {
       await pool.query("SELECT 1");
-      return { ok: true };
+      return {
+        ok: true,
+        ...(process.env.DESKTOP_CONTROL_TOKEN &&
+        request.headers["x-desktop-probe"] === process.env.DESKTOP_CONTROL_TOKEN
+          ? { desktop: true }
+          : {}),
+      };
     } catch (error) {
       request.log.warn({ err: error }, "Database readiness check failed");
       return reply.code(503).send({ ok: false });
@@ -209,7 +221,7 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
       await audit(user.id, "login", "auth");
       reply.setCookie("session", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NODE_ENV === "production" && !process.env.BALOCH_INSTALLED_DATA,
         sameSite: "strict",
         path: "/",
         maxAge: 28800,
@@ -289,11 +301,12 @@ export async function buildApp(options: { trustProxy?: string } = {}) {
     await audit(actor(r).id, "totp_enabled", "auth");
     return { ok: true };
   });
+  registerSetup(app);
   registerProjectRoutes(app);
   registerFunding(app);
   registerLand(app);
   registerSales(app);
-  const webRoot = fileURLToPath(new URL("../../dist/", import.meta.url));
+  const webRoot = process.env.WEB_ROOT ?? fileURLToPath(new URL("../../dist/", import.meta.url));
   if (existsSync(webRoot)) await app.register(fastifyStatic, { root: webRoot, wildcard: false });
   return app;
 }

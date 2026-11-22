@@ -1,3 +1,9 @@
+if (
+  process.env.BALOCH_INSTALLED_DATA ||
+  process.env.NODE_ENV === "production" ||
+  /[\\/]BalochBuilder[\\/]postgres-data/i.test(process.env.BALOCH_PGDATA ?? "")
+)
+  throw new Error("Demo seed is disabled for installed desktop data");
 import { seedSales } from "./seedSales";
 import { postLand } from "../server/src/land";
 import { createHash } from "node:crypto";
@@ -385,6 +391,11 @@ try {
   const database = new URL(process.env.DATABASE_URL);
   if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname))
     throw new Error("The sample seed requires the local app database.");
+  if (
+    (await pool.query("SELECT current_setting('baloch.installed',true) AS installed")).rows[0]
+      .installed === "true"
+  )
+    throw new Error("Demo seed refuses installed desktop databases");
   await assertRuntimeRole();
   const actor = (
     await pool.query(

@@ -8,5 +8,10 @@
   "permissions": [
     "core:default",
     "opener:default"
-  ]
+  ],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*"
+    ]
+  }
 }

@@ -1,0 +1,39 @@
+name: Desktop installer
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.5'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:desktop
+      - run: npm run desktop:build
+        # Signing later: configure TAURI_SIGNING_PRIVATE_KEY / certificate secrets
+        # and bundle.windows.certificateThumbprint only in the signing environment.
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib -- --include-ignored
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Baloch-Builder-Windows-x64
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/resources/runtimes.json
+          if-no-files-found: error

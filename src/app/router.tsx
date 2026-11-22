@@ -1,3 +1,5 @@
+import { FirstRunSetup } from "@/features/auth/FirstRunSetup";
+import { DesktopData } from "@/features/settings/DesktopData";
 import { GlobalLedger } from "@/features/projects/LedgerGrid";
 import { ChartAccounts } from "@/features/projects/ChartAccounts";
 import { PartnersMaster } from "@/features/projects/PartnersMaster";
@@ -16,6 +18,7 @@ import { navigation } from "./navigation";
 const screens = navigation.flatMap((group) => [...group.items]);
 function ServerRouter() {
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [setup, setSetup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sessionError, setSessionError] = useState("");
@@ -42,7 +45,14 @@ function ServerRouter() {
           setUser(u);
         }
       })
-      .catch(() => {})
+      .catch(async () => {
+        try {
+          const status = await api<{ needed: boolean }>("setup-status");
+          if (active) setSetup(status.needed === true);
+        } catch {
+          /* offline login still explains connection failures */
+        }
+      })
       .finally(() => {
         if (active) setLoading(false);
       });
@@ -53,6 +63,17 @@ function ServerRouter() {
   }, []);
   if (loading)
     return <div className="min-h-screen grid place-items-center">Opening Baloch Builder…</div>;
+  if (setup && !user)
+    return (
+      <FirstRunSetup
+        onDone={async (username, password) => {
+          const u = await api<SessionUser>("login", "POST", { username, password });
+          setSetup(false);
+          authenticated.current = true;
+          setUser(u);
+        }}
+      />
+    );
   if (!user)
     return (
       <>
@@ -164,6 +185,7 @@ function ServerRouter() {
                     </nav>
                   )}
                   <DashboardWelcome title={label} />
+                  {item.to === "/settings" && user.role === "admin" && <DesktopData />}
                 </>
               );
               return [

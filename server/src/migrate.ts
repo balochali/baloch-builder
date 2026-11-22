@@ -19,7 +19,8 @@ export async function migrate() {
     await c.query(
       "CREATE TABLE IF NOT EXISTS schema_migrations(name text PRIMARY KEY,checksum text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())",
     );
-    const dir = fileURLToPath(new URL("../migrations/", import.meta.url));
+    const dir =
+      process.env.MIGRATIONS_DIR ?? fileURLToPath(new URL("../migrations/", import.meta.url));
     for (const name of (await readdir(dir)).filter((n) => n.endsWith(".sql")).sort()) {
       const sql = await readFile(`${dir}/${name}`, "utf8");
       const checksum = createHash("sha256").update(sql).digest("hex");
@@ -48,7 +49,7 @@ export async function migrate() {
     c.release();
   }
 }
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (!process.env.BALOCH_INSTALLED_DATA && process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     await migrate();
   } finally {
